@@ -13,7 +13,7 @@
 - [x] Initialize Hono app
 - [x] Setup Vitest
 - [x] Add simple test to test that Hono works
-- [ ] Error handling middleware
+- [x] Error handling middleware
 - [ ] Logger middleware
 
 ### Database
