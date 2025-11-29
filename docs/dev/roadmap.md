@@ -11,7 +11,7 @@
 
 ### Server Foundation
 - [x] Initialize Hono app
-- [ ] Setup Vitest
+- [x] Setup Vitest
 - [ ] Add simple test to test that Hono works
 - [ ] Error handling middleware
 - [ ] Logger middleware
