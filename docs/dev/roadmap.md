@@ -10,7 +10,7 @@
 - [x] Configure Biome
 
 ### Server Foundation
-- [ ] Initialize Hono app
+- [x] Initialize Hono app
 - [ ] Setup Vitest
 - [ ] Add simple test to test that Hono works
 - [ ] Error handling middleware
