@@ -1,0 +1,256 @@
+# Kioku Architecture
+
+## Overview
+
+Kioku is a spaced repetition learning application (Anki clone) with PWA offline support and cloud sync.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | SvelteKit |
+| Backend | Hono + TypeScript |
+| Database | PostgreSQL |
+| ORM | Drizzle |
+| Client DB | Dexie.js (IndexedDB) |
+| PWA | @vite-pwa/sveltekit |
+| Algorithm | FSRS (ts-fsrs) |
+| Auth | username/password + JWT |
+| Test | Vitest |
+| Monorepo | pnpm workspace |
+| Deploy | Docker + VPS |
+
+## Architecture Diagram
+
+```
++--------------------------------------------------+
+|                  Client (PWA)                     |
+|  +-------------+  +------------+  +------------+ |
+|  |  SvelteKit  |  |  Dexie.js  |  |  Service   | |
+|  |     UI      |<>| (IndexedDB)|<>|   Worker   | |
+|  +-------------+  +------------+  +------------+ |
+|        |               |                         |
+|        +-------+-------+                         |
+|                |                                 |
+|         +------v------+                          |
+|         | Sync Engine |                          |
+|         +-------------+                          |
++--------------------------------------------------+
+                    |
+                    v HTTPS (REST API)
++--------------------------------------------------+
+|                    Server                         |
+|  +----------------------------------------------+|
+|  |              Hono (TypeScript)               ||
+|  |  +--------+ +--------+ +--------+ +--------+ ||
+|  |  |  Auth  | |  FSRS  | |  Sync  | | Import | ||
+|  |  +--------+ +--------+ +--------+ +--------+ ||
+|  +----------------------------------------------+|
+|                       |                          |
+|                       v                          |
+|  +----------------------------------------------+|
+|  |            PostgreSQL (Drizzle)              ||
+|  +----------------------------------------------+|
++--------------------------------------------------+
+```
+
+## Project Structure
+
+```
+kioku/
+├── package.json              # Workspace root
+├── pnpm-workspace.yaml
+├── docker-compose.yml
+├── apps/
+│   ├── web/                  # SvelteKit frontend
+│   │   ├── src/
+│   │   │   ├── lib/
+│   │   │   │   ├── components/
+│   │   │   │   ├── stores/
+│   │   │   │   ├── db/       # Dexie IndexedDB
+│   │   │   │   ├── sync/     # Sync engine
+│   │   │   │   └── api/
+│   │   │   └── routes/
+│   │   └── static/
+│   └── server/               # Hono backend
+│       └── src/
+│           ├── routes/
+│           ├── services/
+│           ├── db/           # Drizzle schema
+│           ├── middleware/
+│           └── lib/
+│               └── apkg/     # Anki import
+└── packages/
+    └── shared/               # Shared types
+        └── src/
+            ├── types/
+            └── schemas/      # Zod validation
+```
+
+## Data Models
+
+### User
+
+```typescript
+interface User {
+  id: string;          // UUID
+  username: string;    // unique
+  password_hash: string;
+  created_at: Date;
+  updated_at: Date;
+}
+```
+
+### Deck
+
+```typescript
+interface Deck {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  new_cards_per_day: number;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;    // Soft delete
+  sync_version: number;
+}
+```
+
+### Card (FSRS)
+
+```typescript
+enum CardState {
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3,
+}
+
+interface Card {
+  id: string;
+  deck_id: string;
+  front: string;              // Plain text
+  back: string;               // Plain text
+
+  // FSRS fields
+  state: CardState;
+  due: Date;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  reps: number;
+  lapses: number;
+  last_review: Date | null;
+
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+  sync_version: number;
+}
+```
+
+### ReviewLog
+
+```typescript
+enum Rating {
+  Again = 1,
+  Hard = 2,
+  Good = 3,
+  Easy = 4,
+}
+
+interface ReviewLog {
+  id: string;
+  card_id: string;
+  user_id: string;
+  rating: Rating;
+  state: CardState;
+  scheduled_days: number;
+  elapsed_days: number;
+  reviewed_at: Date;
+  duration_ms: number | null;
+  sync_version: number;
+}
+```
+
+## API Design
+
+### Authentication
+
+```
+POST /api/auth/register   - User registration
+POST /api/auth/login      - Login (returns JWT)
+POST /api/auth/refresh    - Refresh token
+POST /api/auth/logout     - Logout
+```
+
+### Decks
+
+```
+GET    /api/decks         - List decks
+POST   /api/decks         - Create deck
+GET    /api/decks/:id     - Get deck
+PUT    /api/decks/:id     - Update deck
+DELETE /api/decks/:id     - Delete deck (soft)
+```
+
+### Cards
+
+```
+GET    /api/decks/:deckId/cards      - List cards
+POST   /api/decks/:deckId/cards      - Create card
+PUT    /api/decks/:deckId/cards/:id  - Update card
+DELETE /api/decks/:deckId/cards/:id  - Delete card
+```
+
+### Study
+
+```
+GET    /api/decks/:deckId/study           - Get cards to study
+POST   /api/decks/:deckId/study/:cardId   - Submit review
+```
+
+### Sync
+
+```
+POST /api/sync/push   - Push local changes to server
+GET  /api/sync/pull   - Pull server changes
+```
+
+### Import
+
+```
+POST /api/import/apkg - Import Anki deck
+```
+
+## Offline Sync Strategy
+
+### Approach
+
+- **Method**: Last-Write-Wins with timestamps
+- **Client**: Store in IndexedDB with `_synced` flag
+- **Conflict Resolution**: Compare `updated_at`, newer wins
+- **ReviewLog**: Append-only (no conflicts)
+
+### Sync Flow
+
+1. Local changes saved with `_synced = false`
+2. On sync, push pending changes to server
+3. Server resolves conflicts by timestamp
+4. Client pulls server changes
+5. Mark synced items with `_synced = true`
+
+## Authentication
+
+- **Hash**: Argon2 for password hashing
+- **Access Token**: JWT, 15min expiry
+- **Refresh Token**: JWT, 7 days, stored in DB
+
+## References
+
+- [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
+- [Anki APKG Format](https://eikowagenknecht.de/posts/understanding-the-anki-apkg-format/)
+- [Vite PWA for SvelteKit](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
+- [Dexie.js](https://dexie.org/)
