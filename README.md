@@ -38,12 +38,12 @@ pnpm dev
 
 Create `.env` files in each app directory:
 
-```apps/server/.env
+```pkgs/server/.env
 DATABASE_URL=postgresql://user:password@localhost:5432/kioku
 JWT_SECRET=your-secret-key
 ```
 
-```apps/web/.env
+```pkgs/web/.env
 PUBLIC_API_URL=http://localhost:3000
 ```
 
