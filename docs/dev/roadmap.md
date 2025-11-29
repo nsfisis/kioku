@@ -7,7 +7,7 @@
 - [x] Create docs/dev/roadmap.md
 - [x] Initialize pnpm workspace
 - [x] Configure TypeScript
-- [ ] Configure Biome
+- [x] Configure Biome
 
 ### Server Foundation
 - [ ] Initialize Hono app
