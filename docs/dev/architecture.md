@@ -1,9 +1,5 @@
 # Kioku Architecture
 
-## Overview
-
-Kioku is a spaced repetition learning application (Anki clone) with PWA offline support and cloud sync.
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -61,26 +57,25 @@ kioku/
 ├── package.json              # Workspace root
 ├── pnpm-workspace.yaml
 ├── docker-compose.yml
-├── apps/
-│   ├── web/                  # SvelteKit frontend
-│   │   ├── src/
-│   │   │   ├── lib/
-│   │   │   │   ├── components/
-│   │   │   │   ├── stores/
-│   │   │   │   ├── db/       # Dexie IndexedDB
-│   │   │   │   ├── sync/     # Sync engine
-│   │   │   │   └── api/
-│   │   │   └── routes/
-│   │   └── static/
-│   └── server/               # Hono backend
-│       └── src/
-│           ├── routes/
-│           ├── services/
-│           ├── db/           # Drizzle schema
-│           ├── middleware/
-│           └── lib/
-│               └── apkg/     # Anki import
-└── packages/
+└── pkgs/
+    ├── web/                  # SvelteKit frontend
+    │   ├── src/
+    │   │   ├── lib/
+    │   │   │   ├── components/
+    │   │   │   ├── stores/
+    │   │   │   ├── db/       # Dexie IndexedDB
+    │   │   │   ├── sync/     # Sync engine
+    │   │   │   └── api/
+    │   │   └── routes/
+    │   └── static/
+    ├── server/               # Hono backend
+    │   └── src/
+    │      ├── routes/
+    │      ├── services/
+    │      ├── db/           # Drizzle schema
+    │      ├── middleware/
+    │      └── lib/
+    │          └── apkg/     # Anki import
     └── shared/               # Shared types
         └── src/
             ├── types/
@@ -252,5 +247,3 @@ POST /api/import/apkg - Import Anki deck
 
 - [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
 - [Anki APKG Format](https://eikowagenknecht.de/posts/understanding-the-anki-apkg-format/)
-- [Vite PWA for SvelteKit](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
-- [Dexie.js](https://dexie.org/)

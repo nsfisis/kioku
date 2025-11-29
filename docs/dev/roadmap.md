@@ -5,8 +5,8 @@
 ### Project Setup
 - [x] Create docs/dev/architecture.md
 - [x] Create docs/dev/roadmap.md
-- [ ] Initialize pnpm workspace
-- [ ] Configure TypeScript
+- [x] Initialize pnpm workspace
+- [x] Configure TypeScript
 - [ ] Configure Biome
 - [ ] Setup Vitest
 

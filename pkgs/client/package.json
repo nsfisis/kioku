@@ -1,0 +1,13 @@
+{
+  "name": "@kioku/client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "nsfisis",
+  "license": "MIT",
+  "packageManager": "pnpm@10.23.0",
+  "type": "module"
+}

@@ -9,38 +9,12 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 - Cloud Sync: Automatic sync when online with conflict resolution
 - Anki Import: Import existing .apkg decks from Anki
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | SvelteKit |
-| Backend | Hono + TypeScript |
-| Database | PostgreSQL |
-| ORM | Drizzle |
-| Client DB | Dexie.js (IndexedDB) |
-| PWA | @vite-pwa/sveltekit |
-| Algorithm | FSRS (ts-fsrs) |
-| Auth | Username/password + JWT |
-| Test | Vitest |
-| Monorepo | pnpm workspace |
-
-## Project Structure
-
-```
-kioku/
-├── apps/
-│   ├── web/        # SvelteKit frontend (PWA)
-│   └── server/     # Hono backend API
-└── packages/
-    └── shared/     # Shared types and schemas
-```
-
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 22+
-- pnpm 9+
+- pnpm 10+
 - PostgreSQL 15+
 - Docker (optional)
 
