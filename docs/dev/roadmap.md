@@ -8,7 +8,13 @@
 - [x] Initialize pnpm workspace
 - [x] Configure TypeScript
 - [ ] Configure Biome
+
+### Server Foundation
+- [ ] Initialize Hono app
 - [ ] Setup Vitest
+- [ ] Add simple test to test that Hono works
+- [ ] Error handling middleware
+- [ ] Logger middleware
 
 ### Database
 - [ ] Docker Compose with PostgreSQL
@@ -16,53 +22,66 @@
 - [ ] Database migrations
 
 ### Shared Package
-- [ ] Create packages/shared
+- [ ] Create pkgs/shared
 - [ ] Define types (User, Deck, Card, ReviewLog)
 - [ ] Zod validation schemas
-
-### Server Foundation
-- [ ] Initialize Hono app
-- [ ] Error handling middleware
-- [ ] Logger middleware
 
 ### Authentication
 - [ ] User registration endpoint
 - [ ] Login endpoint (JWT)
 - [ ] Refresh token endpoint
 - [ ] Auth middleware
+- [ ] Add tests
 
 ## Phase 2: Core Features
 
 ### Server API
 - [ ] Deck CRUD endpoints
+- [ ] Add tests
 - [ ] Card CRUD endpoints
+- [ ] Add tests
 - [ ] ts-fsrs integration
+- [ ] Add tests
 - [ ] Study endpoints (get cards, submit review)
+- [ ] Add tests
 
 ### Frontend Foundation
 - [ ] Initialize SvelteKit
 - [ ] Setup routing
 - [ ] API client
+- [ ] Add tests
 
 ### Auth UI
 - [ ] Login page
+- [ ] Add UI tests
 - [ ] Register page
+- [ ] Add UI tests
 - [ ] Auth store
+- [ ] Add UI tests
 
 ### Deck Management UI
 - [ ] Deck list page
+- [ ] Add UI tests
 - [ ] Deck detail page
+- [ ] Add UI tests
 - [ ] Create/edit deck
+- [ ] Add UI tests
 
 ### Card Management UI
 - [ ] Card list view
+- [ ] Add UI tests
 - [ ] Create/edit card
+- [ ] Add UI tests
 
 ### Study UI
 - [ ] Study session page
+- [ ] Add UI tests
 - [ ] Card flip interaction
+- [ ] Add UI tests
 - [ ] Rating buttons (Again, Hard, Good, Easy)
+- [ ] Add UI tests
 - [ ] Progress display
+- [ ] Add UI tests
 
 ## Phase 3: Offline Support
 
@@ -70,19 +89,26 @@
 - [ ] Dexie.js setup
 - [ ] Local schema (with sync flags)
 - [ ] Local CRUD operations
+- [ ] Add tests
 
 ### PWA
 - [ ] @vite-pwa/sveltekit configuration
 - [ ] Web manifest
 - [ ] Service Worker
 - [ ] Offline fallback
+- [ ] Add tests
 
 ### Sync Engine
 - [ ] Sync queue management
+- [ ] Add tests
 - [ ] Push implementation
+- [ ] Add tests
 - [ ] Pull implementation
+- [ ] Add tests
 - [ ] Conflict resolution
+- [ ] Add tests
 - [ ] Auto-sync on reconnect
+- [ ] Add tests
 
 ### Sync API
 - [ ] POST /api/sync/push
@@ -99,15 +125,18 @@
 - [ ] ZIP extraction
 - [ ] SQLite database reading
 - [ ] Note/Card mapping
+- [ ] Add tests
 
 ### Import API
 - [ ] POST /api/import/apkg
 - [ ] Progress tracking
+- [ ] Add tests
 
 ### Import UI
 - [ ] File upload
 - [ ] Import progress
 - [ ] Import results
+- [ ] Add tests
 
 ## Phase 5: Deployment
 
