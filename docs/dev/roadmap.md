@@ -14,7 +14,7 @@
 - [x] Setup Vitest
 - [x] Add simple test to test that Hono works
 - [x] Error handling middleware
-- [ ] Logger middleware
+- [x] Logger middleware
 
 ### Database
 - [ ] Docker Compose with PostgreSQL

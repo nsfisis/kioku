@@ -1,9 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { errorHandler } from "./middleware/error-handler";
+import { logger } from "hono/logger";
+import { errorHandler } from "./middleware";
 
 const app = new Hono();
 
+app.use("*", logger());
 app.onError(errorHandler);
 
 app.get("/", (c) => {
