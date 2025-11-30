@@ -17,7 +17,7 @@
 - [x] Logger middleware
 
 ### Database
-- [ ] Docker Compose with PostgreSQL
+- [x] Docker Compose with PostgreSQL
 - [ ] Drizzle ORM setup
 - [ ] Database migrations
 

@@ -15,8 +15,9 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 
 - Node.js 22+
 - pnpm 10+
-- PostgreSQL 15+
-- Docker (optional)
+- PostgreSQL 18+
+- Docker
+- Direnv (optional)
 
 ### Development
 
@@ -24,8 +25,8 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 # Install dependencies
 pnpm install
 
-# Start PostgreSQL (with Docker)
-docker compose up -d postgres
+# Start containers
+docker compose up
 
 # Run database migrations
 pnpm --filter server db:migrate
