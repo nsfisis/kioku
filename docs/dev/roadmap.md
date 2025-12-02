@@ -27,7 +27,7 @@
 - [x] Zod validation schemas
 
 ### Authentication
-- [ ] User registration endpoint
+- [x] User registration endpoint
 - [ ] Login endpoint (JWT)
 - [ ] Refresh token endpoint
 - [ ] Auth middleware

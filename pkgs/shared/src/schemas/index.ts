@@ -28,7 +28,7 @@ export const userSchema = z.object({
 // User creation input schema
 export const createUserSchema = z.object({
 	username: z.string().min(1).max(255),
-	password: z.string().min(8).max(255),
+	password: z.string().min(15).max(255),
 });
 
 // Login input schema

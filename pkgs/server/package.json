@@ -20,6 +20,8 @@
 	"type": "module",
 	"dependencies": {
 		"@hono/node-server": "^1.19.6",
+		"@kioku/shared": "workspace:*",
+		"argon2": "^0.44.0",
 		"drizzle-orm": "^0.44.7",
 		"hono": "^4.10.7",
 		"pg": "^8.16.3"
