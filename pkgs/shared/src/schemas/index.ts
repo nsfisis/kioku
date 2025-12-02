@@ -37,6 +37,11 @@ export const loginSchema = z.object({
 	password: z.string().min(1),
 });
 
+// Refresh token input schema
+export const refreshTokenSchema = z.object({
+	refreshToken: z.string().min(1),
+});
+
 // Deck schema
 export const deckSchema = z.object({
 	id: z.string().uuid(),
@@ -124,6 +129,7 @@ export const submitReviewSchema = z.object({
 export type UserSchema = z.infer<typeof userSchema>;
 export type CreateUserSchema = z.infer<typeof createUserSchema>;
 export type LoginSchema = z.infer<typeof loginSchema>;
+export type RefreshTokenSchema = z.infer<typeof refreshTokenSchema>;
 export type DeckSchema = z.infer<typeof deckSchema>;
 export type CreateDeckSchema = z.infer<typeof createDeckSchema>;
 export type UpdateDeckSchema = z.infer<typeof updateDeckSchema>;

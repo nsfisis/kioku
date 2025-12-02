@@ -43,6 +43,13 @@ vi.mock("../db", () => {
 			username: "username",
 			createdAt: "created_at",
 		},
+		refreshTokens: {
+			id: "id",
+			userId: "user_id",
+			tokenHash: "token_hash",
+			expiresAt: "expires_at",
+			createdAt: "created_at",
+		},
 	};
 });
 
@@ -67,6 +74,7 @@ interface RegisterResponse {
 
 interface LoginResponse {
 	accessToken?: string;
+	refreshToken?: string;
 	user?: {
 		id: string;
 		username: string;
@@ -188,6 +196,11 @@ describe("POST /login", () => {
 			}),
 		} as unknown as ReturnType<typeof db.select>);
 
+		// Mock the insert call for refresh token
+		vi.mocked(db.insert).mockReturnValueOnce({
+			values: vi.fn().mockResolvedValue(undefined),
+		} as unknown as ReturnType<typeof db.insert>);
+
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -201,6 +214,8 @@ describe("POST /login", () => {
 		const body = (await res.json()) as LoginResponse;
 		expect(body.accessToken).toBeDefined();
 		expect(typeof body.accessToken).toBe("string");
+		expect(body.refreshToken).toBeDefined();
+		expect(typeof body.refreshToken).toBe("string");
 		expect(body.user).toEqual({
 			id: "user-uuid-123",
 			username: "testuser",
