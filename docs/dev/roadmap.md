@@ -31,7 +31,7 @@
 - [x] Login endpoint (JWT)
 - [x] Refresh token endpoint
 - [x] Auth middleware
-- [ ] Add tests
+- [x] Add tests
 
 ### Refactoring
 - [ ] Define repository types and avoid direct use of DB.
