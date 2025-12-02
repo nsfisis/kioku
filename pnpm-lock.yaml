@@ -45,7 +45,11 @@ importers:
         specifier: ^4.0.14
         version: 4.0.14(@types/node@24.10.1)
 
-  pkgs/shared: {}
+  pkgs/shared:
+    dependencies:
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
 
 packages:
 
@@ -944,6 +948,9 @@ packages:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
 
+  zod@4.1.13:
+    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
+
 snapshots:
 
   '@biomejs/biome@2.3.8':
@@ -1559,3 +1566,5 @@ snapshots:
       stackback: 0.0.2
 
   xtend@4.0.2: {}
+
+  zod@4.1.13: {}

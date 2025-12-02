@@ -9,5 +9,8 @@
 	"author": "nsfisis",
 	"license": "MIT",
 	"packageManager": "pnpm@10.23.0",
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"zod": "^4.1.13"
+	}
 }

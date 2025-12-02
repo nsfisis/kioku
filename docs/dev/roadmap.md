@@ -24,7 +24,7 @@
 ### Shared Package
 - [x] Create pkgs/shared
 - [x] Define types (User, Deck, Card, ReviewLog)
-- [ ] Zod validation schemas
+- [x] Zod validation schemas
 
 ### Authentication
 - [ ] User registration endpoint
