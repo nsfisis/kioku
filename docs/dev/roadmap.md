@@ -1,6 +1,11 @@
 # Kioku Development Roadmap
 
-## Phase 1: Foundation
+Each feature is implemented end-to-end (backend to frontend) before moving to the next.
+Smaller features first to enable early MVP validation.
+
+---
+
+## Phase 1: Foundation ✅
 
 ### Project Setup
 - [x] Create docs/dev/architecture.md
@@ -26,122 +31,158 @@
 - [x] Define types (User, Deck, Card, ReviewLog)
 - [x] Zod validation schemas
 
-### Authentication
+### Authentication API
 - [x] User registration endpoint
 - [x] Login endpoint (JWT)
 - [x] Refresh token endpoint
 - [x] Auth middleware
 - [x] Add tests
+- [x] Define repository types and avoid direct use of DB
 
-### Refactoring
-- [x] Define repository types and avoid direct use of DB.
+---
 
-## Phase 2: Core Features
+## Phase 2: Auth UI
 
-### Server API
-- [ ] Deck CRUD endpoints
-- [ ] Add tests
-- [ ] Card CRUD endpoints
-- [ ] Add tests
-- [ ] ts-fsrs integration
-- [ ] Add tests
-- [ ] Study endpoints (get cards, submit review)
-- [ ] Add tests
+**Goal**: Minimal UI for user login and registration
 
 ### Frontend Foundation
 - [ ] Initialize SvelteKit
 - [ ] Setup routing
-- [ ] API client
-- [ ] Add tests
+- [ ] API client (fetch wrapper with auth headers)
+- [ ] Auth store (token management)
 
-### Auth UI
-- [ ] Login page
-- [ ] Add UI tests
+### Auth Pages
 - [ ] Register page
-- [ ] Add UI tests
-- [ ] Auth store
-- [ ] Add UI tests
-
-### Deck Management UI
-- [ ] Deck list page
-- [ ] Add UI tests
-- [ ] Deck detail page
-- [ ] Add UI tests
-- [ ] Create/edit deck
-- [ ] Add UI tests
-
-### Card Management UI
-- [ ] Card list view
-- [ ] Add UI tests
-- [ ] Create/edit card
-- [ ] Add UI tests
-
-### Study UI
-- [ ] Study session page
-- [ ] Add UI tests
-- [ ] Card flip interaction
-- [ ] Add UI tests
-- [ ] Rating buttons (Again, Hard, Good, Easy)
-- [ ] Add UI tests
-- [ ] Progress display
-- [ ] Add UI tests
-
-## Phase 3: Offline Support
-
-### IndexedDB
-- [ ] Dexie.js setup
-- [ ] Local schema (with sync flags)
-- [ ] Local CRUD operations
+- [ ] Login page
+- [ ] Protected route handling (redirect to login)
 - [ ] Add tests
 
-### PWA
+**✅ Milestone**: Users can log in from the browser
+
+---
+
+## Phase 3: Deck Management
+
+**Goal**: Create, edit, and delete decks
+
+### Server API
+- [ ] Deck CRUD endpoints (GET, POST, PUT, DELETE)
+- [ ] Add tests
+
+### Frontend
+- [ ] Deck list page (empty state, list view)
+- [ ] Create deck modal/form
+- [ ] Edit deck
+- [ ] Delete deck (with confirmation)
+- [ ] Add tests
+
+**✅ Milestone**: Users can create and manage decks
+
+---
+
+## Phase 4: Card Management
+
+**Goal**: Create, edit, and delete cards
+
+### Server API
+- [ ] Card CRUD endpoints (GET, POST, PUT, DELETE)
+- [ ] Add tests
+
+### Frontend
+- [ ] Card list view (in deck detail page)
+- [ ] Create card form (front/back)
+- [ ] Edit card
+- [ ] Delete card
+- [ ] Add tests
+
+**✅ Milestone**: Users can create and manage cards
+
+---
+
+## Phase 5: Study Session (MVP Complete)
+
+**Goal**: Study with FSRS algorithm
+
+### Server API
+- [ ] ts-fsrs integration
+- [ ] GET /api/decks/:deckId/study - Get due cards
+- [ ] POST /api/decks/:deckId/study/:cardId - Submit review
+- [ ] Add tests
+
+### Frontend
+- [ ] Study session page
+- [ ] Card flip interaction
+- [ ] Rating buttons (Again, Hard, Good, Easy)
+- [ ] Progress display (remaining cards)
+- [ ] Session complete screen
+- [ ] Add tests
+
+**✅ Milestone**: MVP complete - basic study flow works
+
+---
+
+## Phase 6: PWA & Offline Support
+
+**Goal**: Study offline
+
+### PWA Setup
 - [ ] @vite-pwa/sveltekit configuration
 - [ ] Web manifest
 - [ ] Service Worker
-- [ ] Offline fallback
+- [ ] Offline fallback page
+- [ ] Add tests
+
+### IndexedDB (Local Storage)
+- [ ] Dexie.js setup
+- [ ] Local schema (with _synced flag)
+- [ ] Local CRUD operations for Deck/Card/ReviewLog
 - [ ] Add tests
 
 ### Sync Engine
-- [ ] Sync queue management
-- [ ] Add tests
-- [ ] Push implementation
-- [ ] Add tests
-- [ ] Pull implementation
-- [ ] Add tests
-- [ ] Conflict resolution
-- [ ] Add tests
+- [ ] POST /api/sync/push endpoint
+- [ ] GET /api/sync/pull endpoint
+- [ ] Client: Sync queue management
+- [ ] Client: Push implementation
+- [ ] Client: Pull implementation
+- [ ] Conflict resolution (Last-Write-Wins)
 - [ ] Auto-sync on reconnect
 - [ ] Add tests
-
-### Sync API
-- [ ] POST /api/sync/push
-- [ ] GET /api/sync/pull
 
 ### Sync UI
 - [ ] Sync status indicator
 - [ ] Manual sync button
 - [ ] Offline mode indicator
 
-## Phase 4: Anki Import
+**✅ Milestone**: Study offline and sync when back online
+
+---
+
+## Phase 7: Anki Import
+
+**Goal**: Import existing Anki decks
 
 ### Parser
 - [ ] ZIP extraction
 - [ ] SQLite database reading
-- [ ] Note/Card mapping
+- [ ] Note/Card mapping to Kioku format
 - [ ] Add tests
 
-### Import API
+### Server API
 - [ ] POST /api/import/apkg
 - [ ] Progress tracking
 - [ ] Add tests
 
-### Import UI
-- [ ] File upload
-- [ ] Import progress
-- [ ] Import results
+### Frontend
+- [ ] File upload component
+- [ ] Import progress indicator
+- [ ] Import results display
 - [ ] Add tests
 
-## Phase 5: Deployment
+**✅ Milestone**: Anki users can migrate their decks
+
+---
+
+## Phase 8: Deployment
 
 ### Docker
 - [ ] Dockerfile for server
@@ -153,12 +194,18 @@
 - [ ] Backup strategy
 
 ### Documentation
-- [ ] README.md
+- [ ] README.md (setup, usage)
+
+**✅ Milestone**: Ready for production deployment
+
+---
 
 ## Future Considerations
 
-- Statistics and analytics
-- Export functionality
-- Multiple card types
-- Tags and search
-- Keyboard shortcuts
+By priority:
+
+1. **Statistics and analytics** - Visualize learning progress
+2. **Keyboard shortcuts** - Improve study efficiency
+3. **Tags and search** - Organize decks and cards
+4. **Export functionality** - Data portability
+5. **Multiple card types** - Cloze deletion, etc.
