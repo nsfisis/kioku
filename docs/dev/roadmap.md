@@ -19,7 +19,7 @@
 ### Database
 - [x] Docker Compose with PostgreSQL
 - [x] Drizzle ORM setup
-- [ ] Database migrations
+- [x] Database migrations
 
 ### Shared Package
 - [ ] Create pkgs/shared
