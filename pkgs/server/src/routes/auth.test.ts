@@ -1,60 +1,12 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware";
-import { auth } from "./auth";
-
-vi.mock("../db", () => {
-	const mockUsers: Array<{
-		id: string;
-		username: string;
-		passwordHash: string;
-		createdAt: Date;
-	}> = [];
-
-	return {
-		db: {
-			select: vi.fn(() => ({
-				from: vi.fn(() => ({
-					where: vi.fn(() => ({
-						limit: vi.fn(() =>
-							Promise.resolve(
-								mockUsers.filter((u) => u.username === "existinguser"),
-							),
-						),
-					})),
-				})),
-			})),
-			insert: vi.fn(() => ({
-				values: vi.fn((data: { username: string; passwordHash: string }) => ({
-					returning: vi.fn(() => {
-						const newUser = {
-							id: "test-uuid-123",
-							username: data.username,
-							createdAt: new Date("2024-01-01T00:00:00Z"),
-						};
-						mockUsers.push({ ...newUser, passwordHash: data.passwordHash });
-						return Promise.resolve([newUser]);
-					}),
-				})),
-			})),
-			delete: vi.fn(() => ({
-				where: vi.fn(() => Promise.resolve(undefined)),
-			})),
-		},
-		users: {
-			id: "id",
-			username: "username",
-			createdAt: "created_at",
-		},
-		refreshTokens: {
-			id: "id",
-			userId: "user_id",
-			tokenHash: "token_hash",
-			expiresAt: "expires_at",
-			createdAt: "created_at",
-		},
-	};
-});
+import type {
+	RefreshTokenRepository,
+	UserPublic,
+	UserRepository,
+} from "../repositories";
+import { createAuthRouter } from "./auth";
 
 vi.mock("argon2", () => ({
 	hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
@@ -62,6 +14,23 @@ vi.mock("argon2", () => ({
 		Promise.resolve(hash === `hashed_${password}`),
 	),
 }));
+
+function createMockUserRepo(): UserRepository {
+	return {
+		findByUsername: vi.fn(),
+		existsByUsername: vi.fn(),
+		create: vi.fn(),
+		findById: vi.fn(),
+	};
+}
+
+function createMockRefreshTokenRepo(): RefreshTokenRepository {
+	return {
+		findValidToken: vi.fn(),
+		create: vi.fn(),
+		deleteById: vi.fn(),
+	};
+}
 
 interface RegisterResponse {
 	user?: {
@@ -90,15 +59,30 @@ interface LoginResponse {
 
 describe("POST /register", () => {
 	let app: Hono;
+	let mockUserRepo: ReturnType<typeof createMockUserRepo>;
+	let mockRefreshTokenRepo: ReturnType<typeof createMockRefreshTokenRepo>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockUserRepo = createMockUserRepo();
+		mockRefreshTokenRepo = createMockRefreshTokenRepo();
+		const auth = createAuthRouter({
+			userRepo: mockUserRepo,
+			refreshTokenRepo: mockRefreshTokenRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/auth", auth);
 	});
 
 	it("creates a new user with valid credentials", async () => {
+		vi.mocked(mockUserRepo.existsByUsername).mockResolvedValue(false);
+		vi.mocked(mockUserRepo.create).mockResolvedValue({
+			id: "test-uuid-123",
+			username: "testuser",
+			createdAt: new Date("2024-01-01T00:00:00Z"),
+		} as UserPublic);
+
 		const res = await app.request("/api/auth/register", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -114,6 +98,11 @@ describe("POST /register", () => {
 			id: "test-uuid-123",
 			username: "testuser",
 			createdAt: "2024-01-01T00:00:00.000Z",
+		});
+		expect(mockUserRepo.existsByUsername).toHaveBeenCalledWith("testuser");
+		expect(mockUserRepo.create).toHaveBeenCalledWith({
+			username: "testuser",
+			passwordHash: "hashed_securepassword12345",
 		});
 	});
 
@@ -148,15 +137,7 @@ describe("POST /register", () => {
 	});
 
 	it("returns 409 for existing username", async () => {
-		const { db } = await import("../db");
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([{ id: "existing-id" }]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockUserRepo.existsByUsername).mockResolvedValue(true);
 
 		const res = await app.request("/api/auth/register", {
 			method: "POST",
@@ -175,34 +156,29 @@ describe("POST /register", () => {
 
 describe("POST /login", () => {
 	let app: Hono;
+	let mockUserRepo: ReturnType<typeof createMockUserRepo>;
+	let mockRefreshTokenRepo: ReturnType<typeof createMockRefreshTokenRepo>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockUserRepo = createMockUserRepo();
+		mockRefreshTokenRepo = createMockRefreshTokenRepo();
+		const auth = createAuthRouter({
+			userRepo: mockUserRepo,
+			refreshTokenRepo: mockRefreshTokenRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/auth", auth);
 	});
 
 	it("returns access token for valid credentials", async () => {
-		const { db } = await import("../db");
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([
-						{
-							id: "user-uuid-123",
-							username: "testuser",
-							passwordHash: "hashed_correctpassword",
-						},
-					]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
-
-		// Mock the insert call for refresh token
-		vi.mocked(db.insert).mockReturnValueOnce({
-			values: vi.fn().mockResolvedValue(undefined),
-		} as unknown as ReturnType<typeof db.insert>);
+		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue({
+			id: "user-uuid-123",
+			username: "testuser",
+			passwordHash: "hashed_correctpassword",
+		});
+		vi.mocked(mockRefreshTokenRepo.create).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
@@ -223,17 +199,15 @@ describe("POST /login", () => {
 			id: "user-uuid-123",
 			username: "testuser",
 		});
+		expect(mockRefreshTokenRepo.create).toHaveBeenCalledWith({
+			userId: "user-uuid-123",
+			tokenHash: expect.any(String),
+			expiresAt: expect.any(Date),
+		});
 	});
 
 	it("returns 401 for non-existent user", async () => {
-		const { db } = await import("../db");
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
@@ -250,20 +224,11 @@ describe("POST /login", () => {
 	});
 
 	it("returns 401 for incorrect password", async () => {
-		const { db } = await import("../db");
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([
-						{
-							id: "user-uuid-123",
-							username: "testuser",
-							passwordHash: "hashed_correctpassword",
-						},
-					]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue({
+			id: "user-uuid-123",
+			username: "testuser",
+			passwordHash: "hashed_correctpassword",
+		});
 
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
@@ -325,55 +290,34 @@ interface RefreshResponse {
 
 describe("POST /refresh", () => {
 	let app: Hono;
+	let mockUserRepo: ReturnType<typeof createMockUserRepo>;
+	let mockRefreshTokenRepo: ReturnType<typeof createMockRefreshTokenRepo>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockUserRepo = createMockUserRepo();
+		mockRefreshTokenRepo = createMockRefreshTokenRepo();
+		const auth = createAuthRouter({
+			userRepo: mockUserRepo,
+			refreshTokenRepo: mockRefreshTokenRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/auth", auth);
 	});
 
 	it("returns new tokens for valid refresh token", async () => {
-		const { db } = await import("../db");
-
-		// Mock finding valid refresh token
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([
-						{
-							id: "token-id-123",
-							userId: "user-uuid-123",
-							expiresAt: new Date(Date.now() + 86400000), // expires in 1 day
-						},
-					]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
-
-		// Mock finding user
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([
-						{
-							id: "user-uuid-123",
-							username: "testuser",
-						},
-					]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
-
-		// Mock delete old token
-		vi.mocked(db.delete).mockReturnValueOnce({
-			where: vi.fn().mockResolvedValue(undefined),
-		} as unknown as ReturnType<typeof db.delete>);
-
-		// Mock insert new token
-		vi.mocked(db.insert).mockReturnValueOnce({
-			values: vi.fn().mockResolvedValue(undefined),
-		} as unknown as ReturnType<typeof db.insert>);
+		vi.mocked(mockRefreshTokenRepo.findValidToken).mockResolvedValue({
+			id: "token-id-123",
+			userId: "user-uuid-123",
+			expiresAt: new Date(Date.now() + 86400000),
+		});
+		vi.mocked(mockUserRepo.findById).mockResolvedValue({
+			id: "user-uuid-123",
+			username: "testuser",
+		});
+		vi.mocked(mockRefreshTokenRepo.deleteById).mockResolvedValue(undefined);
+		vi.mocked(mockRefreshTokenRepo.create).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",
@@ -393,19 +337,18 @@ describe("POST /refresh", () => {
 			id: "user-uuid-123",
 			username: "testuser",
 		});
+		expect(mockRefreshTokenRepo.deleteById).toHaveBeenCalledWith(
+			"token-id-123",
+		);
+		expect(mockRefreshTokenRepo.create).toHaveBeenCalledWith({
+			userId: "user-uuid-123",
+			tokenHash: expect.any(String),
+			expiresAt: expect.any(Date),
+		});
 	});
 
 	it("returns 401 for invalid refresh token", async () => {
-		const { db } = await import("../db");
-
-		// Mock no token found
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockRefreshTokenRepo.findValidToken).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",
@@ -421,16 +364,7 @@ describe("POST /refresh", () => {
 	});
 
 	it("returns 401 for expired refresh token", async () => {
-		const { db } = await import("../db");
-
-		// Mock no valid (non-expired) token found (empty result because expiry check in query)
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockRefreshTokenRepo.findValidToken).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",
@@ -446,31 +380,12 @@ describe("POST /refresh", () => {
 	});
 
 	it("returns 401 when user not found", async () => {
-		const { db } = await import("../db");
-
-		// Mock finding valid refresh token
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([
-						{
-							id: "token-id-123",
-							userId: "deleted-user-id",
-							expiresAt: new Date(Date.now() + 86400000),
-						},
-					]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
-
-		// Mock user not found
-		vi.mocked(db.select).mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					limit: vi.fn().mockResolvedValue([]),
-				}),
-			}),
-		} as unknown as ReturnType<typeof db.select>);
+		vi.mocked(mockRefreshTokenRepo.findValidToken).mockResolvedValue({
+			id: "token-id-123",
+			userId: "deleted-user-id",
+			expiresAt: new Date(Date.now() + 86400000),
+		});
+		vi.mocked(mockUserRepo.findById).mockResolvedValue(undefined);
 
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",

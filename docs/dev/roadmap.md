@@ -34,7 +34,7 @@
 - [x] Add tests
 
 ### Refactoring
-- [ ] Define repository types and avoid direct use of DB.
+- [x] Define repository types and avoid direct use of DB.
 
 ## Phase 2: Core Features
 
