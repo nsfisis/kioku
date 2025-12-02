@@ -28,7 +28,7 @@
 
 ### Authentication
 - [x] User registration endpoint
-- [ ] Login endpoint (JWT)
+- [x] Login endpoint (JWT)
 - [ ] Refresh token endpoint
 - [ ] Auth middleware
 - [ ] Add tests

@@ -48,6 +48,9 @@ vi.mock("../db", () => {
 
 vi.mock("argon2", () => ({
 	hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
+	verify: vi.fn((hash: string, password: string) =>
+		Promise.resolve(hash === `hashed_${password}`),
+	),
 }));
 
 interface RegisterResponse {
@@ -55,6 +58,18 @@ interface RegisterResponse {
 		id: string;
 		username: string;
 		createdAt: string;
+	};
+	error?: {
+		code: string;
+		message: string;
+	};
+}
+
+interface LoginResponse {
+	accessToken?: string;
+	user?: {
+		id: string;
+		username: string;
 	};
 	error?: {
 		code: string;
@@ -144,5 +159,135 @@ describe("POST /register", () => {
 		expect(res.status).toBe(409);
 		const body = (await res.json()) as RegisterResponse;
 		expect(body.error?.code).toBe("USERNAME_EXISTS");
+	});
+});
+
+describe("POST /login", () => {
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		app = new Hono();
+		app.onError(errorHandler);
+		app.route("/api/auth", auth);
+	});
+
+	it("returns access token for valid credentials", async () => {
+		const { db } = await import("../db");
+		vi.mocked(db.select).mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([
+						{
+							id: "user-uuid-123",
+							username: "testuser",
+							passwordHash: "hashed_correctpassword",
+						},
+					]),
+				}),
+			}),
+		} as unknown as ReturnType<typeof db.select>);
+
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				username: "testuser",
+				password: "correctpassword",
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as LoginResponse;
+		expect(body.accessToken).toBeDefined();
+		expect(typeof body.accessToken).toBe("string");
+		expect(body.user).toEqual({
+			id: "user-uuid-123",
+			username: "testuser",
+		});
+	});
+
+	it("returns 401 for non-existent user", async () => {
+		const { db } = await import("../db");
+		vi.mocked(db.select).mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([]),
+				}),
+			}),
+		} as unknown as ReturnType<typeof db.select>);
+
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				username: "nonexistent",
+				password: "anypassword",
+			}),
+		});
+
+		expect(res.status).toBe(401);
+		const body = (await res.json()) as LoginResponse;
+		expect(body.error?.code).toBe("INVALID_CREDENTIALS");
+	});
+
+	it("returns 401 for incorrect password", async () => {
+		const { db } = await import("../db");
+		vi.mocked(db.select).mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([
+						{
+							id: "user-uuid-123",
+							username: "testuser",
+							passwordHash: "hashed_correctpassword",
+						},
+					]),
+				}),
+			}),
+		} as unknown as ReturnType<typeof db.select>);
+
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				username: "testuser",
+				password: "wrongpassword",
+			}),
+		});
+
+		expect(res.status).toBe(401);
+		const body = (await res.json()) as LoginResponse;
+		expect(body.error?.code).toBe("INVALID_CREDENTIALS");
+	});
+
+	it("returns 422 for missing username", async () => {
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				username: "",
+				password: "somepassword",
+			}),
+		});
+
+		expect(res.status).toBe(422);
+		const body = (await res.json()) as LoginResponse;
+		expect(body.error?.code).toBe("VALIDATION_ERROR");
+	});
+
+	it("returns 422 for missing password", async () => {
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				username: "testuser",
+				password: "",
+			}),
+		});
+
+		expect(res.status).toBe(422);
+		const body = (await res.json()) as LoginResponse;
+		expect(body.error?.code).toBe("VALIDATION_ERROR");
 	});
 });
