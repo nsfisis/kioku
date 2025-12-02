@@ -22,8 +22,8 @@
 - [x] Database migrations
 
 ### Shared Package
-- [ ] Create pkgs/shared
-- [ ] Define types (User, Deck, Card, ReviewLog)
+- [x] Create pkgs/shared
+- [x] Define types (User, Deck, Card, ReviewLog)
 - [ ] Zod validation schemas
 
 ### Authentication
