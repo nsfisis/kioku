@@ -30,7 +30,7 @@
 - [x] User registration endpoint
 - [x] Login endpoint (JWT)
 - [x] Refresh token endpoint
-- [ ] Auth middleware
+- [x] Auth middleware
 - [ ] Add tests
 
 ### Refactoring
