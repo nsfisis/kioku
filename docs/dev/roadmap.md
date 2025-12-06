@@ -49,7 +49,7 @@ Smaller features first to enable early MVP validation.
 - [x] Initialize React + Vite
 - [x] Setup routing
 - [x] API client (fetch wrapper with auth headers)
-- [ ] Auth store (token management)
+- [x] Auth store (token management)
 
 ### Auth Pages
 - [ ] Register page
