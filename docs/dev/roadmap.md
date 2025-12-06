@@ -64,13 +64,9 @@ Smaller features first to enable early MVP validation.
 ## Phase 3: Deployment
 
 ### Docker
-- [ ] Dockerfile for server
-- [ ] Dockerfile for web (static build)
-- [ ] compose.yml (full stack)
-
-### Production
-- [ ] Environment configuration
-- [ ] Backup strategy
+- [x] Dockerfile for server
+- [x] Dockerfile for web (static build)
+- [x] compose.yml (full stack)
 
 ### Documentation
 - [ ] README.md (setup, usage)
