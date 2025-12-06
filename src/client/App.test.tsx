@@ -5,8 +5,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "./api/client";
 import { App } from "./App";
+import { apiClient } from "./api/client";
 import { AuthProvider } from "./stores";
 
 vi.mock("./api/client", () => ({
