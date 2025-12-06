@@ -52,10 +52,10 @@ Smaller features first to enable early MVP validation.
 - [x] Auth store (token management)
 
 ### Auth Pages
-- [ ] Register page
-- [ ] Login page
-- [ ] Protected route handling (redirect to login)
-- [ ] Add tests
+- [x] Register page
+- [x] Login page
+- [x] Protected route handling (redirect to login)
+- [x] Add tests
 
 **✅ Milestone**: Users can log in from the browser
 

@@ -52,10 +52,33 @@ afterEach(() => {
 });
 
 describe("App routing", () => {
-	it("renders home page at /", () => {
-		renderWithRouter("/");
-		expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
-		expect(screen.getByText("Spaced repetition learning app")).toBeDefined();
+	describe("when authenticated", () => {
+		beforeEach(() => {
+			vi.mocked(apiClient.getTokens).mockReturnValue({
+				accessToken: "access-token",
+				refreshToken: "refresh-token",
+			});
+			vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
+		});
+
+		it("renders home page at /", () => {
+			renderWithRouter("/");
+			expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
+			expect(screen.getByText("Spaced repetition learning app")).toBeDefined();
+		});
+	});
+
+	describe("when not authenticated", () => {
+		beforeEach(() => {
+			vi.mocked(apiClient.getTokens).mockReturnValue(null);
+			vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
+		});
+
+		it("redirects to login when accessing / without authentication", () => {
+			renderWithRouter("/");
+			// Should not render home page content
+			expect(screen.queryByRole("heading", { name: "Kioku" })).toBeNull();
+		});
 	});
 
 	it("renders login page at /login", () => {
