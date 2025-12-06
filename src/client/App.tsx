@@ -1,8 +1,13 @@
+import { Route, Switch } from "wouter";
+import { HomePage, LoginPage, NotFoundPage, RegisterPage } from "./pages";
+
 export function App() {
 	return (
-		<div>
-			<h1>Kioku</h1>
-			<p>Spaced repetition learning app</p>
-		</div>
+		<Switch>
+			<Route path="/" component={HomePage} />
+			<Route path="/login" component={LoginPage} />
+			<Route path="/register" component={RegisterPage} />
+			<Route component={NotFoundPage} />
+		</Switch>
 	);
 }

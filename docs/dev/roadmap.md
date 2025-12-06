@@ -47,7 +47,7 @@ Smaller features first to enable early MVP validation.
 
 ### Frontend Foundation
 - [x] Initialize React + Vite
-- [ ] Setup routing
+- [x] Setup routing
 - [ ] API client (fetch wrapper with auth headers)
 - [ ] Auth store (token management)
 
