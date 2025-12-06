@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { zValidator } from "@hono/zod-validator";
 import * as argon2 from "argon2";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
@@ -40,159 +41,140 @@ export interface AuthDependencies {
 
 export function createAuthRouter(deps: AuthDependencies) {
 	const { userRepo, refreshTokenRepo } = deps;
-	const auth = new Hono();
 
-	auth.post("/register", async (c) => {
-		const body = await c.req.json();
+	return new Hono()
+		.post("/register", zValidator("json", createUserSchema), async (c) => {
+			const { username, password } = c.req.valid("json");
 
-		const parsed = createUserSchema.safeParse(body);
-		if (!parsed.success) {
-			throw Errors.validationError(parsed.error.issues[0]?.message);
-		}
+			// Check if username already exists
+			const exists = await userRepo.existsByUsername(username);
+			if (exists) {
+				throw Errors.conflict("Username already exists", "USERNAME_EXISTS");
+			}
 
-		const { username, password } = parsed.data;
+			// Hash password with Argon2
+			const passwordHash = await argon2.hash(password);
 
-		// Check if username already exists
-		const exists = await userRepo.existsByUsername(username);
-		if (exists) {
-			throw Errors.conflict("Username already exists", "USERNAME_EXISTS");
-		}
+			// Create user
+			const newUser = await userRepo.create({ username, passwordHash });
 
-		// Hash password with Argon2
-		const passwordHash = await argon2.hash(password);
+			return c.json({ user: newUser }, 201);
+		})
+		.post("/login", zValidator("json", loginSchema), async (c) => {
+			const { username, password } = c.req.valid("json");
 
-		// Create user
-		const newUser = await userRepo.create({ username, passwordHash });
+			// Find user by username
+			const user = await userRepo.findByUsername(username);
 
-		return c.json({ user: newUser }, 201);
-	});
+			if (!user) {
+				throw Errors.unauthorized(
+					"Invalid username or password",
+					"INVALID_CREDENTIALS",
+				);
+			}
 
-	auth.post("/login", async (c) => {
-		const body = await c.req.json();
+			// Verify password
+			const isPasswordValid = await argon2.verify(user.passwordHash, password);
+			if (!isPasswordValid) {
+				throw Errors.unauthorized(
+					"Invalid username or password",
+					"INVALID_CREDENTIALS",
+				);
+			}
 
-		const parsed = loginSchema.safeParse(body);
-		if (!parsed.success) {
-			throw Errors.validationError(parsed.error.issues[0]?.message);
-		}
-
-		const { username, password } = parsed.data;
-
-		// Find user by username
-		const user = await userRepo.findByUsername(username);
-
-		if (!user) {
-			throw Errors.unauthorized(
-				"Invalid username or password",
-				"INVALID_CREDENTIALS",
+			// Generate JWT access token
+			const now = Math.floor(Date.now() / 1000);
+			const accessToken = await sign(
+				{
+					sub: user.id,
+					iat: now,
+					exp: now + ACCESS_TOKEN_EXPIRES_IN,
+				},
+				getJwtSecret(),
 			);
-		}
 
-		// Verify password
-		const isPasswordValid = await argon2.verify(user.passwordHash, password);
-		if (!isPasswordValid) {
-			throw Errors.unauthorized(
-				"Invalid username or password",
-				"INVALID_CREDENTIALS",
+			// Generate refresh token
+			const refreshToken = generateRefreshToken();
+			const tokenHash = hashToken(refreshToken);
+			const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000);
+
+			// Store refresh token in database
+			await refreshTokenRepo.create({
+				userId: user.id,
+				tokenHash,
+				expiresAt,
+			});
+
+			return c.json(
+				{
+					accessToken,
+					refreshToken,
+					user: {
+						id: user.id,
+						username: user.username,
+					},
+				},
+				200,
 			);
-		}
+		})
+		.post("/refresh", zValidator("json", refreshTokenSchema), async (c) => {
+			const { refreshToken } = c.req.valid("json");
+			const tokenHash = hashToken(refreshToken);
 
-		// Generate JWT access token
-		const now = Math.floor(Date.now() / 1000);
-		const accessToken = await sign(
-			{
-				sub: user.id,
-				iat: now,
-				exp: now + ACCESS_TOKEN_EXPIRES_IN,
-			},
-			getJwtSecret(),
-		);
+			// Find valid refresh token
+			const storedToken = await refreshTokenRepo.findValidToken(tokenHash);
 
-		// Generate refresh token
-		const refreshToken = generateRefreshToken();
-		const tokenHash = hashToken(refreshToken);
-		const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000);
+			if (!storedToken) {
+				throw Errors.unauthorized(
+					"Invalid or expired refresh token",
+					"INVALID_REFRESH_TOKEN",
+				);
+			}
 
-		// Store refresh token in database
-		await refreshTokenRepo.create({
-			userId: user.id,
-			tokenHash,
-			expiresAt,
-		});
+			// Get user info
+			const user = await userRepo.findById(storedToken.userId);
 
-		return c.json({
-			accessToken,
-			refreshToken,
-			user: {
-				id: user.id,
-				username: user.username,
-			},
-		});
-	});
+			if (!user) {
+				throw Errors.unauthorized("User not found", "USER_NOT_FOUND");
+			}
 
-	auth.post("/refresh", async (c) => {
-		const body = await c.req.json();
+			// Delete old refresh token (rotation)
+			await refreshTokenRepo.deleteById(storedToken.id);
 
-		const parsed = refreshTokenSchema.safeParse(body);
-		if (!parsed.success) {
-			throw Errors.validationError(parsed.error.issues[0]?.message);
-		}
-
-		const { refreshToken } = parsed.data;
-		const tokenHash = hashToken(refreshToken);
-
-		// Find valid refresh token
-		const storedToken = await refreshTokenRepo.findValidToken(tokenHash);
-
-		if (!storedToken) {
-			throw Errors.unauthorized(
-				"Invalid or expired refresh token",
-				"INVALID_REFRESH_TOKEN",
+			// Generate new access token
+			const now = Math.floor(Date.now() / 1000);
+			const accessToken = await sign(
+				{
+					sub: user.id,
+					iat: now,
+					exp: now + ACCESS_TOKEN_EXPIRES_IN,
+				},
+				getJwtSecret(),
 			);
-		}
 
-		// Get user info
-		const user = await userRepo.findById(storedToken.userId);
+			// Generate new refresh token (rotation)
+			const newRefreshToken = generateRefreshToken();
+			const newTokenHash = hashToken(newRefreshToken);
+			const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000);
 
-		if (!user) {
-			throw Errors.unauthorized("User not found", "USER_NOT_FOUND");
-		}
+			await refreshTokenRepo.create({
+				userId: user.id,
+				tokenHash: newTokenHash,
+				expiresAt,
+			});
 
-		// Delete old refresh token (rotation)
-		await refreshTokenRepo.deleteById(storedToken.id);
-
-		// Generate new access token
-		const now = Math.floor(Date.now() / 1000);
-		const accessToken = await sign(
-			{
-				sub: user.id,
-				iat: now,
-				exp: now + ACCESS_TOKEN_EXPIRES_IN,
-			},
-			getJwtSecret(),
-		);
-
-		// Generate new refresh token (rotation)
-		const newRefreshToken = generateRefreshToken();
-		const newTokenHash = hashToken(newRefreshToken);
-		const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000);
-
-		await refreshTokenRepo.create({
-			userId: user.id,
-			tokenHash: newTokenHash,
-			expiresAt,
+			return c.json(
+				{
+					accessToken,
+					refreshToken: newRefreshToken,
+					user: {
+						id: user.id,
+						username: user.username,
+					},
+				},
+				200,
+			);
 		});
-
-		return c.json({
-			accessToken,
-			refreshToken: newRefreshToken,
-			user: {
-				id: user.id,
-				username: user.username,
-			},
-		});
-	});
-
-	return auth;
 }
 
 // Default auth router with real repositories for production use

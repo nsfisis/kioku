@@ -9,15 +9,17 @@ const app = new Hono();
 app.use("*", logger());
 app.onError(errorHandler);
 
-app.get("/", (c) => {
-	return c.json({ message: "Kioku API" });
-});
+// Chain routes for RPC type inference
+const routes = app
+	.get("/", (c) => {
+		return c.json({ message: "Kioku API" }, 200);
+	})
+	.get("/api/health", (c) => {
+		return c.json({ status: "ok" }, 200);
+	})
+	.route("/api/auth", auth);
 
-app.get("/api/health", (c) => {
-	return c.json({ status: "ok" });
-});
-
-app.route("/api/auth", auth);
+export type AppType = typeof routes;
 
 const port = Number(process.env.PORT) || 3000;
 console.log(`Server is running on port ${port}`);

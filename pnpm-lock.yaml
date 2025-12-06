@@ -11,6 +11,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.6
         version: 1.19.6(hono@4.10.7)
+      '@hono/zod-validator':
+        specifier: ^0.7.5
+        version: 0.7.5(hono@4.10.7)(zod@4.1.13)
       argon2:
         specifier: ^0.44.0
         version: 0.44.0
@@ -39,6 +42,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.8
         version: 2.3.8
+      '@hono/cli':
+        specifier: ^0.1.3
+        version: 0.1.3
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -564,11 +570,21 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@hono/cli@0.1.3':
+    resolution: {integrity: sha512-jqIoJyCXKxCR6kd2Grxg9hRczju39r3xVu5dK4FG5wVxe257Bh09Qhw8pasY12VE/l46gL0sQG/XPgy+rn9yPA==}
+    hasBin: true
+
   '@hono/node-server@1.19.6':
     resolution: {integrity: sha512-Shz/KjlIeAhfiuE93NDKVdZ7HdBVLQAfdbaXEaoAVO3ic9ibRSLGIQGkcBbFyuLr+7/1D5ZCINM8B+6IvXeMtw==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/zod-validator@0.7.5':
+    resolution: {integrity: sha512-n4l4hutkfYU07PzRUHBOVzUEn38VSfrh+UVE5d0w4lyfWDOEhzxIupqo5iakRiJL44c3vTuFJBvcmUl8b9agIA==}
+    peerDependencies:
+      hono: '>=3.9.0'
+      zod: ^3.25.0 || ^4.0.0
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -842,6 +858,10 @@ packages:
   chai@6.2.1:
     resolution: {integrity: sha512-p4Z49OGG5W/WBCPSS/dH3jQ73kD6tiMmUM+bckNK6Jr5JHMG3k9bg/BvKR8lKmtVBKmOiuVaV2ws8s9oSbwysg==}
     engines: {node: '>=18'}
+
+  commander@14.0.2:
+    resolution: {integrity: sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==}
+    engines: {node: '>=20'}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -1830,9 +1850,21 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
+  '@hono/cli@0.1.3':
+    dependencies:
+      '@hono/node-server': 1.19.6(hono@4.10.7)
+      commander: 14.0.2
+      esbuild: 0.25.12
+      hono: 4.10.7
+
   '@hono/node-server@1.19.6(hono@4.10.7)':
     dependencies:
       hono: 4.10.7
+
+  '@hono/zod-validator@0.7.5(hono@4.10.7)(zod@4.1.13)':
+    dependencies:
+      hono: 4.10.7
+      zod: 4.1.13
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -2085,6 +2117,8 @@ snapshots:
   caniuse-lite@1.0.30001759: {}
 
   chai@6.2.1: {}
+
+  commander@14.0.2: {}
 
   convert-source-map@2.0.0: {}
 

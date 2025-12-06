@@ -106,7 +106,7 @@ describe("POST /register", () => {
 		});
 	});
 
-	it("returns 422 for invalid username", async () => {
+	it("returns 400 for invalid username", async () => {
 		const res = await app.request("/api/auth/register", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -116,12 +116,10 @@ describe("POST /register", () => {
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as RegisterResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 
-	it("returns 422 for password too short", async () => {
+	it("returns 400 for password too short", async () => {
 		const res = await app.request("/api/auth/register", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -131,9 +129,7 @@ describe("POST /register", () => {
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as RegisterResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 
 	it("returns 409 for existing username", async () => {
@@ -244,7 +240,7 @@ describe("POST /login", () => {
 		expect(body.error?.code).toBe("INVALID_CREDENTIALS");
 	});
 
-	it("returns 422 for missing username", async () => {
+	it("returns 400 for missing username", async () => {
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -254,12 +250,10 @@ describe("POST /login", () => {
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as LoginResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 
-	it("returns 422 for missing password", async () => {
+	it("returns 400 for missing password", async () => {
 		const res = await app.request("/api/auth/login", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -269,9 +263,7 @@ describe("POST /login", () => {
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as LoginResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 });
 
@@ -400,19 +392,17 @@ describe("POST /refresh", () => {
 		expect(body.error?.code).toBe("USER_NOT_FOUND");
 	});
 
-	it("returns 422 for missing refresh token", async () => {
+	it("returns 400 for missing refresh token", async () => {
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as RefreshResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 
-	it("returns 422 for empty refresh token", async () => {
+	it("returns 400 for empty refresh token", async () => {
 		const res = await app.request("/api/auth/refresh", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -421,8 +411,6 @@ describe("POST /refresh", () => {
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as RefreshResponse;
-		expect(body.error?.code).toBe("VALIDATION_ERROR");
+		expect(res.status).toBe(400);
 	});
 });
