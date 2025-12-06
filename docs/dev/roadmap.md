@@ -61,7 +61,25 @@ Smaller features first to enable early MVP validation.
 
 ---
 
-## Phase 3: Deck Management
+## Phase 3: Deployment
+
+### Docker
+- [ ] Dockerfile for server
+- [ ] Dockerfile for web (static build)
+- [ ] compose.yml (full stack)
+
+### Production
+- [ ] Environment configuration
+- [ ] Backup strategy
+
+### Documentation
+- [ ] README.md (setup, usage)
+
+**✅ Milestone**: Ready for production deployment
+
+---
+
+## Phase 4: Deck Management
 
 **Goal**: Create, edit, and delete decks
 
@@ -80,7 +98,7 @@ Smaller features first to enable early MVP validation.
 
 ---
 
-## Phase 4: Card Management
+## Phase 5: Card Management
 
 **Goal**: Create, edit, and delete cards
 
@@ -99,7 +117,7 @@ Smaller features first to enable early MVP validation.
 
 ---
 
-## Phase 5: Study Session (MVP Complete)
+## Phase 6: Study Session (MVP Complete)
 
 **Goal**: Study with FSRS algorithm
 
@@ -121,7 +139,7 @@ Smaller features first to enable early MVP validation.
 
 ---
 
-## Phase 6: PWA & Offline Support
+## Phase 7: PWA & Offline Support
 
 **Goal**: Study offline
 
@@ -157,7 +175,7 @@ Smaller features first to enable early MVP validation.
 
 ---
 
-## Phase 7: Anki Import
+## Phase 8: Anki Import
 
 **Goal**: Import existing Anki decks
 
@@ -179,24 +197,6 @@ Smaller features first to enable early MVP validation.
 - [ ] Add tests
 
 **✅ Milestone**: Anki users can migrate their decks
-
----
-
-## Phase 8: Deployment
-
-### Docker
-- [ ] Dockerfile for server
-- [ ] Dockerfile for web (static build)
-- [ ] compose.yml (full stack)
-
-### Production
-- [ ] Environment configuration
-- [ ] Backup strategy
-
-### Documentation
-- [ ] README.md (setup, usage)
-
-**✅ Milestone**: Ready for production deployment
 
 ---
 
