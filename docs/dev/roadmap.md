@@ -69,7 +69,7 @@ Smaller features first to enable early MVP validation.
 - [x] compose.yml (full stack)
 
 ### Documentation
-- [ ] README.md (setup, usage)
+- [x] README.md (setup, usage)
 
 **✅ Milestone**: Ready for production deployment
 

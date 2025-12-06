@@ -9,56 +9,114 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 - Cloud Sync: Automatic sync when online with conflict resolution
 - Anki Import: Import existing .apkg decks from Anki
 
-## Getting Started
+## Quick Start (Production)
+
+Deploy the full stack with Docker Compose:
+
+```bash
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env and set a secure JWT_SECRET
+
+# Start all services
+docker compose up -d
+
+# Add your first user
+docker compose exec server pnpm user:add
+```
+
+The application will be available at `http://localhost`.
+
+## Development Setup
 
 ### Prerequisites
 
 - Node.js 22+
 - pnpm 10+
-- PostgreSQL 18+
-- Docker
-- Direnv (optional)
+- Docker (for PostgreSQL)
 
-### Development
+### Setup
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Start containers
-docker compose up
+# Copy environment variables
+cp .env.example .env
+# Edit .env for local development:
+#   DATABASE_URL=postgresql://kioku:kioku@localhost:5432/kioku
+
+# Start PostgreSQL
+docker compose up db -d
 
 # Run database migrations
 pnpm db:migrate
 
-# Start development server
-pnpm dev
+# Add a user
+pnpm user:add
+
+# Start development servers (in separate terminals)
+pnpm dev          # Backend server (port 3000)
+pnpm dev:client   # Frontend dev server (port 5173)
 ```
 
 ### Environment Variables
 
-Create `.env` file in the root directory:
-
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/kioku
-JWT_SECRET=your-secret-key
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `POSTGRES_USER` | PostgreSQL username | `kioku` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `kioku` |
+| `POSTGRES_DB` | PostgreSQL database name | `kioku` |
+| `DATABASE_URL` | Full PostgreSQL connection string | `postgresql://kioku:kioku@localhost:5432/kioku` |
+| `JWT_SECRET` | Secret key for JWT tokens (use a secure random string in production) | `your-secret-key` |
 
 ## Scripts
 
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start backend server in development |
+| `pnpm dev:client` | Start frontend dev server |
+| `pnpm build` | Build both server and client |
+| `pnpm start` | Start production server |
+| `pnpm test` | Run tests |
+| `pnpm typecheck` | Run TypeScript type checking |
+| `pnpm lint` | Lint code with Biome |
+| `pnpm lint:fix` | Lint and auto-fix issues |
+| `pnpm db:migrate` | Run database migrations |
+| `pnpm db:studio` | Open Drizzle Studio (database GUI) |
+| `pnpm user:add` | Add a new user (interactive) |
+
+## Docker
+
+### Services
+
+- **db**: PostgreSQL 18 database
+- **server**: Node.js backend (Hono)
+- **client**: Nginx serving the React frontend
+
+### Commands
+
 ```bash
-pnpm dev          # Start server in development
-pnpm dev:client   # Start client in development
-pnpm build        # Build all
-pnpm test         # Run tests
-pnpm lint         # Lint code
-pnpm db:migrate   # Run database migrations
-pnpm db:studio    # Open Drizzle Studio
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Add a user in production
+docker compose exec server pnpm user:add
 ```
 
 ## Documentation
 
-See [docs/dev/architecture.md](docs/dev/architecture.md) for detailed architecture documentation.
+- [Architecture](docs/dev/architecture.md) - System design and data models
+- [Roadmap](docs/dev/roadmap.md) - Development phases and progress
 
 ## License
 
