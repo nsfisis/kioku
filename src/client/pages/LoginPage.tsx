@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { ApiClientError, useAuth } from "../stores";
 
 export function LoginPage() {
@@ -74,9 +74,6 @@ export function LoginPage() {
 					{isSubmitting ? "Logging in..." : "Login"}
 				</button>
 			</form>
-			<p>
-				Don't have an account? <Link href="/register">Register</Link>
-			</p>
 		</div>
 	);
 }

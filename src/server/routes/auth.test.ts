@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware/index.js";
 import type {
 	RefreshTokenRepository,
-	UserPublic,
 	UserRepository,
 } from "../repositories/index.js";
 import { createAuthRouter } from "./auth.js";
@@ -32,18 +31,6 @@ function createMockRefreshTokenRepo(): RefreshTokenRepository {
 	};
 }
 
-interface RegisterResponse {
-	user?: {
-		id: string;
-		username: string;
-		createdAt: string;
-	};
-	error?: {
-		code: string;
-		message: string;
-	};
-}
-
 interface LoginResponse {
 	accessToken?: string;
 	refreshToken?: string;
@@ -56,99 +43,6 @@ interface LoginResponse {
 		message: string;
 	};
 }
-
-describe("POST /register", () => {
-	let app: Hono;
-	let mockUserRepo: ReturnType<typeof createMockUserRepo>;
-	let mockRefreshTokenRepo: ReturnType<typeof createMockRefreshTokenRepo>;
-
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mockUserRepo = createMockUserRepo();
-		mockRefreshTokenRepo = createMockRefreshTokenRepo();
-		const auth = createAuthRouter({
-			userRepo: mockUserRepo,
-			refreshTokenRepo: mockRefreshTokenRepo,
-		});
-		app = new Hono();
-		app.onError(errorHandler);
-		app.route("/api/auth", auth);
-	});
-
-	it("creates a new user with valid credentials", async () => {
-		vi.mocked(mockUserRepo.existsByUsername).mockResolvedValue(false);
-		vi.mocked(mockUserRepo.create).mockResolvedValue({
-			id: "test-uuid-123",
-			username: "testuser",
-			createdAt: new Date("2024-01-01T00:00:00Z"),
-		} as UserPublic);
-
-		const res = await app.request("/api/auth/register", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				username: "testuser",
-				password: "securepassword12345",
-			}),
-		});
-
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as RegisterResponse;
-		expect(body.user).toEqual({
-			id: "test-uuid-123",
-			username: "testuser",
-			createdAt: "2024-01-01T00:00:00.000Z",
-		});
-		expect(mockUserRepo.existsByUsername).toHaveBeenCalledWith("testuser");
-		expect(mockUserRepo.create).toHaveBeenCalledWith({
-			username: "testuser",
-			passwordHash: "hashed_securepassword12345",
-		});
-	});
-
-	it("returns 400 for invalid username", async () => {
-		const res = await app.request("/api/auth/register", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				username: "",
-				password: "securepassword12345",
-			}),
-		});
-
-		expect(res.status).toBe(400);
-	});
-
-	it("returns 400 for password too short", async () => {
-		const res = await app.request("/api/auth/register", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				username: "testuser",
-				password: "tooshort123456",
-			}),
-		});
-
-		expect(res.status).toBe(400);
-	});
-
-	it("returns 409 for existing username", async () => {
-		vi.mocked(mockUserRepo.existsByUsername).mockResolvedValue(true);
-
-		const res = await app.request("/api/auth/register", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				username: "existinguser",
-				password: "securepassword12345",
-			}),
-		});
-
-		expect(res.status).toBe(409);
-		const body = (await res.json()) as RegisterResponse;
-		expect(body.error?.code).toBe("USERNAME_EXISTS");
-	});
-});
 
 describe("POST /login", () => {
 	let app: Hono;

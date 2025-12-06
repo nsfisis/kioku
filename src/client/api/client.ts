@@ -119,13 +119,6 @@ export class ApiClient {
 		}
 	}
 
-	async register(username: string, password: string) {
-		const res = await this.rpc.api.auth.register.$post({
-			json: { username, password },
-		});
-		return this.handleResponse<{ user: { id: string; username: string } }>(res);
-	}
-
 	async login(username: string, password: string): Promise<AuthResponse> {
 		const res = await this.rpc.api.auth.login.$post({
 			json: { username, password },

@@ -11,7 +11,6 @@ import { AuthProvider, useAuth } from "./auth";
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
-		register: vi.fn(),
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
@@ -121,51 +120,6 @@ describe("useAuth", () => {
 					await result.current.login("testuser", "wrongpassword");
 				}),
 			).rejects.toThrow("Invalid credentials");
-		});
-	});
-
-	describe("register", () => {
-		it("registers and logs in automatically", async () => {
-			const mockUser = { id: "user-1", username: "newuser" };
-			vi.mocked(apiClient.register).mockResolvedValue({ user: mockUser });
-			vi.mocked(apiClient.login).mockResolvedValue({
-				accessToken: "access-token",
-				refreshToken: "refresh-token",
-				user: mockUser,
-			});
-			vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
-
-			const { result } = renderHook(() => useAuth(), { wrapper });
-
-			await waitFor(() => {
-				expect(result.current.isLoading).toBe(false);
-			});
-
-			await act(async () => {
-				await result.current.register("newuser", "password123");
-			});
-
-			expect(apiClient.register).toHaveBeenCalledWith("newuser", "password123");
-			expect(apiClient.login).toHaveBeenCalledWith("newuser", "password123");
-			expect(result.current.user).toEqual(mockUser);
-		});
-
-		it("propagates registration errors", async () => {
-			vi.mocked(apiClient.register).mockRejectedValue(
-				new Error("Username taken"),
-			);
-
-			const { result } = renderHook(() => useAuth(), { wrapper });
-
-			await waitFor(() => {
-				expect(result.current.isLoading).toBe(false);
-			});
-
-			await expect(
-				act(async () => {
-					await result.current.register("existinguser", "password123");
-				}),
-			).rejects.toThrow("Username taken");
 		});
 	});
 

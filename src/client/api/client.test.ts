@@ -56,63 +56,6 @@ describe("ApiClient", () => {
 		vi.restoreAllMocks();
 	});
 
-	describe("register", () => {
-		it("sends registration request without auth header", async () => {
-			const mockStorage = createMockTokenStorage();
-			const client = new ApiClient({
-				tokenStorage: mockStorage,
-				baseUrl: "http://localhost:3000",
-			});
-
-			const responseBody = { user: { id: "123", username: "testuser" } };
-			global.fetch = mockFetch([{ status: 201, body: responseBody }]);
-
-			const result = await client.register("testuser", "password123");
-
-			expect(result).toEqual(responseBody);
-			expect(global.fetch).toHaveBeenCalledWith(
-				"http://localhost:3000/api/auth/register",
-				expect.objectContaining({
-					method: "POST",
-					body: JSON.stringify({
-						username: "testuser",
-						password: "password123",
-					}),
-				}),
-			);
-
-			const call = (global.fetch as Mock).mock.calls[0] as [
-				string,
-				RequestInit,
-			];
-			const headers = call[1].headers as Record<string, string>;
-			expect(headers.Authorization).toBeUndefined();
-		});
-
-		it("throws ApiClientError on registration failure", async () => {
-			const mockStorage = createMockTokenStorage();
-			const client = new ApiClient({ tokenStorage: mockStorage });
-
-			global.fetch = mockFetch([
-				{
-					status: 409,
-					body: { error: "Username already exists", code: "USERNAME_EXISTS" },
-				},
-			]);
-
-			try {
-				await client.register("testuser", "password");
-				expect.fail("Expected ApiClientError to be thrown");
-			} catch (e) {
-				expect(e).toBeInstanceOf(ApiClientError);
-				const error = e as ApiClientError;
-				expect(error.message).toBe("Username already exists");
-				expect(error.status).toBe(409);
-				expect(error.code).toBe("USERNAME_EXISTS");
-			}
-		});
-	});
-
 	describe("login", () => {
 		it("sends login request and stores tokens", async () => {
 			const mockStorage = createMockTokenStorage();
@@ -223,7 +166,6 @@ describe("ApiClient", () => {
 
 			// RPC client should have auth routes
 			expect(client.rpc.api.auth.login).toBeDefined();
-			expect(client.rpc.api.auth.register).toBeDefined();
 			expect(client.rpc.api.auth.refresh).toBeDefined();
 		});
 	});

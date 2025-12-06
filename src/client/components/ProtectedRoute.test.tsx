@@ -12,7 +12,6 @@ import { ProtectedRoute } from "./ProtectedRoute";
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
-		register: vi.fn(),
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),

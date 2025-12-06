@@ -6,10 +6,4 @@ export {
 	localStorageTokenStorage,
 	type TokenStorage,
 } from "./client";
-export type {
-	ApiError,
-	AuthResponse,
-	RegisterResponse,
-	Tokens,
-	User,
-} from "./types";
+export type { ApiError, AuthResponse, Tokens, User } from "./types";

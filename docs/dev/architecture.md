@@ -174,11 +174,12 @@ interface ReviewLog {
 ### Authentication
 
 ```
-POST /api/auth/register   - User registration
 POST /api/auth/login      - Login (returns JWT)
 POST /api/auth/refresh    - Refresh token
 POST /api/auth/logout     - Logout
 ```
+
+Note: User registration is disabled. Use CLI to add users: `pnpm user:add`
 
 ### Decks
 

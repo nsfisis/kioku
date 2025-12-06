@@ -18,7 +18,6 @@ export interface AuthState {
 
 export interface AuthActions {
 	login: (username: string, password: string) => Promise<void>;
-	register: (username: string, password: string) => Promise<void>;
 	logout: () => void;
 }
 
@@ -52,15 +51,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		setUser(response.user);
 	}, []);
 
-	const register = useCallback(
-		async (username: string, password: string) => {
-			await apiClient.register(username, password);
-			// After registration, log in automatically
-			await login(username, password);
-		},
-		[login],
-	);
-
 	const logout = useCallback(() => {
 		apiClient.logout();
 		setUser(null);
@@ -74,10 +64,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 			isAuthenticated,
 			isLoading,
 			login,
-			register,
 			logout,
 		}),
-		[user, isAuthenticated, isLoading, login, register, logout],
+		[user, isAuthenticated, isLoading, login, logout],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

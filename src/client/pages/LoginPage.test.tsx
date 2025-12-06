@@ -13,7 +13,6 @@ import { LoginPage } from "./LoginPage";
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
-		register: vi.fn(),
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
@@ -60,7 +59,6 @@ describe("LoginPage", () => {
 		expect(screen.getByLabelText("Username")).toBeDefined();
 		expect(screen.getByLabelText("Password")).toBeDefined();
 		expect(screen.getByRole("button", { name: "Login" })).toBeDefined();
-		expect(screen.getByRole("link", { name: "Register" })).toBeDefined();
 	});
 
 	it("submits form and logs in successfully", async () => {

@@ -12,7 +12,6 @@ import { AuthProvider } from "./stores";
 vi.mock("./api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
-		register: vi.fn(),
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
@@ -84,11 +83,6 @@ describe("App routing", () => {
 	it("renders login page at /login", () => {
 		renderWithRouter("/login");
 		expect(screen.getByRole("heading", { name: "Login" })).toBeDefined();
-	});
-
-	it("renders register page at /register", () => {
-		renderWithRouter("/register");
-		expect(screen.getByRole("heading", { name: "Register" })).toBeDefined();
 	});
 
 	it("renders 404 page for unknown routes", () => {

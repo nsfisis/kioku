@@ -10,11 +10,7 @@ import {
 	type UserRepository,
 	userRepository,
 } from "../repositories/index.js";
-import {
-	createUserSchema,
-	loginSchema,
-	refreshTokenSchema,
-} from "../schemas/index.js";
+import { loginSchema, refreshTokenSchema } from "../schemas/index.js";
 
 function getJwtSecret(): string {
 	const secret = process.env.JWT_SECRET;
@@ -43,23 +39,6 @@ export function createAuthRouter(deps: AuthDependencies) {
 	const { userRepo, refreshTokenRepo } = deps;
 
 	return new Hono()
-		.post("/register", zValidator("json", createUserSchema), async (c) => {
-			const { username, password } = c.req.valid("json");
-
-			// Check if username already exists
-			const exists = await userRepo.existsByUsername(username);
-			if (exists) {
-				throw Errors.conflict("Username already exists", "USERNAME_EXISTS");
-			}
-
-			// Hash password with Argon2
-			const passwordHash = await argon2.hash(password);
-
-			// Create user
-			const newUser = await userRepo.create({ username, passwordHash });
-
-			return c.json({ user: newUser }, 201);
-		})
 		.post("/login", zValidator("json", loginSchema), async (c) => {
 			const { username, password } = c.req.valid("json");
 
