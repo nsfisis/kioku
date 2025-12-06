@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
 import { beforeEach, describe, expect, it } from "vitest";
-import { authMiddleware, getAuthUser } from "./auth";
-import { errorHandler } from "./error-handler";
+import { authMiddleware, getAuthUser } from "./auth.js";
+import { errorHandler } from "./error-handler.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 

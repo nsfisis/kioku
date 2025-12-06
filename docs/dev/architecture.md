@@ -4,25 +4,24 @@
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | SvelteKit |
+| Frontend | React + Vite |
 | Backend | Hono + TypeScript |
 | Database | PostgreSQL |
 | ORM | Drizzle |
 | Client DB | Dexie.js (IndexedDB) |
-| PWA | @vite-pwa/sveltekit |
+| PWA | vite-plugin-pwa |
 | Algorithm | FSRS (ts-fsrs) |
 | Auth | username/password + JWT |
 | Test | Vitest |
-| Monorepo | pnpm workspace |
 | Deploy | Docker + VPS |
 
 ## Architecture Diagram
 
 ```
 +--------------------------------------------------+
-|                  Client (PWA)                     |
+|                  Client (PWA)                    |
 |  +-------------+  +------------+  +------------+ |
-|  |  SvelteKit  |  |  Dexie.js  |  |  Service   | |
+|  |    React    |  |  Dexie.js  |  |  Service   | |
 |  |     UI      |<>| (IndexedDB)|<>|   Worker   | |
 |  +-------------+  +------------+  +------------+ |
 |        |               |                         |
@@ -35,7 +34,7 @@
                     |
                     v HTTPS (REST API)
 +--------------------------------------------------+
-|                    Server                         |
+|                    Server                        |
 |  +----------------------------------------------+|
 |  |              Hono (TypeScript)               ||
 |  |  +--------+ +--------+ +--------+ +--------+ ||
@@ -54,32 +53,32 @@
 
 ```
 kioku/
-├── package.json              # Workspace root
-├── pnpm-workspace.yaml
-├── docker-compose.yml
-└── pkgs/
-    ├── web/                  # SvelteKit frontend
-    │   ├── src/
-    │   │   ├── lib/
-    │   │   │   ├── components/
-    │   │   │   ├── stores/
-    │   │   │   ├── db/       # Dexie IndexedDB
-    │   │   │   ├── sync/     # Sync engine
-    │   │   │   └── api/
-    │   │   └── routes/
-    │   └── static/
-    ├── server/               # Hono backend
-    │   └── src/
-    │      ├── routes/
-    │      ├── services/
-    │      ├── db/           # Drizzle schema
-    │      ├── middleware/
-    │      └── lib/
-    │          └── apkg/     # Anki import
-    └── shared/               # Shared types
-        └── src/
-            ├── types/
-            └── schemas/      # Zod validation
+├── src/
+│   ├── server/               # Hono backend
+│   │   ├── index.ts
+│   │   ├── db/               # Drizzle schema
+│   │   ├── middleware/
+│   │   ├── repositories/
+│   │   ├── routes/
+│   │   ├── types/            # Server types
+│   │   ├── schemas/          # Zod validation
+│   │   └── lib/
+│   │       └── apkg/         # Anki import
+│   └── client/               # React frontend
+│       ├── index.tsx
+│       ├── components/
+│       ├── stores/
+│       ├── db/               # Dexie IndexedDB
+│       ├── sync/             # Sync engine
+│       ├── types/            # Client types
+│       └── api/
+├── drizzle/                  # Drizzle migrations
+├── public/                   # Static files (PWA manifest)
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── drizzle.config.ts
+└── compose.yaml
 ```
 
 ## Data Models

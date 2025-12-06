@@ -1,6 +1,6 @@
 import type { Context, Next } from "hono";
 import { verify } from "hono/jwt";
-import { Errors } from "./error-handler";
+import { Errors } from "./error-handler.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {

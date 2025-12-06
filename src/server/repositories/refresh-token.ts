@@ -1,6 +1,6 @@
 import { and, eq, gt } from "drizzle-orm";
-import { db, refreshTokens } from "../db";
-import type { RefreshTokenRepository } from "./types";
+import { db, refreshTokens } from "../db/index.js";
+import type { RefreshTokenRepository } from "./types.js";
 
 export const refreshTokenRepository: RefreshTokenRepository = {
 	async findValidToken(tokenHash) {

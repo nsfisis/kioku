@@ -29,32 +29,31 @@ pnpm install
 docker compose up
 
 # Run database migrations
-pnpm --filter server db:migrate
+pnpm db:migrate
 
-# Start development servers
+# Start development server
 pnpm dev
 ```
 
 ### Environment Variables
 
-Create `.env` files in each app directory:
+Create `.env` file in the root directory:
 
-```pkgs/server/.env
+```
 DATABASE_URL=postgresql://user:password@localhost:5432/kioku
 JWT_SECRET=your-secret-key
-```
-
-```pkgs/web/.env
-PUBLIC_API_URL=http://localhost:3000
 ```
 
 ## Scripts
 
 ```bash
-pnpm dev          # Start all apps in development
-pnpm build        # Build all apps
+pnpm dev          # Start server in development
+pnpm dev:client   # Start client in development
+pnpm build        # Build all
 pnpm test         # Run tests
 pnpm lint         # Lint code
+pnpm db:migrate   # Run database migrations
+pnpm db:studio    # Open Drizzle Studio
 ```
 
 ## Documentation

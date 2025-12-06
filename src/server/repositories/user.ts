@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db, users } from "../db";
-import type { UserPublic, UserRepository } from "./types";
+import { db, users } from "../db/index.js";
+import type { UserPublic, UserRepository } from "./types.js";
 
 export const userRepository: UserRepository = {
 	async findByUsername(username) {
@@ -37,8 +37,10 @@ export const userRepository: UserRepository = {
 				username: users.username,
 				createdAt: users.createdAt,
 			});
-		// Insert with returning should always return the created row
-		return newUser!;
+		if (!newUser) {
+			throw new Error("Failed to create user");
+		}
+		return newUser;
 	},
 
 	async findById(id) {

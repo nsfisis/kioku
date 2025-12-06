@@ -1,8 +1,8 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
-import { errorHandler } from "./middleware";
-import { auth } from "./routes";
+import { errorHandler } from "./middleware/index.js";
+import { auth } from "./routes/index.js";
 
 const app = new Hono();
 

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "./schema";
+import * as schema from "./schema.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -9,4 +9,4 @@ if (!databaseUrl) {
 
 export const db = drizzle(databaseUrl, { schema });
 
-export * from "./schema";
+export * from "./schema.js";

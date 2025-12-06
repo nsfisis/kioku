@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { errorHandler } from "../middleware";
+import { errorHandler } from "../middleware/index.js";
 import type {
 	RefreshTokenRepository,
 	UserPublic,
 	UserRepository,
-} from "../repositories";
-import { createAuthRouter } from "./auth";
+} from "../repositories/index.js";
+import { createAuthRouter } from "./auth.js";
 
 vi.mock("argon2", () => ({
 	hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),

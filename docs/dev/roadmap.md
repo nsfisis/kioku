@@ -46,7 +46,7 @@ Smaller features first to enable early MVP validation.
 **Goal**: Minimal UI for user login and registration
 
 ### Frontend Foundation
-- [ ] Initialize SvelteKit
+- [ ] Initialize React + Vite
 - [ ] Setup routing
 - [ ] API client (fetch wrapper with auth headers)
 - [ ] Auth store (token management)
@@ -126,7 +126,7 @@ Smaller features first to enable early MVP validation.
 **Goal**: Study offline
 
 ### PWA Setup
-- [ ] @vite-pwa/sveltekit configuration
+- [ ] vite-plugin-pwa configuration
 - [ ] Web manifest
 - [ ] Service Worker
 - [ ] Offline fallback page

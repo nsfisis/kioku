@@ -1,19 +1,19 @@
 import { createHash, randomBytes } from "node:crypto";
-import {
-	createUserSchema,
-	loginSchema,
-	refreshTokenSchema,
-} from "@kioku/shared";
 import * as argon2 from "argon2";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
-import { Errors } from "../middleware";
+import { Errors } from "../middleware/index.js";
 import {
 	type RefreshTokenRepository,
 	refreshTokenRepository,
 	type UserRepository,
 	userRepository,
-} from "../repositories";
+} from "../repositories/index.js";
+import {
+	createUserSchema,
+	loginSchema,
+	refreshTokenSchema,
+} from "../schemas/index.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
