@@ -2,22 +2,53 @@
  * @vitest-environment jsdom
  */
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
+import { apiClient } from "./api/client";
 import { App } from "./App";
+import { AuthProvider } from "./stores";
+
+vi.mock("./api/client", () => ({
+	apiClient: {
+		login: vi.fn(),
+		register: vi.fn(),
+		logout: vi.fn(),
+		isAuthenticated: vi.fn(),
+		getTokens: vi.fn(),
+	},
+	ApiClientError: class ApiClientError extends Error {
+		constructor(
+			message: string,
+			public status: number,
+			public code?: string,
+		) {
+			super(message);
+			this.name = "ApiClientError";
+		}
+	},
+}));
 
 function renderWithRouter(path: string) {
 	const { hook } = memoryLocation({ path, static: true });
 	return render(
 		<Router hook={hook}>
-			<App />
+			<AuthProvider>
+				<App />
+			</AuthProvider>
 		</Router>,
 	);
 }
 
+beforeEach(() => {
+	vi.clearAllMocks();
+	vi.mocked(apiClient.getTokens).mockReturnValue(null);
+	vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
+});
+
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 });
 
 describe("App routing", () => {
