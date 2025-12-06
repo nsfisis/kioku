@@ -15,9 +15,12 @@ import {
 	refreshTokenSchema,
 } from "../schemas/index.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-	throw new Error("JWT_SECRET environment variable is required");
+function getJwtSecret(): string {
+	const secret = process.env.JWT_SECRET;
+	if (!secret) {
+		throw new Error("JWT_SECRET environment variable is required");
+	}
+	return secret;
 }
 const ACCESS_TOKEN_EXPIRES_IN = 60 * 15; // 15 minutes
 const REFRESH_TOKEN_EXPIRES_IN = 60 * 60 * 24 * 7; // 7 days
@@ -101,7 +104,7 @@ export function createAuthRouter(deps: AuthDependencies) {
 				iat: now,
 				exp: now + ACCESS_TOKEN_EXPIRES_IN,
 			},
-			JWT_SECRET,
+			getJwtSecret(),
 		);
 
 		// Generate refresh token
@@ -165,7 +168,7 @@ export function createAuthRouter(deps: AuthDependencies) {
 				iat: now,
 				exp: now + ACCESS_TOKEN_EXPIRES_IN,
 			},
-			JWT_SECRET,
+			getJwtSecret(),
 		);
 
 		// Generate new refresh token (rotation)

@@ -46,7 +46,7 @@ Smaller features first to enable early MVP validation.
 **Goal**: Minimal UI for user login and registration
 
 ### Frontend Foundation
-- [ ] Initialize React + Vite
+- [x] Initialize React + Vite
 - [ ] Setup routing
 - [ ] API client (fetch wrapper with auth headers)
 - [ ] Auth store (token management)

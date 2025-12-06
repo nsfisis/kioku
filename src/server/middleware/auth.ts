@@ -2,9 +2,12 @@ import type { Context, Next } from "hono";
 import { verify } from "hono/jwt";
 import { Errors } from "./error-handler.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-	throw new Error("JWT_SECRET environment variable is required");
+function getJwtSecret(): string {
+	const secret = process.env.JWT_SECRET;
+	if (!secret) {
+		throw new Error("JWT_SECRET environment variable is required");
+	}
+	return secret;
 }
 
 export interface AuthUser {
@@ -38,7 +41,10 @@ export async function authMiddleware(c: Context, next: Next) {
 	const token = authHeader.slice(7);
 
 	try {
-		const payload = (await verify(token, JWT_SECRET)) as unknown as JWTPayload;
+		const payload = (await verify(
+			token,
+			getJwtSecret(),
+		)) as unknown as JWTPayload;
 
 		const user: AuthUser = {
 			id: payload.sub,
