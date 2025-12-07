@@ -39,3 +39,12 @@ export {
 	type ConflictResolutionResult,
 	type ConflictResolverOptions,
 } from "./conflict";
+
+export {
+	createSyncManager,
+	SyncManager,
+	type SyncManagerEvent,
+	type SyncManagerListener,
+	type SyncManagerOptions,
+	type SyncResult,
+} from "./manager";

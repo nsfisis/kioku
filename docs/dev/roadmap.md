@@ -159,8 +159,8 @@ Smaller features first to enable early MVP validation.
 - [x] Client: Push implementation
 - [x] Client: Pull implementation
 - [x] Conflict resolution (Last-Write-Wins)
-- [ ] Auto-sync on reconnect
-- [ ] Add tests
+- [x] Auto-sync on reconnect
+- [x] Add tests
 
 ### Sync UI
 - [ ] Sync status indicator
