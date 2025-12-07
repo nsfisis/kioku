@@ -165,7 +165,7 @@ Smaller features first to enable early MVP validation.
 ### Sync UI
 - [x] Sync status indicator
 - [x] Manual sync button
-- [ ] Offline mode indicator
+- [x] Offline mode indicator
 
 **✅ Milestone**: Study offline and sync when back online
 
