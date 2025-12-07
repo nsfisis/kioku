@@ -158,6 +158,30 @@ export function DeckDetailPage() {
 					<div
 						style={{
 							display: "flex",
+							gap: "0.5rem",
+							marginBottom: "1rem",
+						}}
+					>
+						<Link href={`/decks/${deckId}/study`}>
+							<button
+								type="button"
+								style={{
+									backgroundColor: "#28a745",
+									color: "white",
+									border: "none",
+									padding: "0.5rem 1rem",
+									borderRadius: "4px",
+									cursor: "pointer",
+								}}
+							>
+								Study Now
+							</button>
+						</Link>
+					</div>
+
+					<div
+						style={{
+							display: "flex",
 							justifyContent: "space-between",
 							alignItems: "center",
 							marginBottom: "1rem",

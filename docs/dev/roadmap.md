@@ -124,12 +124,12 @@ Smaller features first to enable early MVP validation.
 - [x] Add tests
 
 ### Frontend
-- [ ] Study session page
-- [ ] Card flip interaction
-- [ ] Rating buttons (Again, Hard, Good, Easy)
-- [ ] Progress display (remaining cards)
-- [ ] Session complete screen
-- [ ] Add tests
+- [x] Study session page
+- [x] Card flip interaction
+- [x] Rating buttons (Again, Hard, Good, Easy)
+- [x] Progress display (remaining cards)
+- [x] Session complete screen
+- [x] Add tests
 
 **✅ Milestone**: MVP complete - basic study flow works
 
