@@ -29,11 +29,11 @@ const RatingLabels: Record<Rating, string> = {
 	4: "Easy",
 };
 
-const RatingColors: Record<Rating, string> = {
-	1: "#dc3545",
-	2: "#fd7e14",
-	3: "#28a745",
-	4: "#007bff",
+const RatingStyles: Record<Rating, string> = {
+	1: "bg-again hover:bg-again/90 focus:ring-again/30",
+	2: "bg-hard hover:bg-hard/90 focus:ring-hard/30",
+	3: "bg-good hover:bg-good/90 focus:ring-good/30",
+	4: "bg-easy hover:bg-easy/90 focus:ring-easy/30",
 };
 
 export function StudyPage() {
@@ -217,9 +217,16 @@ export function StudyPage() {
 
 	if (!deckId) {
 		return (
-			<div>
-				<p>Invalid deck ID</p>
-				<Link href="/">Back to decks</Link>
+			<div className="min-h-screen bg-cream flex items-center justify-center">
+				<div className="text-center">
+					<p className="text-muted mb-4">Invalid deck ID</p>
+					<Link
+						href="/"
+						className="text-primary hover:text-primary-dark font-medium"
+					>
+						Back to decks
+					</Link>
+				</div>
 			</div>
 		);
 	}
@@ -230,218 +237,259 @@ export function StudyPage() {
 	const remainingCards = cards.length - currentIndex;
 
 	return (
-		<div style={{ maxWidth: "600px", margin: "0 auto", padding: "1rem" }}>
-			<header style={{ marginBottom: "1rem" }}>
-				<Link href={`/decks/${deckId}`} style={{ textDecoration: "none" }}>
-					&larr; Back to Deck
-				</Link>
+		<div className="min-h-screen bg-cream flex flex-col">
+			{/* Header */}
+			<header className="bg-white border-b border-border/50 shrink-0">
+				<div className="max-w-2xl mx-auto px-4 py-4">
+					<Link
+						href={`/decks/${deckId}`}
+						className="inline-flex items-center gap-2 text-muted hover:text-slate transition-colors text-sm"
+					>
+						<svg
+							className="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M15 19l-7-7 7-7"
+							/>
+						</svg>
+						Back to Deck
+					</Link>
+				</div>
 			</header>
 
-			{isLoading && <p>Loading study session...</p>}
-
-			{error && (
-				<div role="alert" style={{ color: "red", marginBottom: "1rem" }}>
-					{error}
-					<button
-						type="button"
-						onClick={fetchData}
-						style={{ marginLeft: "0.5rem" }}
-					>
-						Retry
-					</button>
-				</div>
-			)}
-
-			{!isLoading && !error && deck && (
-				<>
-					<div
-						style={{
-							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-							marginBottom: "1rem",
-						}}
-					>
-						<h1 style={{ margin: 0 }}>Study: {deck.name}</h1>
-						{!isSessionComplete && !hasNoCards && (
-							<span
-								data-testid="remaining-count"
-								style={{
-									backgroundColor: "#f0f0f0",
-									padding: "0.25rem 0.75rem",
-									borderRadius: "12px",
-									fontSize: "0.875rem",
-								}}
-							>
-								{remainingCards} remaining
-							</span>
-						)}
+			{/* Main Content */}
+			<main className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 py-6">
+				{/* Loading State */}
+				{isLoading && (
+					<div className="flex-1 flex items-center justify-center">
+						<svg
+							className="animate-spin h-8 w-8 text-primary"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<circle
+								className="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								strokeWidth="4"
+								fill="none"
+							/>
+							<path
+								className="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+							/>
+						</svg>
 					</div>
+				)}
 
-					{hasNoCards && (
-						<div
-							data-testid="no-cards"
-							style={{
-								textAlign: "center",
-								padding: "3rem 1rem",
-								backgroundColor: "#f8f9fa",
-								borderRadius: "8px",
-							}}
+				{/* Error State */}
+				{error && (
+					<div
+						role="alert"
+						className="bg-error/5 border border-error/20 rounded-xl p-4 flex items-center justify-between mb-4"
+					>
+						<span className="text-error">{error}</span>
+						<button
+							type="button"
+							onClick={fetchData}
+							className="text-error hover:text-error/80 font-medium text-sm"
 						>
-							<h2 style={{ marginTop: 0 }}>No cards to study</h2>
-							<p style={{ color: "#666" }}>
-								There are no due cards in this deck right now.
-							</p>
-							<Link href={`/decks/${deckId}`}>
-								<button type="button">Back to Deck</button>
-							</Link>
-						</div>
-					)}
+							Retry
+						</button>
+					</div>
+				)}
 
-					{isSessionComplete && (
-						<div
-							data-testid="session-complete"
-							style={{
-								textAlign: "center",
-								padding: "3rem 1rem",
-								backgroundColor: "#d4edda",
-								borderRadius: "8px",
-							}}
-						>
-							<h2 style={{ marginTop: 0, color: "#155724" }}>
-								Session Complete!
-							</h2>
-							<p style={{ fontSize: "1.25rem", marginBottom: "1.5rem" }}>
-								You reviewed{" "}
-								<strong data-testid="completed-count">{completedCount}</strong>{" "}
-								card{completedCount !== 1 ? "s" : ""}.
-							</p>
-							<div
-								style={{
-									display: "flex",
-									gap: "1rem",
-									justifyContent: "center",
-								}}
-							>
-								<Link href={`/decks/${deckId}`}>
-									<button type="button">Back to Deck</button>
-								</Link>
-								<Link href="/">
-									<button type="button">All Decks</button>
-								</Link>
-							</div>
-						</div>
-					)}
-
-					{currentCard && !isSessionComplete && (
-						<div data-testid="study-card">
-							<button
-								type="button"
-								data-testid="card-container"
-								onClick={!isFlipped ? handleFlip : undefined}
-								aria-label={
-									isFlipped ? "Card showing answer" : "Click to reveal answer"
-								}
-								disabled={isFlipped}
-								style={{
-									width: "100%",
-									border: "1px solid #ccc",
-									borderRadius: "8px",
-									padding: "2rem",
-									minHeight: "200px",
-									display: "flex",
-									flexDirection: "column",
-									justifyContent: "center",
-									alignItems: "center",
-									cursor: isFlipped ? "default" : "pointer",
-									backgroundColor: isFlipped ? "#f8f9fa" : "white",
-									transition: "background-color 0.2s",
-									font: "inherit",
-								}}
-							>
-								{!isFlipped ? (
-									<>
-										<p
-											data-testid="card-front"
-											style={{
-												fontSize: "1.25rem",
-												textAlign: "center",
-												margin: 0,
-												whiteSpace: "pre-wrap",
-												wordBreak: "break-word",
-											}}
-										>
-											{currentCard.front}
-										</p>
-										<p
-											style={{
-												marginTop: "1.5rem",
-												color: "#666",
-												fontSize: "0.875rem",
-											}}
-										>
-											Click or press Space to reveal
-										</p>
-									</>
-								) : (
-									<p
-										data-testid="card-back"
-										style={{
-											fontSize: "1.25rem",
-											textAlign: "center",
-											margin: 0,
-											whiteSpace: "pre-wrap",
-											wordBreak: "break-word",
-										}}
-									>
-										{currentCard.back}
-									</p>
-								)}
-							</button>
-
-							{isFlipped && (
-								<div
-									data-testid="rating-buttons"
-									style={{
-										display: "flex",
-										gap: "0.5rem",
-										justifyContent: "center",
-										marginTop: "1rem",
-									}}
+				{/* Study Content */}
+				{!isLoading && !error && deck && (
+					<div className="flex-1 flex flex-col animate-fade-in">
+						{/* Study Header */}
+						<div className="flex items-center justify-between mb-6">
+							<h1 className="font-display text-xl font-medium text-slate truncate">
+								{deck.name}
+							</h1>
+							{!isSessionComplete && !hasNoCards && (
+								<span
+									data-testid="remaining-count"
+									className="bg-ivory text-slate px-3 py-1 rounded-full text-sm font-medium"
 								>
-									{([1, 2, 3, 4] as Rating[]).map((rating) => (
-										<button
-											key={rating}
-											type="button"
-											data-testid={`rating-${rating}`}
-											onClick={() => handleRating(rating)}
-											disabled={isSubmitting}
-											style={{
-												flex: 1,
-												padding: "0.75rem 1rem",
-												backgroundColor: RatingColors[rating],
-												color: "white",
-												border: "none",
-												borderRadius: "4px",
-												cursor: isSubmitting ? "not-allowed" : "pointer",
-												opacity: isSubmitting ? 0.6 : 1,
-												fontSize: "0.875rem",
-											}}
-										>
-											<span style={{ display: "block", fontWeight: "bold" }}>
-												{RatingLabels[rating]}
-											</span>
-											<span style={{ display: "block", fontSize: "0.75rem" }}>
-												{rating}
-											</span>
-										</button>
-									))}
-								</div>
+									{remainingCards} remaining
+								</span>
 							)}
 						</div>
-					)}
-				</>
-			)}
+
+						{/* No Cards State */}
+						{hasNoCards && (
+							<div
+								data-testid="no-cards"
+								className="flex-1 flex items-center justify-center"
+							>
+								<div className="text-center py-12 px-6 bg-white rounded-2xl border border-border/50 shadow-card max-w-sm w-full">
+									<div className="w-16 h-16 mx-auto mb-4 bg-success/10 rounded-2xl flex items-center justify-center">
+										<svg
+											className="w-8 h-8 text-success"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									</div>
+									<h2 className="font-display text-xl font-medium text-slate mb-2">
+										All caught up!
+									</h2>
+									<p className="text-muted text-sm mb-6">
+										No cards due for review right now
+									</p>
+									<Link
+										href={`/decks/${deckId}`}
+										className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+									>
+										Back to Deck
+									</Link>
+								</div>
+							</div>
+						)}
+
+						{/* Session Complete State */}
+						{isSessionComplete && (
+							<div
+								data-testid="session-complete"
+								className="flex-1 flex items-center justify-center"
+							>
+								<div className="text-center py-12 px-6 bg-white rounded-2xl border border-border/50 shadow-lg max-w-sm w-full animate-scale-in">
+									<div className="w-20 h-20 mx-auto mb-6 bg-success/10 rounded-full flex items-center justify-center">
+										<svg
+											className="w-10 h-10 text-success"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
+										</svg>
+									</div>
+									<h2 className="font-display text-2xl font-semibold text-ink mb-2">
+										Session Complete!
+									</h2>
+									<p className="text-muted mb-1">You reviewed</p>
+									<p className="text-4xl font-display font-bold text-primary mb-1">
+										<span data-testid="completed-count">{completedCount}</span>
+									</p>
+									<p className="text-muted mb-8">
+										card{completedCount !== 1 ? "s" : ""}
+									</p>
+									<div className="flex flex-col sm:flex-row gap-3 justify-center">
+										<Link
+											href={`/decks/${deckId}`}
+											className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+										>
+											Back to Deck
+										</Link>
+										<Link
+											href="/"
+											className="inline-flex items-center justify-center gap-2 bg-ivory hover:bg-border text-slate font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+										>
+											All Decks
+										</Link>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{/* Active Study Card */}
+						{currentCard && !isSessionComplete && (
+							<div data-testid="study-card" className="flex-1 flex flex-col">
+								{/* Card */}
+								<button
+									type="button"
+									data-testid="card-container"
+									onClick={!isFlipped ? handleFlip : undefined}
+									aria-label={
+										isFlipped ? "Card showing answer" : "Click to reveal answer"
+									}
+									disabled={isFlipped}
+									className={`flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex flex-col items-center justify-center text-center transition-all duration-300 ${
+										!isFlipped
+											? "cursor-pointer hover:shadow-lg hover:border-primary/30 active:scale-[0.99]"
+											: "bg-ivory/50"
+									}`}
+								>
+									{!isFlipped ? (
+										<>
+											<p
+												data-testid="card-front"
+												className="text-xl md:text-2xl text-ink font-medium whitespace-pre-wrap break-words leading-relaxed"
+											>
+												{currentCard.front}
+											</p>
+											<p className="mt-8 text-muted text-sm flex items-center gap-2">
+												<kbd className="px-2 py-0.5 bg-ivory rounded text-xs font-mono">
+													Space
+												</kbd>
+												<span>or tap to reveal</span>
+											</p>
+										</>
+									) : (
+										<p
+											data-testid="card-back"
+											className="text-xl md:text-2xl text-ink font-medium whitespace-pre-wrap break-words leading-relaxed animate-fade-in"
+										>
+											{currentCard.back}
+										</p>
+									)}
+								</button>
+
+								{/* Rating Buttons */}
+								{isFlipped && (
+									<div
+										data-testid="rating-buttons"
+										className="mt-6 grid grid-cols-4 gap-2 animate-slide-up"
+									>
+										{([1, 2, 3, 4] as Rating[]).map((rating) => (
+											<button
+												key={rating}
+												type="button"
+												data-testid={`rating-${rating}`}
+												onClick={() => handleRating(rating)}
+												disabled={isSubmitting}
+												className={`py-4 px-2 rounded-xl text-white font-medium transition-all duration-200 focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] ${RatingStyles[rating]}`}
+											>
+												<span className="block text-base font-semibold">
+													{RatingLabels[rating]}
+												</span>
+												<span className="block text-xs opacity-80 mt-0.5">
+													{rating}
+												</span>
+											</button>
+										))}
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+				)}
+			</main>
 		</div>
 	);
 }

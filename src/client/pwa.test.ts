@@ -21,8 +21,8 @@ describe("PWA Configuration", () => {
 			expect(viteConfig).toContain(
 				'description: "A spaced repetition learning app"',
 			);
-			expect(viteConfig).toContain('theme_color: "#4CAF50"');
-			expect(viteConfig).toContain('background_color: "#ffffff"');
+			expect(viteConfig).toContain('theme_color: "#1a535c"');
+			expect(viteConfig).toContain('background_color: "#faf9f6"');
 			expect(viteConfig).toContain('display: "standalone"');
 			expect(viteConfig).toContain('start_url: "/"');
 		});

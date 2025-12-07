@@ -38,42 +38,113 @@ export function LoginPage() {
 	};
 
 	return (
-		<div>
-			<h1>Login</h1>
-			<form onSubmit={handleSubmit}>
-				{error && (
-					<div role="alert" style={{ color: "red" }}>
-						{error}
-					</div>
-				)}
-				<div>
-					<label htmlFor="username">Username</label>
-					<input
-						id="username"
-						type="text"
-						value={username}
-						onChange={(e) => setUsername(e.target.value)}
-						required
-						autoComplete="username"
-						disabled={isSubmitting}
-					/>
+		<div className="min-h-screen flex items-center justify-center px-4 py-12 bg-cream">
+			<div className="w-full max-w-sm animate-slide-up">
+				{/* Logo/Brand */}
+				<div className="text-center mb-10">
+					<h1 className="font-display text-4xl font-semibold text-ink tracking-tight">
+						Kioku
+					</h1>
+					<p className="mt-2 text-muted text-sm">Your memory, amplified</p>
 				</div>
-				<div>
-					<label htmlFor="password">Password</label>
-					<input
-						id="password"
-						type="password"
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
-						required
-						autoComplete="current-password"
-						disabled={isSubmitting}
-					/>
+
+				{/* Login Card */}
+				<div className="bg-white rounded-2xl shadow-lg p-8 border border-border/50">
+					<h2 className="font-display text-xl font-medium text-slate mb-6">
+						Welcome back
+					</h2>
+
+					<form onSubmit={handleSubmit} className="space-y-5">
+						{error && (
+							<div
+								role="alert"
+								className="bg-error/5 text-error text-sm px-4 py-3 rounded-lg border border-error/20"
+							>
+								{error}
+							</div>
+						)}
+
+						<div>
+							<label
+								htmlFor="username"
+								className="block text-sm font-medium text-slate mb-1.5"
+							>
+								Username
+							</label>
+							<input
+								id="username"
+								type="text"
+								value={username}
+								onChange={(e) => setUsername(e.target.value)}
+								required
+								autoComplete="username"
+								disabled={isSubmitting}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+								placeholder="Enter your username"
+							/>
+						</div>
+
+						<div>
+							<label
+								htmlFor="password"
+								className="block text-sm font-medium text-slate mb-1.5"
+							>
+								Password
+							</label>
+							<input
+								id="password"
+								type="password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								autoComplete="current-password"
+								disabled={isSubmitting}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+								placeholder="Enter your password"
+							/>
+						</div>
+
+						<button
+							type="submit"
+							disabled={isSubmitting}
+							className="w-full bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] shadow-sm hover:shadow-md"
+						>
+							{isSubmitting ? (
+								<span className="flex items-center justify-center gap-2">
+									<svg
+										className="animate-spin h-4 w-4"
+										viewBox="0 0 24 24"
+										aria-hidden="true"
+									>
+										<circle
+											className="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											strokeWidth="4"
+											fill="none"
+										/>
+										<path
+											className="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+										/>
+									</svg>
+									Signing in...
+								</span>
+							) : (
+								"Sign in"
+							)}
+						</button>
+					</form>
 				</div>
-				<button type="submit" disabled={isSubmitting}>
-					{isSubmitting ? "Logging in..." : "Login"}
-				</button>
-			</form>
+
+				{/* Footer note */}
+				<p className="text-center text-muted text-xs mt-6">
+					Spaced repetition learning
+				</p>
+			</div>
 		</div>
 	);
 }

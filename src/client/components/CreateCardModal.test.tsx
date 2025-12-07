@@ -84,7 +84,7 @@ describe("CreateCardModal", () => {
 		expect(screen.getByLabelText("Front")).toBeDefined();
 		expect(screen.getByLabelText("Back")).toBeDefined();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
-		expect(screen.getByRole("button", { name: "Create" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Create Card" })).toBeDefined();
 	});
 
 	it("disables create button when front is empty", async () => {
@@ -93,7 +93,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Back"), "Answer");
 
-		const createButton = screen.getByRole("button", { name: "Create" });
+		const createButton = screen.getByRole("button", { name: "Create Card" });
 		expect(createButton).toHaveProperty("disabled", true);
 	});
 
@@ -103,7 +103,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "Question");
 
-		const createButton = screen.getByRole("button", { name: "Create" });
+		const createButton = screen.getByRole("button", { name: "Create Card" });
 		expect(createButton).toHaveProperty("disabled", true);
 	});
 
@@ -114,7 +114,7 @@ describe("CreateCardModal", () => {
 		await user.type(screen.getByLabelText("Front"), "Question");
 		await user.type(screen.getByLabelText("Back"), "Answer");
 
-		const createButton = screen.getByRole("button", { name: "Create" });
+		const createButton = screen.getByRole("button", { name: "Create Card" });
 		expect(createButton).toHaveProperty("disabled", false);
 	});
 
@@ -181,7 +181,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "What is 2+2?");
 		await user.type(screen.getByLabelText("Back"), "4");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		await waitFor(() => {
 			expect(
@@ -213,7 +213,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "  Question  ");
 		await user.type(screen.getByLabelText("Back"), "  Answer  ");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		await waitFor(() => {
 			expect(
@@ -241,7 +241,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "Question");
 		await user.type(screen.getByLabelText("Back"), "Answer");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		expect(screen.getByRole("button", { name: "Creating..." })).toBeDefined();
 		expect(screen.getByRole("button", { name: "Creating..." })).toHaveProperty(
@@ -271,7 +271,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "Question");
 		await user.type(screen.getByLabelText("Back"), "Answer");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -291,7 +291,7 @@ describe("CreateCardModal", () => {
 
 		await user.type(screen.getByLabelText("Front"), "Question");
 		await user.type(screen.getByLabelText("Back"), "Answer");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -358,7 +358,7 @@ describe("CreateCardModal", () => {
 		// Create a card
 		await user.type(screen.getByLabelText("Front"), "Question");
 		await user.type(screen.getByLabelText("Back"), "Answer");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Card" }));
 
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalled();

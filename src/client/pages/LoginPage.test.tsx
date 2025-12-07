@@ -55,10 +55,11 @@ describe("LoginPage", () => {
 	it("renders login form", async () => {
 		renderWithProviders();
 
-		expect(screen.getByRole("heading", { name: "Login" })).toBeDefined();
+		expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
+		expect(screen.getByRole("heading", { name: "Welcome back" })).toBeDefined();
 		expect(screen.getByLabelText("Username")).toBeDefined();
 		expect(screen.getByLabelText("Password")).toBeDefined();
-		expect(screen.getByRole("button", { name: "Login" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
 	});
 
 	it("submits form and logs in successfully", async () => {
@@ -74,7 +75,7 @@ describe("LoginPage", () => {
 
 		await user.type(screen.getByLabelText("Username"), "testuser");
 		await user.type(screen.getByLabelText("Password"), "password123");
-		await user.click(screen.getByRole("button", { name: "Login" }));
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() => {
 			expect(apiClient.login).toHaveBeenCalledWith("testuser", "password123");
@@ -92,7 +93,7 @@ describe("LoginPage", () => {
 
 		await user.type(screen.getByLabelText("Username"), "testuser");
 		await user.type(screen.getByLabelText("Password"), "wrongpassword");
-		await user.click(screen.getByRole("button", { name: "Login" }));
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toBe("Invalid credentials");
@@ -107,7 +108,7 @@ describe("LoginPage", () => {
 
 		await user.type(screen.getByLabelText("Username"), "testuser");
 		await user.type(screen.getByLabelText("Password"), "password123");
-		await user.click(screen.getByRole("button", { name: "Login" }));
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toBe(
@@ -126,10 +127,10 @@ describe("LoginPage", () => {
 
 		await user.type(screen.getByLabelText("Username"), "testuser");
 		await user.type(screen.getByLabelText("Password"), "password123");
-		await user.click(screen.getByRole("button", { name: "Login" }));
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() => {
-			const button = screen.getByRole("button", { name: "Logging in..." });
+			const button = screen.getByRole("button", { name: /Signing in/ });
 			expect(button.hasAttribute("disabled")).toBe(true);
 		});
 		expect(

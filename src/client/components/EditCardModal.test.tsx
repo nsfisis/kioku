@@ -76,7 +76,7 @@ describe("EditCardModal", () => {
 		expect(screen.getByLabelText("Front")).toBeDefined();
 		expect(screen.getByLabelText("Back")).toBeDefined();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
-		expect(screen.getByRole("button", { name: "Save" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Save Changes" })).toBeDefined();
 	});
 
 	it("populates form with card values", () => {
@@ -96,7 +96,7 @@ describe("EditCardModal", () => {
 		const frontInput = screen.getByLabelText("Front");
 		await user.clear(frontInput);
 
-		const saveButton = screen.getByRole("button", { name: "Save" });
+		const saveButton = screen.getByRole("button", { name: "Save Changes" });
 		expect(saveButton).toHaveProperty("disabled", true);
 	});
 
@@ -107,14 +107,14 @@ describe("EditCardModal", () => {
 		const backInput = screen.getByLabelText("Back");
 		await user.clear(backInput);
 
-		const saveButton = screen.getByRole("button", { name: "Save" });
+		const saveButton = screen.getByRole("button", { name: "Save Changes" });
 		expect(saveButton).toHaveProperty("disabled", true);
 	});
 
 	it("enables save button when both front and back have content", () => {
 		render(<EditCardModal {...defaultProps} />);
 
-		const saveButton = screen.getByRole("button", { name: "Save" });
+		const saveButton = screen.getByRole("button", { name: "Save Changes" });
 		expect(saveButton).toHaveProperty("disabled", false);
 	});
 
@@ -180,7 +180,7 @@ describe("EditCardModal", () => {
 		const frontInput = screen.getByLabelText("Front");
 		await user.clear(frontInput);
 		await user.type(frontInput, "Updated front");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith(
@@ -232,7 +232,7 @@ describe("EditCardModal", () => {
 		const backInput = screen.getByLabelText("Back");
 		await user.clear(backInput);
 		await user.type(backInput, "Updated back");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith(
@@ -270,7 +270,7 @@ describe("EditCardModal", () => {
 		};
 		render(<EditCardModal {...defaultProps} card={cardWithWhitespace} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith(
@@ -297,7 +297,7 @@ describe("EditCardModal", () => {
 
 		render(<EditCardModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		expect(screen.getByRole("button", { name: "Saving..." })).toBeDefined();
 		expect(screen.getByRole("button", { name: "Saving..." })).toHaveProperty(
@@ -323,7 +323,7 @@ describe("EditCardModal", () => {
 
 		render(<EditCardModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain("Card not found");
@@ -337,7 +337,7 @@ describe("EditCardModal", () => {
 
 		render(<EditCardModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -353,7 +353,7 @@ describe("EditCardModal", () => {
 
 		render(<EditCardModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -396,7 +396,7 @@ describe("EditCardModal", () => {
 		);
 
 		// Trigger error
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 		await waitFor(() => {
 			expect(screen.getByRole("alert")).toBeDefined();
 		});

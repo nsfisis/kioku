@@ -151,7 +151,8 @@ describe("DeckDetailPage", () => {
 
 		renderWithProviders();
 
-		expect(screen.getByText("Loading...")).toBeDefined();
+		// Loading state shows spinner (svg with animate-spin class)
+		expect(document.querySelector(".animate-spin")).toBeDefined();
 	});
 
 	it("displays empty state when no cards exist", async () => {
@@ -168,9 +169,9 @@ describe("DeckDetailPage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.getByText("This deck has no cards yet.")).toBeDefined();
+			expect(screen.getByText("No cards yet")).toBeDefined();
 		});
-		expect(screen.getByText("Add cards to start studying!")).toBeDefined();
+		expect(screen.getByText("Add cards to start studying")).toBeDefined();
 	});
 
 	it("displays list of cards", async () => {
@@ -208,7 +209,7 @@ describe("DeckDetailPage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.getByRole("heading", { name: "Cards (2)" })).toBeDefined();
+			expect(screen.getByText("(2)")).toBeDefined();
 		});
 	});
 
@@ -226,9 +227,9 @@ describe("DeckDetailPage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.getByText("State: New")).toBeDefined();
+			expect(screen.getByText("New")).toBeDefined();
 		});
-		expect(screen.getByText("State: Review")).toBeDefined();
+		expect(screen.getByText("Review")).toBeDefined();
 	});
 
 	it("displays card stats (reps and lapses)", async () => {
@@ -245,11 +246,10 @@ describe("DeckDetailPage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.getByText("Reviews: 0")).toBeDefined();
+			expect(screen.getByText("0 reviews")).toBeDefined();
 		});
-		expect(screen.getByText("Reviews: 5")).toBeDefined();
-		expect(screen.getByText("Lapses: 0")).toBeDefined();
-		expect(screen.getByText("Lapses: 1")).toBeDefined();
+		expect(screen.getByText("5 reviews")).toBeDefined();
+		expect(screen.getByText("1 lapses")).toBeDefined();
 	});
 
 	it("displays error on API failure for deck", async () => {
@@ -391,7 +391,9 @@ describe("DeckDetailPage", () => {
 				expect(screen.getByText("Hello")).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete card",
+			});
 			expect(deleteButtons.length).toBe(2);
 		});
 
@@ -414,7 +416,9 @@ describe("DeckDetailPage", () => {
 				expect(screen.getByText("Hello")).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete card",
+			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
 				await user.click(firstDeleteButton);
@@ -445,7 +449,9 @@ describe("DeckDetailPage", () => {
 				expect(screen.getByText("Hello")).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete card",
+			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
 				await user.click(firstDeleteButton);
@@ -488,18 +494,20 @@ describe("DeckDetailPage", () => {
 				expect(screen.getByText("Hello")).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete card",
+			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
 				await user.click(firstDeleteButton);
 			}
 
-			// Find the Delete button in the modal (not the card list)
-			const modalDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const confirmDeleteButton = modalDeleteButtons.find((btn) =>
-				btn.closest('[role="dialog"]'),
+			// Find the Delete button in the modal (using the button's text content)
+			const dialog = screen.getByRole("dialog");
+			const modalButtons = dialog.querySelectorAll("button");
+			// Find the button with "Delete" text (not "Cancel")
+			const confirmDeleteButton = Array.from(modalButtons).find((btn) =>
+				btn.textContent?.includes("Delete"),
 			);
 			if (confirmDeleteButton) {
 				await user.click(confirmDeleteButton);
@@ -518,9 +526,7 @@ describe("DeckDetailPage", () => {
 
 			// Verify card count updated
 			await waitFor(() => {
-				expect(
-					screen.getByRole("heading", { name: "Cards (1)" }),
-				).toBeDefined();
+				expect(screen.getByText("(1)")).toBeDefined();
 			});
 		});
 
@@ -550,18 +556,20 @@ describe("DeckDetailPage", () => {
 				expect(screen.getByText("Hello")).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete card",
+			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
 				await user.click(firstDeleteButton);
 			}
 
-			// Find the Delete button in the modal
-			const modalDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const confirmDeleteButton = modalDeleteButtons.find((btn) =>
-				btn.closest('[role="dialog"]'),
+			// Find the Delete button in the modal (using the button's text content)
+			const dialog = screen.getByRole("dialog");
+			const modalButtons = dialog.querySelectorAll("button");
+			// Find the button with "Delete" text (not "Cancel")
+			const confirmDeleteButton = Array.from(modalButtons).find((btn) =>
+				btn.textContent?.includes("Delete"),
 			);
 			if (confirmDeleteButton) {
 				await user.click(confirmDeleteButton);

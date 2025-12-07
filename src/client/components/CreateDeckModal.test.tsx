@@ -79,13 +79,13 @@ describe("CreateDeckModal", () => {
 		expect(screen.getByLabelText("Name")).toBeDefined();
 		expect(screen.getByLabelText("Description (optional)")).toBeDefined();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
-		expect(screen.getByRole("button", { name: "Create" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Create Deck" })).toBeDefined();
 	});
 
 	it("disables create button when name is empty", () => {
 		render(<CreateDeckModal {...defaultProps} />);
 
-		const createButton = screen.getByRole("button", { name: "Create" });
+		const createButton = screen.getByRole("button", { name: "Create Deck" });
 		expect(createButton).toHaveProperty("disabled", true);
 	});
 
@@ -96,7 +96,7 @@ describe("CreateDeckModal", () => {
 		const nameInput = screen.getByLabelText("Name");
 		await user.type(nameInput, "My Deck");
 
-		const createButton = screen.getByRole("button", { name: "Create" });
+		const createButton = screen.getByRole("button", { name: "Create Deck" });
 		expect(createButton).toHaveProperty("disabled", false);
 	});
 
@@ -161,7 +161,7 @@ describe("CreateDeckModal", () => {
 		);
 
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
@@ -206,7 +206,7 @@ describe("CreateDeckModal", () => {
 			screen.getByLabelText("Description (optional)"),
 			"A test description",
 		);
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
@@ -236,7 +236,7 @@ describe("CreateDeckModal", () => {
 			screen.getByLabelText("Description (optional)"),
 			"  Description  ",
 		);
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
@@ -256,7 +256,7 @@ describe("CreateDeckModal", () => {
 		render(<CreateDeckModal {...defaultProps} />);
 
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		expect(screen.getByRole("button", { name: "Creating..." })).toBeDefined();
 		expect(screen.getByRole("button", { name: "Creating..." })).toHaveProperty(
@@ -288,7 +288,7 @@ describe("CreateDeckModal", () => {
 		render(<CreateDeckModal {...defaultProps} />);
 
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -307,7 +307,7 @@ describe("CreateDeckModal", () => {
 		render(<CreateDeckModal {...defaultProps} />);
 
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -376,7 +376,7 @@ describe("CreateDeckModal", () => {
 
 		// Create a deck
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create" }));
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalled();

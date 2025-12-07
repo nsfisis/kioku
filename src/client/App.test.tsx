@@ -114,14 +114,16 @@ describe("App routing", () => {
 
 	it("renders login page at /login", () => {
 		renderWithRouter("/login");
-		expect(screen.getByRole("heading", { name: "Login" })).toBeDefined();
+		expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
+		expect(screen.getByRole("heading", { name: "Welcome back" })).toBeDefined();
 	});
 
 	it("renders 404 page for unknown routes", () => {
 		renderWithRouter("/unknown-route");
+		expect(screen.getByRole("heading", { name: "404" })).toBeDefined();
 		expect(
-			screen.getByRole("heading", { name: "404 - Not Found" }),
+			screen.getByRole("heading", { name: "Page Not Found" }),
 		).toBeDefined();
-		expect(screen.getByRole("link", { name: "Go to Home" })).toBeDefined();
+		expect(screen.getByRole("link", { name: /Go Home/i })).toBeDefined();
 	});
 });

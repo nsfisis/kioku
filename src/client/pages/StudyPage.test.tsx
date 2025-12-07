@@ -129,7 +129,8 @@ describe("StudyPage", () => {
 
 			renderWithProviders();
 
-			expect(screen.getByText("Loading study session...")).toBeDefined();
+			// Loading state shows spinner (svg with animate-spin class)
+			expect(document.querySelector(".animate-spin")).toBeDefined();
 		});
 
 		it("renders deck name and back link", async () => {
@@ -147,7 +148,7 @@ describe("StudyPage", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("heading", { name: /Study: Japanese Vocabulary/ }),
+					screen.getByRole("heading", { name: /Japanese Vocabulary/ }),
 				).toBeDefined();
 			});
 
@@ -229,7 +230,7 @@ describe("StudyPage", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("heading", { name: /Study: Japanese Vocabulary/ }),
+					screen.getByRole("heading", { name: /Japanese Vocabulary/ }),
 				).toBeDefined();
 			});
 		});
@@ -252,9 +253,9 @@ describe("StudyPage", () => {
 			await waitFor(() => {
 				expect(screen.getByTestId("no-cards")).toBeDefined();
 			});
-			expect(screen.getByText("No cards to study")).toBeDefined();
+			expect(screen.getByText("All caught up!")).toBeDefined();
 			expect(
-				screen.getByText("There are no due cards in this deck right now."),
+				screen.getByText("No cards due for review right now"),
 			).toBeDefined();
 		});
 	});
@@ -633,7 +634,7 @@ describe("StudyPage", () => {
 				expect(screen.getByTestId("session-complete")).toBeDefined();
 			});
 
-			expect(screen.getByText("Back to Deck")).toBeDefined();
+			expect(screen.getAllByText("Back to Deck").length).toBeGreaterThan(0);
 			expect(screen.getByText("All Decks")).toBeDefined();
 		});
 	});

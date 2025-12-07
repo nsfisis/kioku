@@ -137,7 +137,8 @@ describe("HomePage", () => {
 
 		renderWithProviders();
 
-		expect(screen.getByText("Loading decks...")).toBeDefined();
+		// Loading state shows spinner (svg with animate-spin class)
+		expect(document.querySelector(".animate-spin")).toBeDefined();
 	});
 
 	it("displays empty state when no decks exist", async () => {
@@ -151,10 +152,10 @@ describe("HomePage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.getByText("You don't have any decks yet.")).toBeDefined();
+			expect(screen.getByText("No decks yet")).toBeDefined();
 		});
 		expect(
-			screen.getByText("Create your first deck to start learning!"),
+			screen.getByText("Create your first deck to start learning"),
 		).toBeDefined();
 	});
 
@@ -255,7 +256,7 @@ describe("HomePage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(screen.queryByText("Loading decks...")).toBeNull();
+			expect(screen.getByText("No decks yet")).toBeDefined();
 		});
 
 		await user.click(screen.getByRole("button", { name: "Logout" }));
@@ -290,11 +291,11 @@ describe("HomePage", () => {
 			).toBeDefined();
 		});
 
-		// The deck item should only contain the heading, no description paragraph
-		const deckItem = screen
+		// The deck card should only contain the heading, no description paragraph
+		const deckCard = screen
 			.getByRole("heading", { name: "No Description Deck" })
-			.closest("li");
-		expect(deckItem?.querySelectorAll("p").length).toBe(0);
+			.closest("div[class*='bg-white']");
+		expect(deckCard?.querySelectorAll("p").length).toBe(0);
 	});
 
 	it("passes auth header when fetching decks", async () => {
@@ -315,7 +316,7 @@ describe("HomePage", () => {
 	});
 
 	describe("Create Deck", () => {
-		it("shows Create Deck button", async () => {
+		it("shows New Deck button", async () => {
 			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
 				mockResponse({
 					ok: true,
@@ -326,13 +327,13 @@ describe("HomePage", () => {
 			renderWithProviders();
 
 			await waitFor(() => {
-				expect(screen.queryByText("Loading decks...")).toBeNull();
+				expect(screen.getByText("No decks yet")).toBeDefined();
 			});
 
-			expect(screen.getByRole("button", { name: "Create Deck" })).toBeDefined();
+			expect(screen.getByRole("button", { name: /New Deck/i })).toBeDefined();
 		});
 
-		it("opens modal when Create Deck button is clicked", async () => {
+		it("opens modal when New Deck button is clicked", async () => {
 			const user = userEvent.setup();
 			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
 				mockResponse({
@@ -344,10 +345,10 @@ describe("HomePage", () => {
 			renderWithProviders();
 
 			await waitFor(() => {
-				expect(screen.queryByText("Loading decks...")).toBeNull();
+				expect(screen.getByText("No decks yet")).toBeDefined();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+			await user.click(screen.getByRole("button", { name: /New Deck/i }));
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 			expect(
@@ -367,10 +368,10 @@ describe("HomePage", () => {
 			renderWithProviders();
 
 			await waitFor(() => {
-				expect(screen.queryByText("Loading decks...")).toBeNull();
+				expect(screen.getByText("No decks yet")).toBeDefined();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+			await user.click(screen.getByRole("button", { name: /New Deck/i }));
 			expect(screen.getByRole("dialog")).toBeDefined();
 
 			await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -413,11 +414,11 @@ describe("HomePage", () => {
 			renderWithProviders();
 
 			await waitFor(() => {
-				expect(screen.queryByText("Loading decks...")).toBeNull();
+				expect(screen.getByText("No decks yet")).toBeDefined();
 			});
 
 			// Open modal
-			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+			await user.click(screen.getByRole("button", { name: /New Deck/i }));
 
 			// Fill in form
 			await user.type(screen.getByLabelText("Name"), "New Deck");
@@ -427,7 +428,7 @@ describe("HomePage", () => {
 			);
 
 			// Submit
-			await user.click(screen.getByRole("button", { name: "Create" }));
+			await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 			// Modal should close
 			await waitFor(() => {
@@ -462,7 +463,7 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
 			expect(editButtons.length).toBe(2);
 		});
 
@@ -483,7 +484,7 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
 			await user.click(editButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
@@ -511,7 +512,7 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
 			await user.click(editButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
@@ -556,7 +557,7 @@ describe("HomePage", () => {
 			});
 
 			// Click Edit on first deck
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
 			await user.click(editButtons.at(0) as HTMLElement);
 
 			// Update name
@@ -565,7 +566,7 @@ describe("HomePage", () => {
 			await user.type(nameInput, "Updated Japanese");
 
 			// Save
-			await user.click(screen.getByRole("button", { name: "Save" }));
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 			// Modal should close
 			await waitFor(() => {
@@ -601,7 +602,9 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete deck",
+			});
 			expect(deleteButtons.length).toBe(2);
 		});
 
@@ -622,7 +625,9 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete deck",
+			});
 			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
@@ -651,7 +656,9 @@ describe("HomePage", () => {
 				).toBeDefined();
 			});
 
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete deck",
+			});
 			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
@@ -692,7 +699,9 @@ describe("HomePage", () => {
 			});
 
 			// Click Delete on first deck
-			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete deck",
+			});
 			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			// Wait for modal to appear

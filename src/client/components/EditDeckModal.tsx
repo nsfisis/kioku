@@ -96,18 +96,7 @@ export function EditDeckModal({
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="edit-deck-title"
-			style={{
-				position: "fixed",
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
-				backgroundColor: "rgba(0, 0, 0, 0.5)",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				zIndex: 1000,
-			}}
+			className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
 			onClick={(e) => {
 				if (e.target === e.currentTarget) {
 					handleClose();
@@ -119,83 +108,82 @@ export function EditDeckModal({
 				}
 			}}
 		>
-			<div
-				style={{
-					backgroundColor: "white",
-					padding: "1.5rem",
-					borderRadius: "8px",
-					width: "100%",
-					maxWidth: "400px",
-					margin: "1rem",
-				}}
-			>
-				<h2 id="edit-deck-title" style={{ marginTop: 0 }}>
-					Edit Deck
-				</h2>
-
-				<form onSubmit={handleSubmit}>
-					{error && (
-						<div role="alert" style={{ color: "red", marginBottom: "1rem" }}>
-							{error}
-						</div>
-					)}
-
-					<div style={{ marginBottom: "1rem" }}>
-						<label
-							htmlFor="edit-deck-name"
-							style={{ display: "block", marginBottom: "0.25rem" }}
-						>
-							Name
-						</label>
-						<input
-							id="edit-deck-name"
-							type="text"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							required
-							maxLength={255}
-							disabled={isSubmitting}
-							style={{ width: "100%", boxSizing: "border-box" }}
-						/>
-					</div>
-
-					<div style={{ marginBottom: "1rem" }}>
-						<label
-							htmlFor="edit-deck-description"
-							style={{ display: "block", marginBottom: "0.25rem" }}
-						>
-							Description (optional)
-						</label>
-						<textarea
-							id="edit-deck-description"
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							maxLength={1000}
-							disabled={isSubmitting}
-							rows={3}
-							style={{
-								width: "100%",
-								boxSizing: "border-box",
-								resize: "vertical",
-							}}
-						/>
-					</div>
-
-					<div
-						style={{
-							display: "flex",
-							gap: "0.5rem",
-							justifyContent: "flex-end",
-						}}
+			<div className="bg-white rounded-2xl shadow-xl w-full max-w-md animate-scale-in">
+				<div className="p-6">
+					<h2
+						id="edit-deck-title"
+						className="font-display text-xl font-medium text-ink mb-6"
 					>
-						<button type="button" onClick={handleClose} disabled={isSubmitting}>
-							Cancel
-						</button>
-						<button type="submit" disabled={isSubmitting || !name.trim()}>
-							{isSubmitting ? "Saving..." : "Save"}
-						</button>
-					</div>
-				</form>
+						Edit Deck
+					</h2>
+
+					<form onSubmit={handleSubmit} className="space-y-4">
+						{error && (
+							<div
+								role="alert"
+								className="bg-error/5 text-error text-sm px-4 py-3 rounded-lg border border-error/20"
+							>
+								{error}
+							</div>
+						)}
+
+						<div>
+							<label
+								htmlFor="edit-deck-name"
+								className="block text-sm font-medium text-slate mb-1.5"
+							>
+								Name
+							</label>
+							<input
+								id="edit-deck-name"
+								type="text"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								required
+								maxLength={255}
+								disabled={isSubmitting}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+							/>
+						</div>
+
+						<div>
+							<label
+								htmlFor="edit-deck-description"
+								className="block text-sm font-medium text-slate mb-1.5"
+							>
+								Description{" "}
+								<span className="text-muted font-normal">(optional)</span>
+							</label>
+							<textarea
+								id="edit-deck-description"
+								value={description}
+								onChange={(e) => setDescription(e.target.value)}
+								maxLength={1000}
+								disabled={isSubmitting}
+								rows={3}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+							/>
+						</div>
+
+						<div className="flex gap-3 justify-end pt-2">
+							<button
+								type="button"
+								onClick={handleClose}
+								disabled={isSubmitting}
+								className="px-4 py-2 text-slate hover:bg-ivory rounded-lg transition-colors disabled:opacity-50"
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								disabled={isSubmitting || !name.trim()}
+								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{isSubmitting ? "Saving..." : "Save Changes"}
+							</button>
+						</div>
+					</form>
+				</div>
 			</div>
 		</div>
 	);

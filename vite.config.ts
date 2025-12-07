@@ -1,9 +1,11 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
 	plugins: [
+		tailwindcss(),
 		react(),
 		VitePWA({
 			registerType: "autoUpdate",
@@ -12,8 +14,8 @@ export default defineConfig({
 				name: "Kioku",
 				short_name: "Kioku",
 				description: "A spaced repetition learning app",
-				theme_color: "#4CAF50",
-				background_color: "#ffffff",
+				theme_color: "#1a535c",
+				background_color: "#faf9f6",
 				display: "standalone",
 				scope: "/",
 				start_url: "/",

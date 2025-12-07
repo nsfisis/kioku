@@ -79,7 +79,8 @@ describe("OfflineBanner", () => {
 		render(<OfflineBanner />);
 
 		const banner = screen.getByTestId("offline-banner");
-		expect(banner.getAttribute("role")).toBe("status");
+		// <output> element has implicit role="status", so we check it's an output element
+		expect(banner.tagName.toLowerCase()).toBe("output");
 		expect(banner.getAttribute("aria-live")).toBe("polite");
 	});
 });

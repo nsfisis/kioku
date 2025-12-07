@@ -76,7 +76,7 @@ describe("EditDeckModal", () => {
 		expect(screen.getByLabelText("Name")).toBeDefined();
 		expect(screen.getByLabelText("Description (optional)")).toBeDefined();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
-		expect(screen.getByRole("button", { name: "Save" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Save Changes" })).toBeDefined();
 	});
 
 	it("populates form with deck values", () => {
@@ -106,14 +106,14 @@ describe("EditDeckModal", () => {
 		const nameInput = screen.getByLabelText("Name");
 		await user.clear(nameInput);
 
-		const saveButton = screen.getByRole("button", { name: "Save" });
+		const saveButton = screen.getByRole("button", { name: "Save Changes" });
 		expect(saveButton).toHaveProperty("disabled", true);
 	});
 
 	it("enables save button when name has content", () => {
 		render(<EditDeckModal {...defaultProps} />);
 
-		const saveButton = screen.getByRole("button", { name: "Save" });
+		const saveButton = screen.getByRole("button", { name: "Save Changes" });
 		expect(saveButton).toHaveProperty("disabled", false);
 	});
 
@@ -179,7 +179,7 @@ describe("EditDeckModal", () => {
 		const nameInput = screen.getByLabelText("Name");
 		await user.clear(nameInput);
 		await user.type(nameInput, "Updated Deck");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
@@ -228,7 +228,7 @@ describe("EditDeckModal", () => {
 		const descInput = screen.getByLabelText("Description (optional)");
 		await user.clear(descInput);
 		await user.type(descInput, "New description");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
@@ -267,7 +267,7 @@ describe("EditDeckModal", () => {
 
 		const descInput = screen.getByLabelText("Description (optional)");
 		await user.clear(descInput);
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
@@ -299,7 +299,7 @@ describe("EditDeckModal", () => {
 		};
 		render(<EditDeckModal {...defaultProps} deck={deckWithWhitespace} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
@@ -323,7 +323,7 @@ describe("EditDeckModal", () => {
 
 		render(<EditDeckModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		expect(screen.getByRole("button", { name: "Saving..." })).toBeDefined();
 		expect(screen.getByRole("button", { name: "Saving..." })).toHaveProperty(
@@ -352,7 +352,7 @@ describe("EditDeckModal", () => {
 
 		render(<EditDeckModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -368,7 +368,7 @@ describe("EditDeckModal", () => {
 
 		render(<EditDeckModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -384,7 +384,7 @@ describe("EditDeckModal", () => {
 
 		render(<EditDeckModal {...defaultProps} />);
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
@@ -430,7 +430,7 @@ describe("EditDeckModal", () => {
 		);
 
 		// Trigger error
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 		await waitFor(() => {
 			expect(screen.getByRole("alert")).toBeDefined();
 		});
