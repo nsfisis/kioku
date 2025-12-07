@@ -3,6 +3,8 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 # Enable corepack for pnpm
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
@@ -10,7 +12,8 @@ RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 COPY package.json pnpm-lock.yaml ./
 
 # Install all dependencies (including devDependencies for build)
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Copy source files needed for client build
 COPY tsconfig.json vite.config.ts index.html ./
