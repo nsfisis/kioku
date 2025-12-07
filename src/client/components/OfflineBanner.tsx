@@ -8,9 +8,8 @@ export function OfflineBanner() {
 	}
 
 	return (
-		<div
+		<output
 			data-testid="offline-banner"
-			role="status"
 			aria-live="polite"
 			style={{
 				backgroundColor: "#6c757d",
@@ -34,6 +33,6 @@ export function OfflineBanner() {
 					</span>
 				)}
 			</span>
-		</div>
+		</output>
 	);
 }

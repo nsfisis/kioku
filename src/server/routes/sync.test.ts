@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware/index.js";
 import type {
 	SyncPullResult,
-	SyncPushData,
 	SyncPushResult,
 	SyncRepository,
 } from "../repositories/sync.js";

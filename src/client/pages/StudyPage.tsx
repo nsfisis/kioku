@@ -119,62 +119,69 @@ export function StudyPage() {
 		fetchData();
 	}, [fetchData]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Reset timer when card changes
 	useEffect(() => {
 		cardStartTimeRef.current = Date.now();
 	}, [currentIndex]);
 
-	const handleFlip = () => {
+	const handleFlip = useCallback(() => {
 		setIsFlipped(true);
-	};
+	}, []);
 
-	const handleRating = async (rating: Rating) => {
-		if (!deckId || isSubmitting) return;
+	const handleRating = useCallback(
+		async (rating: Rating) => {
+			if (!deckId || isSubmitting) return;
 
-		const currentCard = cards[currentIndex];
-		if (!currentCard) return;
+			const currentCard = cards[currentIndex];
+			if (!currentCard) return;
 
-		setIsSubmitting(true);
-		setError(null);
+			setIsSubmitting(true);
+			setError(null);
 
-		const durationMs = Date.now() - cardStartTimeRef.current;
+			const durationMs = Date.now() - cardStartTimeRef.current;
 
-		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
+			try {
+				const authHeader = apiClient.getAuthHeader();
+				if (!authHeader) {
+					throw new ApiClientError("Not authenticated", 401);
+				}
 
-			const res = await fetch(`/api/decks/${deckId}/study/${currentCard.id}`, {
-				method: "POST",
-				headers: {
-					...authHeader,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ rating, durationMs }),
-			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
+				const res = await fetch(
+					`/api/decks/${deckId}/study/${currentCard.id}`,
+					{
+						method: "POST",
+						headers: {
+							...authHeader,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ rating, durationMs }),
+					},
 				);
-			}
 
-			setCompletedCount((prev) => prev + 1);
-			setIsFlipped(false);
-			setCurrentIndex((prev) => prev + 1);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to submit review. Please try again.");
+				if (!res.ok) {
+					const errorBody = await res.json().catch(() => ({}));
+					throw new ApiClientError(
+						(errorBody as { error?: string }).error ||
+							`Request failed with status ${res.status}`,
+						res.status,
+					);
+				}
+
+				setCompletedCount((prev) => prev + 1);
+				setIsFlipped(false);
+				setCurrentIndex((prev) => prev + 1);
+			} catch (err) {
+				if (err instanceof ApiClientError) {
+					setError(err.message);
+				} else {
+					setError("Failed to submit review. Please try again.");
+				}
+			} finally {
+				setIsSubmitting(false);
 			}
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+		},
+		[deckId, isSubmitting, cards, currentIndex],
+	);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
@@ -200,7 +207,7 @@ export function StudyPage() {
 				}
 			}
 		},
-		[isFlipped, isSubmitting],
+		[isFlipped, isSubmitting, handleFlip, handleRating],
 	);
 
 	useEffect(() => {
@@ -328,21 +335,16 @@ export function StudyPage() {
 
 					{currentCard && !isSessionComplete && (
 						<div data-testid="study-card">
-							<div
+							<button
+								type="button"
 								data-testid="card-container"
 								onClick={!isFlipped ? handleFlip : undefined}
-								onKeyDown={(e) => {
-									if (!isFlipped && (e.key === " " || e.key === "Enter")) {
-										e.preventDefault();
-										handleFlip();
-									}
-								}}
-								role="button"
-								tabIndex={0}
 								aria-label={
 									isFlipped ? "Card showing answer" : "Click to reveal answer"
 								}
+								disabled={isFlipped}
 								style={{
+									width: "100%",
 									border: "1px solid #ccc",
 									borderRadius: "8px",
 									padding: "2rem",
@@ -354,6 +356,7 @@ export function StudyPage() {
 									cursor: isFlipped ? "default" : "pointer",
 									backgroundColor: isFlipped ? "#f8f9fa" : "white",
 									transition: "background-color 0.2s",
+									font: "inherit",
 								}}
 							>
 								{!isFlipped ? (
@@ -381,22 +384,20 @@ export function StudyPage() {
 										</p>
 									</>
 								) : (
-									<>
-										<p
-											data-testid="card-back"
-											style={{
-												fontSize: "1.25rem",
-												textAlign: "center",
-												margin: 0,
-												whiteSpace: "pre-wrap",
-												wordBreak: "break-word",
-											}}
-										>
-											{currentCard.back}
-										</p>
-									</>
+									<p
+										data-testid="card-back"
+										style={{
+											fontSize: "1.25rem",
+											textAlign: "center",
+											margin: 0,
+											whiteSpace: "pre-wrap",
+											wordBreak: "break-word",
+										}}
+									>
+										{currentCard.back}
+									</p>
 								)}
-							</div>
+							</button>
 
 							{isFlipped && (
 								<div

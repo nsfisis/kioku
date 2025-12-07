@@ -484,7 +484,7 @@ describe("HomePage", () => {
 			});
 
 			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]!);
+			await user.click(editButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 			expect(screen.getByRole("heading", { name: "Edit Deck" })).toBeDefined();
@@ -512,7 +512,7 @@ describe("HomePage", () => {
 			});
 
 			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]!);
+			await user.click(editButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 
@@ -557,7 +557,7 @@ describe("HomePage", () => {
 
 			// Click Edit on first deck
 			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]!);
+			await user.click(editButtons.at(0) as HTMLElement);
 
 			// Update name
 			const nameInput = screen.getByLabelText("Name");
@@ -623,7 +623,7 @@ describe("HomePage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
-			await user.click(deleteButtons[0]!);
+			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 			expect(
@@ -652,7 +652,7 @@ describe("HomePage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
-			await user.click(deleteButtons[0]!);
+			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 
@@ -693,7 +693,7 @@ describe("HomePage", () => {
 
 			// Click Delete on first deck
 			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
-			await user.click(deleteButtons[0]!);
+			await user.click(deleteButtons.at(0) as HTMLElement);
 
 			// Wait for modal to appear
 			await waitFor(() => {
@@ -706,7 +706,7 @@ describe("HomePage", () => {
 			const deleteButton = Array.from(dialogButtons).find(
 				(btn) => btn.textContent === "Delete",
 			);
-			await user.click(deleteButton!);
+			await user.click(deleteButton as HTMLElement);
 
 			// Modal should close
 			await waitFor(() => {

@@ -1,12 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import {
 	CardState,
-	type CardStateType,
 	db,
 	type LocalCard,
 	type LocalDeck,
 	type LocalReviewLog,
-	type RatingType,
 } from "./index";
 
 /**
