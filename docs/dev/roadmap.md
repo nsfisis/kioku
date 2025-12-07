@@ -140,10 +140,10 @@ Smaller features first to enable early MVP validation.
 **Goal**: Study offline
 
 ### PWA Setup
-- [ ] vite-plugin-pwa configuration
-- [ ] Web manifest
-- [ ] Service Worker
-- [ ] Offline fallback page
+- [x] vite-plugin-pwa configuration
+- [x] Web manifest
+- [x] Service Worker
+- [x] Offline fallback page
 - [ ] Add tests
 
 ### IndexedDB (Local Storage)
