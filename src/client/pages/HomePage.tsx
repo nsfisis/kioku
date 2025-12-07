@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { CreateDeckModal } from "../components/CreateDeckModal";
 import { useAuth } from "../stores";
 
 interface Deck {
@@ -16,6 +17,7 @@ export function HomePage() {
 	const [decks, setDecks] = useState<Deck[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
 	const fetchDecks = useCallback(async () => {
 		setIsLoading(true);
@@ -69,7 +71,19 @@ export function HomePage() {
 			</header>
 
 			<main>
-				<h2>Your Decks</h2>
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						marginBottom: "1rem",
+					}}
+				>
+					<h2 style={{ margin: 0 }}>Your Decks</h2>
+					<button type="button" onClick={() => setIsCreateModalOpen(true)}>
+						Create Deck
+					</button>
+				</div>
 
 				{isLoading && <p>Loading decks...</p>}
 
@@ -116,6 +130,12 @@ export function HomePage() {
 					</ul>
 				)}
 			</main>
+
+			<CreateDeckModal
+				isOpen={isCreateModalOpen}
+				onClose={() => setIsCreateModalOpen(false)}
+				onDeckCreated={fetchDecks}
+			/>
 		</div>
 	);
 }

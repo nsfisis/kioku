@@ -21,6 +21,7 @@ vi.mock("../api/client", () => ({
 			api: {
 				decks: {
 					$get: vi.fn(),
+					$post: vi.fn(),
 				},
 			},
 		},
@@ -38,9 +39,26 @@ vi.mock("../api/client", () => ({
 }));
 
 // Helper to create mock responses compatible with Hono's ClientResponse
-// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-function mockResponse(data: { ok: boolean; status?: number; json: () => Promise<any> }) {
-	return data as unknown as Awaited<ReturnType<typeof apiClient.rpc.api.decks.$get>>;
+function mockResponse(data: {
+	ok: boolean;
+	status?: number;
+	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
+	json: () => Promise<any>;
+}) {
+	return data as unknown as Awaited<
+		ReturnType<typeof apiClient.rpc.api.decks.$get>
+	>;
+}
+
+function mockPostResponse(data: {
+	ok: boolean;
+	status?: number;
+	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
+	json: () => Promise<any>;
+}) {
+	return data as unknown as Awaited<
+		ReturnType<typeof apiClient.rpc.api.decks.$post>
+	>;
 }
 
 const mockDecks = [
@@ -286,6 +304,137 @@ describe("HomePage", () => {
 			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledWith(undefined, {
 				headers: { Authorization: "Bearer access-token" },
 			});
+		});
+	});
+
+	describe("Create Deck", () => {
+		it("shows Create Deck button", async () => {
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: [] }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.queryByText("Loading decks...")).toBeNull();
+			});
+
+			expect(screen.getByRole("button", { name: "Create Deck" })).toBeDefined();
+		});
+
+		it("opens modal when Create Deck button is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: [] }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.queryByText("Loading decks...")).toBeNull();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+			expect(
+				screen.getByRole("heading", { name: "Create New Deck" }),
+			).toBeDefined();
+		});
+
+		it("closes modal when Cancel is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: [] }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.queryByText("Loading decks...")).toBeNull();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+			expect(screen.getByRole("dialog")).toBeDefined();
+
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			expect(screen.queryByRole("dialog")).toBeNull();
+		});
+
+		it("creates deck and refreshes list", async () => {
+			const user = userEvent.setup();
+			const newDeck = {
+				id: "deck-new",
+				name: "New Deck",
+				description: "A new deck",
+				newCardsPerDay: 20,
+				createdAt: "2024-01-03T00:00:00Z",
+				updatedAt: "2024-01-03T00:00:00Z",
+			};
+
+			vi.mocked(apiClient.rpc.api.decks.$get)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: [] }),
+					}),
+				)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: [newDeck] }),
+					}),
+				);
+
+			vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
+				mockPostResponse({
+					ok: true,
+					json: async () => ({ deck: newDeck }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.queryByText("Loading decks...")).toBeNull();
+			});
+
+			// Open modal
+			await user.click(screen.getByRole("button", { name: "Create Deck" }));
+
+			// Fill in form
+			await user.type(screen.getByLabelText("Name"), "New Deck");
+			await user.type(
+				screen.getByLabelText("Description (optional)"),
+				"A new deck",
+			);
+
+			// Submit
+			await user.click(screen.getByRole("button", { name: "Create" }));
+
+			// Modal should close
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).toBeNull();
+			});
+
+			// Deck list should be refreshed with new deck
+			await waitFor(() => {
+				expect(screen.getByRole("heading", { name: "New Deck" })).toBeDefined();
+			});
+			expect(screen.getByText("A new deck")).toBeDefined();
+
+			// API should have been called twice (initial + refresh)
+			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(2);
 		});
 	});
 });

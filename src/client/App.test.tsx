@@ -37,9 +37,15 @@ vi.mock("./api/client", () => ({
 }));
 
 // Helper to create mock responses compatible with Hono's ClientResponse
-// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-function mockResponse(data: { ok: boolean; status?: number; json: () => Promise<any> }) {
-	return data as unknown as Awaited<ReturnType<typeof apiClient.rpc.api.decks.$get>>;
+function mockResponse(data: {
+	ok: boolean;
+	status?: number;
+	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
+	json: () => Promise<any>;
+}) {
+	return data as unknown as Awaited<
+		ReturnType<typeof apiClient.rpc.api.decks.$get>
+	>;
 }
 
 function renderWithRouter(path: string) {
