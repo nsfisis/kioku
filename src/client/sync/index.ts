@@ -19,3 +19,14 @@ export {
 	type SyncPushResult,
 	type SyncReviewLogData,
 } from "./push";
+
+export {
+	createPullService,
+	pullResultToLocalData,
+	PullService,
+	type PullServiceOptions,
+	type ServerCard,
+	type ServerDeck,
+	type ServerReviewLog,
+	type SyncPullResult,
+} from "./pull";

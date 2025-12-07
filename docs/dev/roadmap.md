@@ -157,7 +157,7 @@ Smaller features first to enable early MVP validation.
 - [x] GET /api/sync/pull endpoint
 - [x] Client: Sync queue management
 - [x] Client: Push implementation
-- [ ] Client: Pull implementation
+- [x] Client: Pull implementation
 - [ ] Conflict resolution (Last-Write-Wins)
 - [ ] Auto-sync on reconnect
 - [ ] Add tests
