@@ -1,3 +1,10 @@
+import {
+	faCheck,
+	faChevronLeft,
+	faCircleCheck,
+	faSpinner,
+} from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
@@ -245,20 +252,11 @@ export function StudyPage() {
 						href={`/decks/${deckId}`}
 						className="inline-flex items-center gap-2 text-muted hover:text-slate transition-colors text-sm"
 					>
-						<svg
+						<FontAwesomeIcon
+							icon={faChevronLeft}
 							className="w-4 h-4"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
 							aria-hidden="true"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M15 19l-7-7 7-7"
-							/>
-						</svg>
+						/>
 						Back to Deck
 					</Link>
 				</div>
@@ -269,26 +267,11 @@ export function StudyPage() {
 				{/* Loading State */}
 				{isLoading && (
 					<div className="flex-1 flex items-center justify-center">
-						<svg
-							className="animate-spin h-8 w-8 text-primary"
-							viewBox="0 0 24 24"
+						<FontAwesomeIcon
+							icon={faSpinner}
+							className="h-8 w-8 text-primary animate-spin"
 							aria-hidden="true"
-						>
-							<circle
-								className="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								strokeWidth="4"
-								fill="none"
-							/>
-							<path
-								className="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							/>
-						</svg>
+						/>
 					</div>
 				)}
 
@@ -335,20 +318,11 @@ export function StudyPage() {
 							>
 								<div className="text-center py-12 px-6 bg-white rounded-2xl border border-border/50 shadow-card max-w-sm w-full">
 									<div className="w-16 h-16 mx-auto mb-4 bg-success/10 rounded-2xl flex items-center justify-center">
-										<svg
+										<FontAwesomeIcon
+											icon={faCheck}
 											className="w-8 h-8 text-success"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
 											aria-hidden="true"
-										>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M5 13l4 4L19 7"
-											/>
-										</svg>
+										/>
 									</div>
 									<h2 className="font-display text-xl font-medium text-slate mb-2">
 										All caught up!
@@ -374,20 +348,11 @@ export function StudyPage() {
 							>
 								<div className="text-center py-12 px-6 bg-white rounded-2xl border border-border/50 shadow-lg max-w-sm w-full animate-scale-in">
 									<div className="w-20 h-20 mx-auto mb-6 bg-success/10 rounded-full flex items-center justify-center">
-										<svg
+										<FontAwesomeIcon
+											icon={faCircleCheck}
 											className="w-10 h-10 text-success"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
 											aria-hidden="true"
-										>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-											/>
-										</svg>
+										/>
 									</div>
 									<h2 className="font-display text-2xl font-semibold text-ink mb-2">
 										Session Complete!
