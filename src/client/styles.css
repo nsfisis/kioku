@@ -27,8 +27,8 @@
 	--color-info: #2563eb;
 
 	/* Typography */
-	--font-display: "Fraunces", "Georgia", serif;
-	--font-body: "DM Sans", system-ui, sans-serif;
+	--font-display: "Noto Sans CJK JP", "Noto Sans JP", system-ui, sans-serif;
+	--font-body: "Noto Sans CJK JP", "Noto Sans JP", system-ui, sans-serif;
 
 	/* Border radius */
 	--radius-sm: 0.375rem;
