@@ -148,9 +148,9 @@ Smaller features first to enable early MVP validation.
 
 ### IndexedDB (Local Storage)
 - [x] Dexie.js setup
-- [ ] Local schema (with _synced flag)
-- [ ] Local CRUD operations for Deck/Card/ReviewLog
-- [ ] Add tests
+- [x] Local schema (with _synced flag)
+- [x] Local CRUD operations for Deck/Card/ReviewLog
+- [x] Add tests
 
 ### Sync Engine
 - [ ] POST /api/sync/push endpoint
