@@ -80,8 +80,8 @@ Smaller features first to enable early MVP validation.
 **Goal**: Create, edit, and delete decks
 
 ### Server API
-- [ ] Deck CRUD endpoints (GET, POST, PUT, DELETE)
-- [ ] Add tests
+- [x] Deck CRUD endpoints (GET, POST, PUT, DELETE)
+- [x] Add tests
 
 ### Frontend
 - [ ] Deck list page (empty state, list view)

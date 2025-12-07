@@ -44,3 +44,36 @@ export interface RefreshTokenRepository {
 	}): Promise<void>;
 	deleteById(id: string): Promise<void>;
 }
+
+export interface Deck {
+	id: string;
+	userId: string;
+	name: string;
+	description: string | null;
+	newCardsPerDay: number;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+export interface DeckRepository {
+	findByUserId(userId: string): Promise<Deck[]>;
+	findById(id: string, userId: string): Promise<Deck | undefined>;
+	create(data: {
+		userId: string;
+		name: string;
+		description?: string | null;
+		newCardsPerDay?: number;
+	}): Promise<Deck>;
+	update(
+		id: string,
+		userId: string,
+		data: {
+			name?: string;
+			description?: string | null;
+			newCardsPerDay?: number;
+		},
+	): Promise<Deck | undefined>;
+	softDelete(id: string, userId: string): Promise<boolean>;
+}

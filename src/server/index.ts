@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { errorHandler } from "./middleware/index.js";
-import { auth } from "./routes/index.js";
+import { auth, decks } from "./routes/index.js";
 
 const app = new Hono();
 
@@ -17,7 +17,8 @@ const routes = app
 	.get("/api/health", (c) => {
 		return c.json({ status: "ok" }, 200);
 	})
-	.route("/api/auth", auth);
+	.route("/api/auth", auth)
+	.route("/api/decks", decks);
 
 export type AppType = typeof routes;
 
