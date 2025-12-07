@@ -38,6 +38,10 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+// Mock fetch globally for Edit/Delete modals
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
 // Helper to create mock responses compatible with Hono's ClientResponse
 function mockResponse(data: {
 	ok: boolean;
@@ -432,6 +436,289 @@ describe("HomePage", () => {
 				expect(screen.getByRole("heading", { name: "New Deck" })).toBeDefined();
 			});
 			expect(screen.getByText("A new deck")).toBeDefined();
+
+			// API should have been called twice (initial + refresh)
+			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	describe("Edit Deck", () => {
+		it("shows Edit button for each deck", async () => {
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			expect(editButtons.length).toBe(2);
+		});
+
+		it("opens edit modal when Edit button is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			await user.click(editButtons[0]!);
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+			expect(screen.getByRole("heading", { name: "Edit Deck" })).toBeDefined();
+			expect(screen.getByLabelText("Name")).toHaveProperty(
+				"value",
+				"Japanese Vocabulary",
+			);
+		});
+
+		it("closes edit modal when Cancel is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			await user.click(editButtons[0]!);
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			expect(screen.queryByRole("dialog")).toBeNull();
+		});
+
+		it("edits deck and refreshes list", async () => {
+			const user = userEvent.setup();
+			const updatedDeck = {
+				...mockDecks[0],
+				name: "Updated Japanese",
+			};
+
+			vi.mocked(apiClient.rpc.api.decks.$get)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: mockDecks }),
+					}),
+				)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: [updatedDeck, mockDecks[1]] }),
+					}),
+				);
+
+			mockFetch.mockResolvedValue({
+				ok: true,
+				json: async () => ({ deck: updatedDeck }),
+			});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			// Click Edit on first deck
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
+			await user.click(editButtons[0]!);
+
+			// Update name
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+			await user.type(nameInput, "Updated Japanese");
+
+			// Save
+			await user.click(screen.getByRole("button", { name: "Save" }));
+
+			// Modal should close
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).toBeNull();
+			});
+
+			// Deck list should be refreshed with updated name
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Updated Japanese" }),
+				).toBeDefined();
+			});
+
+			// API should have been called twice (initial + refresh)
+			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	describe("Delete Deck", () => {
+		it("shows Delete button for each deck", async () => {
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			expect(deleteButtons.length).toBe(2);
+		});
+
+		it("opens delete modal when Delete button is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			await user.click(deleteButtons[0]!);
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+			expect(
+				screen.getByRole("heading", { name: "Delete Deck" }),
+			).toBeDefined();
+			// The deck name appears in both the list and the modal, so check specifically within the dialog
+			const dialog = screen.getByRole("dialog");
+			expect(dialog.textContent).toContain("Japanese Vocabulary");
+		});
+
+		it("closes delete modal when Cancel is clicked", async () => {
+			const user = userEvent.setup();
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: mockDecks }),
+				}),
+			);
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			await user.click(deleteButtons[0]!);
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			expect(screen.queryByRole("dialog")).toBeNull();
+		});
+
+		it("deletes deck and refreshes list", async () => {
+			const user = userEvent.setup();
+
+			vi.mocked(apiClient.rpc.api.decks.$get)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: mockDecks }),
+					}),
+				)
+				.mockResolvedValueOnce(
+					mockResponse({
+						ok: true,
+						json: async () => ({ decks: [mockDecks[1]] }),
+					}),
+				);
+
+			mockFetch.mockResolvedValue({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeDefined();
+			});
+
+			// Click Delete on first deck
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			await user.click(deleteButtons[0]!);
+
+			// Wait for modal to appear
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeDefined();
+			});
+
+			// Confirm deletion - get the Delete button inside the dialog
+			const dialog = screen.getByRole("dialog");
+			const dialogButtons = dialog.querySelectorAll("button");
+			const deleteButton = Array.from(dialogButtons).find(
+				(btn) => btn.textContent === "Delete",
+			);
+			await user.click(deleteButton!);
+
+			// Modal should close
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).toBeNull();
+			});
+
+			// Deck list should be refreshed without deleted deck
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", { name: "Japanese Vocabulary" }),
+				).toBeNull();
+			});
+			expect(
+				screen.getByRole("heading", { name: "Spanish Verbs" }),
+			).toBeDefined();
 
 			// API should have been called twice (initial + refresh)
 			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(2);
