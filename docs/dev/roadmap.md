@@ -87,7 +87,7 @@ Smaller features first to enable early MVP validation.
 - [x] Deck list page (empty state, list view)
 - [x] Create deck modal/form
 - [x] Edit deck
-- [ ] Delete deck (with confirmation)
+- [x] Delete deck (with confirmation)
 - [ ] Add tests
 
 **✅ Milestone**: Users can create and manage decks

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
 import { CreateDeckModal } from "../components/CreateDeckModal";
+import { DeleteDeckModal } from "../components/DeleteDeckModal";
 import { EditDeckModal } from "../components/EditDeckModal";
 import { useAuth } from "../stores";
 
@@ -20,6 +21,7 @@ export function HomePage() {
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
+	const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
 
 	const fetchDecks = useCallback(async () => {
 		setIsLoading(true);
@@ -136,13 +138,25 @@ export function HomePage() {
 											</p>
 										)}
 									</div>
-									<button
-										type="button"
-										onClick={() => setEditingDeck(deck)}
-										style={{ marginLeft: "1rem" }}
-									>
-										Edit
-									</button>
+									<div style={{ display: "flex", gap: "0.5rem" }}>
+										<button type="button" onClick={() => setEditingDeck(deck)}>
+											Edit
+										</button>
+										<button
+											type="button"
+											onClick={() => setDeletingDeck(deck)}
+											style={{
+												backgroundColor: "#dc3545",
+												color: "white",
+												border: "none",
+												padding: "0.25rem 0.5rem",
+												borderRadius: "4px",
+												cursor: "pointer",
+											}}
+										>
+											Delete
+										</button>
+									</div>
 								</div>
 							</li>
 						))}
@@ -161,6 +175,13 @@ export function HomePage() {
 				deck={editingDeck}
 				onClose={() => setEditingDeck(null)}
 				onDeckUpdated={fetchDecks}
+			/>
+
+			<DeleteDeckModal
+				isOpen={deletingDeck !== null}
+				deck={deletingDeck}
+				onClose={() => setDeletingDeck(null)}
+				onDeckDeleted={fetchDecks}
 			/>
 		</div>
 	);
