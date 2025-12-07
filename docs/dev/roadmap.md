@@ -86,7 +86,7 @@ Smaller features first to enable early MVP validation.
 ### Frontend
 - [x] Deck list page (empty state, list view)
 - [x] Create deck modal/form
-- [ ] Edit deck
+- [x] Edit deck
 - [ ] Delete deck (with confirmation)
 - [ ] Add tests
 

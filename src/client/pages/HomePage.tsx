@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
 import { CreateDeckModal } from "../components/CreateDeckModal";
+import { EditDeckModal } from "../components/EditDeckModal";
 import { useAuth } from "../stores";
 
 interface Deck {
@@ -18,6 +19,7 @@ export function HomePage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
 
 	const fetchDecks = useCallback(async () => {
 		setIsLoading(true);
@@ -119,12 +121,29 @@ export function HomePage() {
 									borderRadius: "4px",
 								}}
 							>
-								<h3 style={{ margin: 0 }}>{deck.name}</h3>
-								{deck.description && (
-									<p style={{ margin: "0.5rem 0 0 0", color: "#666" }}>
-										{deck.description}
-									</p>
-								)}
+								<div
+									style={{
+										display: "flex",
+										justifyContent: "space-between",
+										alignItems: "flex-start",
+									}}
+								>
+									<div>
+										<h3 style={{ margin: 0 }}>{deck.name}</h3>
+										{deck.description && (
+											<p style={{ margin: "0.5rem 0 0 0", color: "#666" }}>
+												{deck.description}
+											</p>
+										)}
+									</div>
+									<button
+										type="button"
+										onClick={() => setEditingDeck(deck)}
+										style={{ marginLeft: "1rem" }}
+									>
+										Edit
+									</button>
+								</div>
 							</li>
 						))}
 					</ul>
@@ -135,6 +154,13 @@ export function HomePage() {
 				isOpen={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
 				onDeckCreated={fetchDecks}
+			/>
+
+			<EditDeckModal
+				isOpen={editingDeck !== null}
+				deck={editingDeck}
+				onClose={() => setEditingDeck(null)}
+				onDeckUpdated={fetchDecks}
 			/>
 		</div>
 	);
