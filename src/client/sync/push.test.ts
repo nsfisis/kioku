@@ -9,7 +9,7 @@ import {
 	localDeckRepository,
 	localReviewLogRepository,
 } from "../db/repositories";
-import { pendingChangesToPushData, PushService } from "./push";
+import { PushService, pendingChangesToPushData } from "./push";
 import { SyncQueue } from "./queue";
 
 describe("pendingChangesToPushData", () => {
@@ -450,7 +450,9 @@ describe("PushService", () => {
 				newCardsPerDay: 20,
 			});
 
-			const pushToServer = vi.fn().mockRejectedValue(new Error("Network error"));
+			const pushToServer = vi
+				.fn()
+				.mockRejectedValue(new Error("Network error"));
 
 			const pushService = new PushService({
 				syncQueue,

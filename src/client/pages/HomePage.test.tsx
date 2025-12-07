@@ -1,13 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
+import "fake-indexeddb/auto";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { apiClient } from "../api/client";
-import { AuthProvider } from "../stores";
+import { AuthProvider, SyncProvider } from "../stores";
 import { HomePage } from "./HomePage";
 
 vi.mock("../api/client", () => ({
@@ -89,7 +90,9 @@ function renderWithProviders(path = "/") {
 	return render(
 		<Router hook={hook}>
 			<AuthProvider>
-				<HomePage />
+				<SyncProvider>
+					<HomePage />
+				</SyncProvider>
 			</AuthProvider>
 		</Router>,
 	);

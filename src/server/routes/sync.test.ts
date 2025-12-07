@@ -196,7 +196,9 @@ describe("POST /api/sync/push", () => {
 		const mockResult: SyncPushResult = {
 			decks: [],
 			cards: [],
-			reviewLogs: [{ id: "550e8400-e29b-41d4-a716-446655440002", syncVersion: 1 }],
+			reviewLogs: [
+				{ id: "550e8400-e29b-41d4-a716-446655440002", syncVersion: 1 },
+			],
 			conflicts: { decks: [], cards: [] },
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
@@ -217,7 +219,9 @@ describe("POST /api/sync/push", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as SyncPushResponse;
 		expect(body.reviewLogs).toHaveLength(1);
-		expect(body.reviewLogs?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440002");
+		expect(body.reviewLogs?.[0]?.id).toBe(
+			"550e8400-e29b-41d4-a716-446655440002",
+		);
 	});
 
 	it("returns conflicts when server data is newer", async () => {
@@ -250,7 +254,9 @@ describe("POST /api/sync/push", () => {
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as SyncPushResponse;
-		expect(body.conflicts?.decks).toContain("550e8400-e29b-41d4-a716-446655440003");
+		expect(body.conflicts?.decks).toContain(
+			"550e8400-e29b-41d4-a716-446655440003",
+		);
 	});
 
 	it("validates deck schema", async () => {
@@ -380,7 +386,9 @@ describe("POST /api/sync/push", () => {
 		const mockResult: SyncPushResult = {
 			decks: [{ id: "550e8400-e29b-41d4-a716-446655440004", syncVersion: 1 }],
 			cards: [{ id: "550e8400-e29b-41d4-a716-446655440005", syncVersion: 1 }],
-			reviewLogs: [{ id: "550e8400-e29b-41d4-a716-446655440006", syncVersion: 1 }],
+			reviewLogs: [
+				{ id: "550e8400-e29b-41d4-a716-446655440006", syncVersion: 1 },
+			],
 			conflicts: { decks: [], cards: [] },
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
@@ -649,7 +657,9 @@ describe("GET /api/sync/pull", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as SyncPullResponse;
 		expect(body.reviewLogs).toHaveLength(1);
-		expect(body.reviewLogs?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440002");
+		expect(body.reviewLogs?.[0]?.id).toBe(
+			"550e8400-e29b-41d4-a716-446655440002",
+		);
 		expect(body.reviewLogs?.[0]?.rating).toBe(3);
 		expect(body.reviewLogs?.[0]?.durationMs).toBe(5000);
 	});

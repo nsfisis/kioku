@@ -5,7 +5,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CardState, db, Rating } from "../db/index";
 import { localCardRepository, localDeckRepository } from "../db/repositories";
-import { pullResultToLocalData, PullService } from "./pull";
+import { PullService, pullResultToLocalData } from "./pull";
 import { SyncQueue } from "./queue";
 
 describe("pullResultToLocalData", () => {
@@ -68,7 +68,9 @@ describe("pullResultToLocalData", () => {
 			currentSyncVersion: 3,
 		});
 
-		expect(result.decks[0]?.deletedAt).toEqual(new Date("2024-01-03T12:00:00Z"));
+		expect(result.decks[0]?.deletedAt).toEqual(
+			new Date("2024-01-03T12:00:00Z"),
+		);
 	});
 
 	it("should convert server cards to local format", () => {
@@ -410,7 +412,9 @@ describe("PullService", () => {
 		});
 
 		it("should throw error if pull fails", async () => {
-			const pullFromServer = vi.fn().mockRejectedValue(new Error("Network error"));
+			const pullFromServer = vi
+				.fn()
+				.mockRejectedValue(new Error("Network error"));
 
 			const pullService = new PullService({
 				syncQueue,

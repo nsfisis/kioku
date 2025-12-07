@@ -163,7 +163,7 @@ Smaller features first to enable early MVP validation.
 - [x] Add tests
 
 ### Sync UI
-- [ ] Sync status indicator
+- [x] Sync status indicator
 - [ ] Manual sync button
 - [ ] Offline mode indicator
 

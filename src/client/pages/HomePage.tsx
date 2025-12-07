@@ -4,6 +4,7 @@ import { ApiClientError, apiClient } from "../api";
 import { CreateDeckModal } from "../components/CreateDeckModal";
 import { DeleteDeckModal } from "../components/DeleteDeckModal";
 import { EditDeckModal } from "../components/EditDeckModal";
+import { SyncStatusIndicator } from "../components/SyncStatusIndicator";
 import { useAuth } from "../stores";
 
 interface Deck {
@@ -70,9 +71,12 @@ export function HomePage() {
 				}}
 			>
 				<h1>Kioku</h1>
-				<button type="button" onClick={logout}>
-					Logout
-				</button>
+				<div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+					<SyncStatusIndicator />
+					<button type="button" onClick={logout}>
+						Logout
+					</button>
+				</div>
 			</header>
 
 			<main>

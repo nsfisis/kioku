@@ -79,7 +79,10 @@ export interface SyncRepository {
 }
 
 export const syncRepository: SyncRepository = {
-	async pushChanges(userId: string, data: SyncPushData): Promise<SyncPushResult> {
+	async pushChanges(
+		userId: string,
+		data: SyncPushData,
+	): Promise<SyncPushResult> {
 		const result: SyncPushResult = {
 			decks: [],
 			cards: [],
@@ -96,7 +99,11 @@ export const syncRepository: SyncRepository = {
 
 			// Check if deck exists
 			const existing = await db
-				.select({ id: decks.id, updatedAt: decks.updatedAt, syncVersion: decks.syncVersion })
+				.select({
+					id: decks.id,
+					updatedAt: decks.updatedAt,
+					syncVersion: decks.syncVersion,
+				})
 				.from(decks)
 				.where(and(eq(decks.id, deckData.id), eq(decks.userId, userId)));
 
@@ -118,7 +125,10 @@ export const syncRepository: SyncRepository = {
 					.returning({ id: decks.id, syncVersion: decks.syncVersion });
 
 				if (inserted) {
-					result.decks.push({ id: inserted.id, syncVersion: inserted.syncVersion });
+					result.decks.push({
+						id: inserted.id,
+						syncVersion: inserted.syncVersion,
+					});
 				}
 			} else {
 				const serverDeck = existing[0];
@@ -132,19 +142,27 @@ export const syncRepository: SyncRepository = {
 							description: deckData.description,
 							newCardsPerDay: deckData.newCardsPerDay,
 							updatedAt: clientUpdatedAt,
-							deletedAt: deckData.deletedAt ? new Date(deckData.deletedAt) : null,
+							deletedAt: deckData.deletedAt
+								? new Date(deckData.deletedAt)
+								: null,
 							syncVersion: sql`${decks.syncVersion} + 1`,
 						})
 						.where(eq(decks.id, deckData.id))
 						.returning({ id: decks.id, syncVersion: decks.syncVersion });
 
 					if (updated) {
-						result.decks.push({ id: updated.id, syncVersion: updated.syncVersion });
+						result.decks.push({
+							id: updated.id,
+							syncVersion: updated.syncVersion,
+						});
 					}
 				} else if (serverDeck) {
 					// Server wins - mark as conflict
 					result.conflicts.decks.push(deckData.id);
-					result.decks.push({ id: serverDeck.id, syncVersion: serverDeck.syncVersion });
+					result.decks.push({
+						id: serverDeck.id,
+						syncVersion: serverDeck.syncVersion,
+					});
 				}
 			}
 		}
@@ -166,7 +184,11 @@ export const syncRepository: SyncRepository = {
 
 			// Check if card exists
 			const existing = await db
-				.select({ id: cards.id, updatedAt: cards.updatedAt, syncVersion: cards.syncVersion })
+				.select({
+					id: cards.id,
+					updatedAt: cards.updatedAt,
+					syncVersion: cards.syncVersion,
+				})
 				.from(cards)
 				.where(eq(cards.id, cardData.id));
 
@@ -187,7 +209,9 @@ export const syncRepository: SyncRepository = {
 						scheduledDays: cardData.scheduledDays,
 						reps: cardData.reps,
 						lapses: cardData.lapses,
-						lastReview: cardData.lastReview ? new Date(cardData.lastReview) : null,
+						lastReview: cardData.lastReview
+							? new Date(cardData.lastReview)
+							: null,
 						createdAt: new Date(cardData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: cardData.deletedAt ? new Date(cardData.deletedAt) : null,
@@ -196,7 +220,10 @@ export const syncRepository: SyncRepository = {
 					.returning({ id: cards.id, syncVersion: cards.syncVersion });
 
 				if (inserted) {
-					result.cards.push({ id: inserted.id, syncVersion: inserted.syncVersion });
+					result.cards.push({
+						id: inserted.id,
+						syncVersion: inserted.syncVersion,
+					});
 				}
 			} else {
 				const serverCard = existing[0];
@@ -217,21 +244,31 @@ export const syncRepository: SyncRepository = {
 							scheduledDays: cardData.scheduledDays,
 							reps: cardData.reps,
 							lapses: cardData.lapses,
-							lastReview: cardData.lastReview ? new Date(cardData.lastReview) : null,
+							lastReview: cardData.lastReview
+								? new Date(cardData.lastReview)
+								: null,
 							updatedAt: clientUpdatedAt,
-							deletedAt: cardData.deletedAt ? new Date(cardData.deletedAt) : null,
+							deletedAt: cardData.deletedAt
+								? new Date(cardData.deletedAt)
+								: null,
 							syncVersion: sql`${cards.syncVersion} + 1`,
 						})
 						.where(eq(cards.id, cardData.id))
 						.returning({ id: cards.id, syncVersion: cards.syncVersion });
 
 					if (updated) {
-						result.cards.push({ id: updated.id, syncVersion: updated.syncVersion });
+						result.cards.push({
+							id: updated.id,
+							syncVersion: updated.syncVersion,
+						});
 					}
 				} else if (serverCard) {
 					// Server wins - mark as conflict
 					result.conflicts.cards.push(cardData.id);
-					result.cards.push({ id: serverCard.id, syncVersion: serverCard.syncVersion });
+					result.cards.push({
+						id: serverCard.id,
+						syncVersion: serverCard.syncVersion,
+					});
 				}
 			}
 		}
@@ -272,16 +309,25 @@ export const syncRepository: SyncRepository = {
 						durationMs: logData.durationMs,
 						syncVersion: 1,
 					})
-					.returning({ id: reviewLogs.id, syncVersion: reviewLogs.syncVersion });
+					.returning({
+						id: reviewLogs.id,
+						syncVersion: reviewLogs.syncVersion,
+					});
 
 				if (inserted) {
-					result.reviewLogs.push({ id: inserted.id, syncVersion: inserted.syncVersion });
+					result.reviewLogs.push({
+						id: inserted.id,
+						syncVersion: inserted.syncVersion,
+					});
 				}
 			} else {
 				// Already exists, return current version
 				const existingLog = existing[0];
 				if (existingLog) {
-					result.reviewLogs.push({ id: existingLog.id, syncVersion: existingLog.syncVersion });
+					result.reviewLogs.push({
+						id: existingLog.id,
+						syncVersion: existingLog.syncVersion,
+					});
 				}
 			}
 		}
@@ -289,14 +335,19 @@ export const syncRepository: SyncRepository = {
 		return result;
 	},
 
-	async pullChanges(userId: string, query: SyncPullQuery): Promise<SyncPullResult> {
+	async pullChanges(
+		userId: string,
+		query: SyncPullQuery,
+	): Promise<SyncPullResult> {
 		const { lastSyncVersion } = query;
 
 		// Get all decks with syncVersion > lastSyncVersion
 		const pulledDecks = await db
 			.select()
 			.from(decks)
-			.where(and(eq(decks.userId, userId), gt(decks.syncVersion, lastSyncVersion)));
+			.where(
+				and(eq(decks.userId, userId), gt(decks.syncVersion, lastSyncVersion)),
+			);
 
 		// Get all cards from user's decks with syncVersion > lastSyncVersion
 		const userDeckIds = await db
@@ -321,7 +372,12 @@ export const syncRepository: SyncRepository = {
 		const pulledReviewLogs = await db
 			.select()
 			.from(reviewLogs)
-			.where(and(eq(reviewLogs.userId, userId), gt(reviewLogs.syncVersion, lastSyncVersion)));
+			.where(
+				and(
+					eq(reviewLogs.userId, userId),
+					gt(reviewLogs.syncVersion, lastSyncVersion),
+				),
+			);
 
 		// Calculate current max sync version across all entities
 		let currentSyncVersion = lastSyncVersion;

@@ -1,4 +1,9 @@
-import { db, type LocalCard, type LocalDeck, type LocalReviewLog } from "../db/index";
+import {
+	db,
+	type LocalCard,
+	type LocalDeck,
+	type LocalReviewLog,
+} from "../db/index";
 import {
 	localCardRepository,
 	localDeckRepository,
@@ -41,7 +46,10 @@ const SYNC_STATE_KEY = "kioku_sync_state";
 /**
  * Load sync state from localStorage
  */
-function loadSyncState(): Pick<SyncQueueState, "lastSyncVersion" | "lastSyncAt"> {
+function loadSyncState(): Pick<
+	SyncQueueState,
+	"lastSyncVersion" | "lastSyncAt"
+> {
 	const stored = localStorage.getItem(SYNC_STATE_KEY);
 	if (!stored) {
 		return { lastSyncVersion: 0, lastSyncAt: null };
@@ -137,7 +145,9 @@ export class SyncQueue {
 	 */
 	async getPendingCount(): Promise<number> {
 		const changes = await this.getPendingChanges();
-		return changes.decks.length + changes.cards.length + changes.reviewLogs.length;
+		return (
+			changes.decks.length + changes.cards.length + changes.reviewLogs.length
+		);
 	}
 
 	/**
@@ -205,17 +215,24 @@ export class SyncQueue {
 		cards: { id: string; syncVersion: number }[];
 		reviewLogs: { id: string; syncVersion: number }[];
 	}): Promise<void> {
-		await db.transaction("rw", [db.decks, db.cards, db.reviewLogs], async () => {
-			for (const deck of results.decks) {
-				await localDeckRepository.markSynced(deck.id, deck.syncVersion);
-			}
-			for (const card of results.cards) {
-				await localCardRepository.markSynced(card.id, card.syncVersion);
-			}
-			for (const reviewLog of results.reviewLogs) {
-				await localReviewLogRepository.markSynced(reviewLog.id, reviewLog.syncVersion);
-			}
-		});
+		await db.transaction(
+			"rw",
+			[db.decks, db.cards, db.reviewLogs],
+			async () => {
+				for (const deck of results.decks) {
+					await localDeckRepository.markSynced(deck.id, deck.syncVersion);
+				}
+				for (const card of results.cards) {
+					await localCardRepository.markSynced(card.id, card.syncVersion);
+				}
+				for (const reviewLog of results.reviewLogs) {
+					await localReviewLogRepository.markSynced(
+						reviewLog.id,
+						reviewLog.syncVersion,
+					);
+				}
+			},
+		);
 		await this.notifyListeners();
 	}
 
@@ -227,17 +244,21 @@ export class SyncQueue {
 		cards: LocalCard[];
 		reviewLogs: LocalReviewLog[];
 	}): Promise<void> {
-		await db.transaction("rw", [db.decks, db.cards, db.reviewLogs], async () => {
-			for (const deck of data.decks) {
-				await localDeckRepository.upsertFromServer(deck);
-			}
-			for (const card of data.cards) {
-				await localCardRepository.upsertFromServer(card);
-			}
-			for (const reviewLog of data.reviewLogs) {
-				await localReviewLogRepository.upsertFromServer(reviewLog);
-			}
-		});
+		await db.transaction(
+			"rw",
+			[db.decks, db.cards, db.reviewLogs],
+			async () => {
+				for (const deck of data.decks) {
+					await localDeckRepository.upsertFromServer(deck);
+				}
+				for (const card of data.cards) {
+					await localCardRepository.upsertFromServer(card);
+				}
+				for (const reviewLog of data.reviewLogs) {
+					await localReviewLogRepository.upsertFromServer(reviewLog);
+				}
+			},
+		);
 		await this.notifyListeners();
 	}
 

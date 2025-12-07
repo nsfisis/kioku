@@ -466,7 +466,8 @@ describe("ConflictResolver", () => {
 			expect(result.decks).toHaveLength(1);
 			expect(result.decks[0]?.resolution).toBe("server_wins");
 
-			const insertedDeck = await localDeckRepository.findById("non-existent-deck");
+			const insertedDeck =
+				await localDeckRepository.findById("non-existent-deck");
 			expect(insertedDeck?.name).toBe("Server Deck");
 		});
 

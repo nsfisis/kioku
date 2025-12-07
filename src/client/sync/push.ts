@@ -129,7 +129,9 @@ function reviewLogToSyncData(log: LocalReviewLog): SyncReviewLogData {
 /**
  * Convert pending changes to sync push data format
  */
-export function pendingChangesToPushData(changes: PendingChanges): SyncPushData {
+export function pendingChangesToPushData(
+	changes: PendingChanges,
+): SyncPushData {
 	return {
 		decks: changes.decks.map(deckToSyncData),
 		cards: changes.cards.map(cardToSyncData),

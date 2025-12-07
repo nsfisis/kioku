@@ -230,13 +230,17 @@ describe("SyncQueue", () => {
 
 			const state = await syncQueue.getState();
 			expect(state.lastSyncAt).not.toBeNull();
-			expect(state.lastSyncAt?.getTime()).toBeGreaterThanOrEqual(before.getTime());
+			expect(state.lastSyncAt?.getTime()).toBeGreaterThanOrEqual(
+				before.getTime(),
+			);
 		});
 
 		it("should persist state to localStorage", async () => {
 			await syncQueue.completeSync(10);
 
-			const stored = JSON.parse(localStorage.getItem("kioku_sync_state") ?? "{}");
+			const stored = JSON.parse(
+				localStorage.getItem("kioku_sync_state") ?? "{}",
+			);
 			expect(stored.lastSyncVersion).toBe(10);
 			expect(stored.lastSyncAt).toBeDefined();
 		});

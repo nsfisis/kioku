@@ -1,45 +1,11 @@
 export {
-	SyncQueue,
-	SyncStatus,
-	syncQueue,
-	type PendingChanges,
-	type SyncQueueListener,
-	type SyncQueueState,
-	type SyncStatusType,
-} from "./queue";
-
-export {
-	createPushService,
-	pendingChangesToPushData,
-	PushService,
-	type PushServiceOptions,
-	type SyncCardData,
-	type SyncDeckData,
-	type SyncPushData,
-	type SyncPushResult,
-	type SyncReviewLogData,
-} from "./push";
-
-export {
-	createPullService,
-	pullResultToLocalData,
-	PullService,
-	type PullServiceOptions,
-	type ServerCard,
-	type ServerDeck,
-	type ServerReviewLog,
-	type SyncPullResult,
-} from "./pull";
-
-export {
-	ConflictResolver,
-	conflictResolver,
-	createConflictResolver,
 	type ConflictResolutionItem,
 	type ConflictResolutionResult,
+	ConflictResolver,
 	type ConflictResolverOptions,
+	conflictResolver,
+	createConflictResolver,
 } from "./conflict";
-
 export {
 	createSyncManager,
 	SyncManager,
@@ -48,3 +14,34 @@ export {
 	type SyncManagerOptions,
 	type SyncResult,
 } from "./manager";
+
+export {
+	createPullService,
+	PullService,
+	type PullServiceOptions,
+	pullResultToLocalData,
+	type ServerCard,
+	type ServerDeck,
+	type ServerReviewLog,
+	type SyncPullResult,
+} from "./pull";
+export {
+	createPushService,
+	PushService,
+	type PushServiceOptions,
+	pendingChangesToPushData,
+	type SyncCardData,
+	type SyncDeckData,
+	type SyncPushData,
+	type SyncPushResult,
+	type SyncReviewLogData,
+} from "./push";
+export {
+	type PendingChanges,
+	SyncQueue,
+	type SyncQueueListener,
+	type SyncQueueState,
+	SyncStatus,
+	type SyncStatusType,
+	syncQueue,
+} from "./queue";

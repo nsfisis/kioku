@@ -1,8 +1,5 @@
 import type { LocalCard, LocalDeck } from "../db/index";
-import {
-	localCardRepository,
-	localDeckRepository,
-} from "../db/repositories";
+import { localCardRepository, localDeckRepository } from "../db/repositories";
 import type { ServerCard, ServerDeck, SyncPullResult } from "./pull";
 import type { SyncPushResult } from "./push";
 
@@ -39,10 +36,7 @@ export interface ConflictResolverOptions {
  * Compare timestamps for LWW resolution
  * Returns true if server data is newer or equal
  */
-function isServerNewer(
-	serverUpdatedAt: Date,
-	localUpdatedAt: Date,
-): boolean {
+function isServerNewer(serverUpdatedAt: Date, localUpdatedAt: Date): boolean {
 	return serverUpdatedAt.getTime() >= localUpdatedAt.getTime();
 }
 
@@ -222,7 +216,10 @@ export class ConflictResolver {
 			const serverDeck = pullResult.decks.find((d) => d.id === deckId);
 
 			if (localDeck && serverDeck) {
-				const resolution = await this.resolveDeckConflict(localDeck, serverDeck);
+				const resolution = await this.resolveDeckConflict(
+					localDeck,
+					serverDeck,
+				);
 				result.decks.push(resolution);
 			} else if (serverDeck) {
 				// Local doesn't exist, apply server data
@@ -239,7 +236,10 @@ export class ConflictResolver {
 			const serverCard = pullResult.cards.find((c) => c.id === cardId);
 
 			if (localCard && serverCard) {
-				const resolution = await this.resolveCardConflict(localCard, serverCard);
+				const resolution = await this.resolveCardConflict(
+					localCard,
+					serverCard,
+				);
 				result.cards.push(resolution);
 			} else if (serverCard) {
 				// Local doesn't exist, apply server data
@@ -266,4 +266,6 @@ export function createConflictResolver(
 /**
  * Default conflict resolver using LWW (server wins) strategy
  */
-export const conflictResolver = new ConflictResolver({ strategy: "server_wins" });
+export const conflictResolver = new ConflictResolver({
+	strategy: "server_wins",
+});

@@ -8,8 +8,8 @@ import {
 	describe,
 	expect,
 	it,
-	vi,
 	type Mock,
+	vi,
 } from "vitest";
 import { db } from "../db/index";
 import { localDeckRepository } from "../db/repositories";
@@ -42,9 +42,8 @@ describe("SyncManager", () => {
 	/**
 	 * Create a pending deck in the database that will need to be synced
 	 */
-	async function createPendingDeck(id = "deck-1") {
+	async function createPendingDeck() {
 		return localDeckRepository.create({
-			id,
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
@@ -169,12 +168,10 @@ describe("SyncManager", () => {
 			manager.start();
 
 			// Should only be called once for each event type
-			expect(
-				addSpy.mock.calls.filter((c) => c[0] === "online").length,
-			).toBe(1);
-			expect(
-				addSpy.mock.calls.filter((c) => c[0] === "offline").length,
-			).toBe(1);
+			expect(addSpy.mock.calls.filter((c) => c[0] === "online").length).toBe(1);
+			expect(addSpy.mock.calls.filter((c) => c[0] === "offline").length).toBe(
+				1,
+			);
 
 			manager.stop();
 			addSpy.mockRestore();
@@ -354,20 +351,20 @@ describe("SyncManager", () => {
 
 		it("should resolve conflicts when present", async () => {
 			// Create pending data so pushToServer will be called
-			await createPendingDeck();
+			const deck = await createPendingDeck();
 
 			const pushResult: SyncPushResult = {
-				decks: [{ id: "deck-1", syncVersion: 1 }],
+				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: ["deck-1"], cards: [] },
+				conflicts: { decks: [deck.id], cards: [] },
 			};
 			pushToServer.mockResolvedValue(pushResult);
 
 			const pullResult: SyncPullResult = {
 				decks: [
 					{
-						id: "deck-1",
+						id: deck.id,
 						userId: "user-1",
 						name: "Server Deck",
 						description: null,

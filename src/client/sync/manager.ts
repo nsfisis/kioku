@@ -239,8 +239,7 @@ export class SyncManager {
 					pushResult,
 					pullResult,
 				);
-				conflictsResolved =
-					resolution.decks.length + resolution.cards.length;
+				conflictsResolved = resolution.decks.length + resolution.cards.length;
 			}
 
 			const result: SyncResult = {

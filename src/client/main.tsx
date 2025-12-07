@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { AuthProvider } from "./stores";
+import { AuthProvider, SyncProvider } from "./stores";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -11,7 +11,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
 	<StrictMode>
 		<AuthProvider>
-			<App />
+			<SyncProvider>
+				<App />
+			</SyncProvider>
 		</AuthProvider>
 	</StrictMode>,
 );
