@@ -9,24 +9,6 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 - Cloud Sync: Automatic sync when online with conflict resolution
 - Anki Import: Import existing .apkg decks from Anki
 
-## Quick Start (Production)
-
-Deploy the full stack with Docker Compose:
-
-```bash
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env and set a secure JWT_SECRET
-
-# Start all services
-docker compose up -d
-
-# Add your first user
-docker compose exec server pnpm user:add
-```
-
-The application will be available at `http://localhost`.
-
 ## Development Setup
 
 ### Prerequisites
@@ -50,10 +32,10 @@ cp .env.example .env
 docker compose up db -d
 
 # Run database migrations
-pnpm db:migrate
+docker compose exec server pnpm db:migrate
 
 # Add a user
-pnpm user:add
+docker compose exec server pnpm user:add
 
 # Start development servers (in separate terminals)
 pnpm dev          # Backend server (port 3000)
@@ -102,6 +84,9 @@ docker compose up -d
 
 # View logs
 docker compose logs -f
+
+# Connect database
+docker compose exec db psql -U kioku
 
 # Stop all services
 docker compose down

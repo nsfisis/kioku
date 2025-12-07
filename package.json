@@ -21,7 +21,7 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"user:add": "node src/server/scripts/add-user.ts"
+		"user:add": "node dist/server/scripts/add-user.js"
 	},
 	"keywords": [],
 	"author": "nsfisis",

@@ -1,13 +1,17 @@
 import * as esbuild from "esbuild";
 
 await esbuild.build({
-	entryPoints: ["src/server/index.ts"],
+	entryPoints: [
+		"src/server/index.ts",
+		"src/server/scripts/add-user.ts",
+	],
 	bundle: true,
 	platform: "node",
 	target: "node22",
-	outfile: "dist/server/index.js",
 	format: "esm",
 	sourcemap: true,
+	outdir: "dist",
+	outbase: "src",
 	external: [
 		// Node.js built-in modules
 		"node:*",
@@ -20,4 +24,4 @@ await esbuild.build({
 	},
 });
 
-console.log("Server build complete: dist/server/index.js");
+console.log("Build complete");
