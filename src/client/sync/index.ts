@@ -30,3 +30,12 @@ export {
 	type ServerReviewLog,
 	type SyncPullResult,
 } from "./pull";
+
+export {
+	ConflictResolver,
+	conflictResolver,
+	createConflictResolver,
+	type ConflictResolutionItem,
+	type ConflictResolutionResult,
+	type ConflictResolverOptions,
+} from "./conflict";
