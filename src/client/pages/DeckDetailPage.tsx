@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
+import { CreateCardModal } from "../components/CreateCardModal";
 
 interface Card {
 	id: string;
@@ -34,6 +35,7 @@ export function DeckDetailPage() {
 	const [cards, setCards] = useState<Card[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
 	const fetchDeck = useCallback(async () => {
 		if (!deckId) return;
@@ -158,6 +160,9 @@ export function DeckDetailPage() {
 						}}
 					>
 						<h2 style={{ margin: 0 }}>Cards ({cards.length})</h2>
+						<button type="button" onClick={() => setIsCreateModalOpen(true)}>
+							Add Card
+						</button>
 					</div>
 
 					{cards.length === 0 && (
@@ -240,6 +245,15 @@ export function DeckDetailPage() {
 						</ul>
 					)}
 				</main>
+			)}
+
+			{deckId && (
+				<CreateCardModal
+					isOpen={isCreateModalOpen}
+					deckId={deckId}
+					onClose={() => setIsCreateModalOpen(false)}
+					onCardCreated={fetchCards}
+				/>
 			)}
 		</div>
 	);
