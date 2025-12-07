@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { CreateCardModal } from "../components/CreateCardModal";
+import { DeleteCardModal } from "../components/DeleteCardModal";
 import { EditCardModal } from "../components/EditCardModal";
 
 interface Card {
@@ -38,6 +39,7 @@ export function DeckDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingCard, setEditingCard] = useState<Card | null>(null);
+	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
 
 	const fetchDeck = useCallback(async () => {
 		if (!deckId) return;
@@ -241,13 +243,34 @@ export function DeckDetailPage() {
 												<span>Lapses: {card.lapses}</span>
 											</div>
 										</div>
-										<button
-											type="button"
-											onClick={() => setEditingCard(card)}
-											style={{ marginLeft: "1rem" }}
+										<div
+											style={{
+												display: "flex",
+												gap: "0.5rem",
+												marginLeft: "1rem",
+											}}
 										>
-											Edit
-										</button>
+											<button
+												type="button"
+												onClick={() => setEditingCard(card)}
+											>
+												Edit
+											</button>
+											<button
+												type="button"
+												onClick={() => setDeletingCard(card)}
+												style={{
+													backgroundColor: "#dc3545",
+													color: "white",
+													border: "none",
+													padding: "0.5rem 1rem",
+													borderRadius: "4px",
+													cursor: "pointer",
+												}}
+											>
+												Delete
+											</button>
+										</div>
 									</div>
 								</li>
 							))}
@@ -272,6 +295,16 @@ export function DeckDetailPage() {
 					card={editingCard}
 					onClose={() => setEditingCard(null)}
 					onCardUpdated={fetchCards}
+				/>
+			)}
+
+			{deckId && (
+				<DeleteCardModal
+					isOpen={deletingCard !== null}
+					deckId={deckId}
+					card={deletingCard}
+					onClose={() => setDeletingCard(null)}
+					onCardDeleted={fetchCards}
 				/>
 			)}
 		</div>

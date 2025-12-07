@@ -106,8 +106,8 @@ Smaller features first to enable early MVP validation.
 - [x] Card list view (in deck detail page)
 - [x] Create card form (front/back)
 - [x] Edit card
-- [ ] Delete card
-- [ ] Add tests
+- [x] Delete card
+- [x] Add tests
 
 **✅ Milestone**: Users can create and manage cards
 

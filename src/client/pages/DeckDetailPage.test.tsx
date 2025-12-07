@@ -372,4 +372,207 @@ describe("DeckDetailPage", () => {
 		// No description should be shown
 		expect(screen.queryByText("Common Japanese words")).toBeNull();
 	});
+
+	describe("Delete Card", () => {
+		it("shows Delete button for each card", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Hello")).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			expect(deleteButtons.length).toBe(2);
+		});
+
+		it("opens delete confirmation modal when Delete button is clicked", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Hello")).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const firstDeleteButton = deleteButtons[0];
+			if (firstDeleteButton) {
+				await user.click(firstDeleteButton);
+			}
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+			expect(
+				screen.getByRole("heading", { name: "Delete Card" }),
+			).toBeDefined();
+		});
+
+		it("closes delete modal when Cancel is clicked", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Hello")).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const firstDeleteButton = deleteButtons[0];
+			if (firstDeleteButton) {
+				await user.click(firstDeleteButton);
+			}
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			expect(screen.queryByRole("dialog")).toBeNull();
+		});
+
+		it("deletes card and refreshes list on confirmation", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				// Initial load
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockCards }),
+				})
+				// Delete request
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({}),
+				})
+				// Refresh cards after deletion
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: [mockCards[1]] }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Hello")).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const firstDeleteButton = deleteButtons[0];
+			if (firstDeleteButton) {
+				await user.click(firstDeleteButton);
+			}
+
+			// Find the Delete button in the modal (not the card list)
+			const modalDeleteButtons = screen.getAllByRole("button", {
+				name: "Delete",
+			});
+			const confirmDeleteButton = modalDeleteButtons.find((btn) =>
+				btn.closest('[role="dialog"]'),
+			);
+			if (confirmDeleteButton) {
+				await user.click(confirmDeleteButton);
+			}
+
+			// Wait for modal to close and list to refresh
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).toBeNull();
+			});
+
+			// Verify DELETE request was made
+			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/cards/card-1", {
+				method: "DELETE",
+				headers: { Authorization: "Bearer access-token" },
+			});
+
+			// Verify card count updated
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Cards (1)" }),
+				).toBeDefined();
+			});
+		});
+
+		it("displays error when delete fails", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				// Initial load
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockCards }),
+				})
+				// Delete request fails
+				.mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					json: async () => ({ error: "Failed to delete card" }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Hello")).toBeDefined();
+			});
+
+			const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+			const firstDeleteButton = deleteButtons[0];
+			if (firstDeleteButton) {
+				await user.click(firstDeleteButton);
+			}
+
+			// Find the Delete button in the modal
+			const modalDeleteButtons = screen.getAllByRole("button", {
+				name: "Delete",
+			});
+			const confirmDeleteButton = modalDeleteButtons.find((btn) =>
+				btn.closest('[role="dialog"]'),
+			);
+			if (confirmDeleteButton) {
+				await user.click(confirmDeleteButton);
+			}
+
+			// Error should be displayed in the modal
+			await waitFor(() => {
+				expect(screen.getByRole("alert").textContent).toContain(
+					"Failed to delete card",
+				);
+			});
+		});
+	});
 });
