@@ -144,17 +144,14 @@ export function StudyPage() {
 				throw new ApiClientError("Not authenticated", 401);
 			}
 
-			const res = await fetch(
-				`/api/decks/${deckId}/study/${currentCard.id}`,
-				{
-					method: "POST",
-					headers: {
-						...authHeader,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ rating, durationMs }),
+			const res = await fetch(`/api/decks/${deckId}/study/${currentCard.id}`, {
+				method: "POST",
+				headers: {
+					...authHeader,
+					"Content-Type": "application/json",
 				},
-			);
+				body: JSON.stringify({ rating, durationMs }),
+			});
 
 			if (!res.ok) {
 				const errorBody = await res.json().catch(() => ({}));
@@ -312,7 +309,13 @@ export function StudyPage() {
 								<strong data-testid="completed-count">{completedCount}</strong>{" "}
 								card{completedCount !== 1 ? "s" : ""}.
 							</p>
-							<div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+							<div
+								style={{
+									display: "flex",
+									gap: "1rem",
+									justifyContent: "center",
+								}}
+							>
 								<Link href={`/decks/${deckId}`}>
 									<button type="button">Back to Deck</button>
 								</Link>
@@ -336,7 +339,9 @@ export function StudyPage() {
 								}}
 								role="button"
 								tabIndex={0}
-								aria-label={isFlipped ? "Card showing answer" : "Click to reveal answer"}
+								aria-label={
+									isFlipped ? "Card showing answer" : "Click to reveal answer"
+								}
 								style={{
 									border: "1px solid #ccc",
 									borderRadius: "8px",

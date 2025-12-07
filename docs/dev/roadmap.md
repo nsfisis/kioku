@@ -153,7 +153,7 @@ Smaller features first to enable early MVP validation.
 - [x] Add tests
 
 ### Sync Engine
-- [ ] POST /api/sync/push endpoint
+- [x] POST /api/sync/push endpoint
 - [ ] GET /api/sync/pull endpoint
 - [ ] Client: Sync queue management
 - [ ] Client: Push implementation

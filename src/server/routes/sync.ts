@@ -1,0 +1,78 @@
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { z } from "zod";
+import { authMiddleware, getAuthUser } from "../middleware/index.js";
+import {
+	type SyncPushData,
+	type SyncRepository,
+	syncRepository,
+} from "../repositories/sync.js";
+
+export interface SyncDependencies {
+	syncRepo: SyncRepository;
+}
+
+const syncDeckSchema = z.object({
+	id: z.string().uuid(),
+	name: z.string().min(1).max(255),
+	description: z.string().nullable(),
+	newCardsPerDay: z.number().int().min(0).max(1000),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+	deletedAt: z.string().datetime().nullable(),
+});
+
+const syncCardSchema = z.object({
+	id: z.string().uuid(),
+	deckId: z.string().uuid(),
+	front: z.string().min(1),
+	back: z.string().min(1),
+	state: z.number().int().min(0).max(3),
+	due: z.string().datetime(),
+	stability: z.number().min(0),
+	difficulty: z.number().min(0),
+	elapsedDays: z.number().int().min(0),
+	scheduledDays: z.number().int().min(0),
+	reps: z.number().int().min(0),
+	lapses: z.number().int().min(0),
+	lastReview: z.string().datetime().nullable(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+	deletedAt: z.string().datetime().nullable(),
+});
+
+const syncReviewLogSchema = z.object({
+	id: z.string().uuid(),
+	cardId: z.string().uuid(),
+	rating: z.number().int().min(1).max(4),
+	state: z.number().int().min(0).max(3),
+	scheduledDays: z.number().int().min(0),
+	elapsedDays: z.number().int().min(0),
+	reviewedAt: z.string().datetime(),
+	durationMs: z.number().int().min(0).nullable(),
+});
+
+const syncPushSchema = z.object({
+	decks: z.array(syncDeckSchema).default([]),
+	cards: z.array(syncCardSchema).default([]),
+	reviewLogs: z.array(syncReviewLogSchema).default([]),
+});
+
+export function createSyncRouter(deps: SyncDependencies) {
+	const { syncRepo } = deps;
+
+	return new Hono()
+		.use("*", authMiddleware)
+		.post("/push", zValidator("json", syncPushSchema), async (c) => {
+			const user = getAuthUser(c);
+			const data = c.req.valid("json") as SyncPushData;
+
+			const result = await syncRepo.pushChanges(user.id, data);
+
+			return c.json(result, 200);
+		});
+}
+
+export const sync = createSyncRouter({
+	syncRepo: syncRepository,
+});
