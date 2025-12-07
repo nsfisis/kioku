@@ -10,6 +10,7 @@ export function OfflineBanner() {
 	return (
 		<output
 			data-testid="offline-banner"
+			role="status"
 			aria-live="polite"
 			style={{
 				backgroundColor: "#6c757d",
