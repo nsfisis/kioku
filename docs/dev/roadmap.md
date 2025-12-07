@@ -144,7 +144,7 @@ Smaller features first to enable early MVP validation.
 - [x] Web manifest
 - [x] Service Worker
 - [x] Offline fallback page
-- [ ] Add tests
+- [x] Add tests
 
 ### IndexedDB (Local Storage)
 - [ ] Dexie.js setup
