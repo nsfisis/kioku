@@ -15,6 +15,14 @@ vi.mock("./api/client", () => ({
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
+		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					$get: vi.fn(),
+				},
+			},
+		},
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -27,6 +35,12 @@ vi.mock("./api/client", () => ({
 		}
 	},
 }));
+
+// Helper to create mock responses compatible with Hono's ClientResponse
+// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
+function mockResponse(data: { ok: boolean; status?: number; json: () => Promise<any> }) {
+	return data as unknown as Awaited<ReturnType<typeof apiClient.rpc.api.decks.$get>>;
+}
 
 function renderWithRouter(path: string) {
 	const { hook } = memoryLocation({ path, static: true });
@@ -58,12 +72,21 @@ describe("App routing", () => {
 				refreshToken: "refresh-token",
 			});
 			vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
+			vi.mocked(apiClient.getAuthHeader).mockReturnValue({
+				Authorization: "Bearer access-token",
+			});
+			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
+				mockResponse({
+					ok: true,
+					json: async () => ({ decks: [] }),
+				}),
+			);
 		});
 
 		it("renders home page at /", () => {
 			renderWithRouter("/");
 			expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
-			expect(screen.getByText("Spaced repetition learning app")).toBeDefined();
+			expect(screen.getByRole("heading", { name: "Your Decks" })).toBeDefined();
 		});
 	});
 
