@@ -99,8 +99,8 @@ Smaller features first to enable early MVP validation.
 **Goal**: Create, edit, and delete cards
 
 ### Server API
-- [ ] Card CRUD endpoints (GET, POST, PUT, DELETE)
-- [ ] Add tests
+- [x] Card CRUD endpoints (GET, POST, PUT, DELETE)
+- [x] Add tests
 
 ### Frontend
 - [ ] Card list view (in deck detail page)

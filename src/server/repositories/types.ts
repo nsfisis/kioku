@@ -77,3 +77,47 @@ export interface DeckRepository {
 	): Promise<Deck | undefined>;
 	softDelete(id: string, userId: string): Promise<boolean>;
 }
+
+export interface Card {
+	id: string;
+	deckId: string;
+	front: string;
+	back: string;
+
+	// FSRS fields
+	state: number;
+	due: Date;
+	stability: number;
+	difficulty: number;
+	elapsedDays: number;
+	scheduledDays: number;
+	reps: number;
+	lapses: number;
+	lastReview: Date | null;
+
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+export interface CardRepository {
+	findByDeckId(deckId: string): Promise<Card[]>;
+	findById(id: string, deckId: string): Promise<Card | undefined>;
+	create(
+		deckId: string,
+		data: {
+			front: string;
+			back: string;
+		},
+	): Promise<Card>;
+	update(
+		id: string,
+		deckId: string,
+		data: {
+			front?: string;
+			back?: string;
+		},
+	): Promise<Card | undefined>;
+	softDelete(id: string, deckId: string): Promise<boolean>;
+}
