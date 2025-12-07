@@ -120,4 +120,45 @@ export interface CardRepository {
 		},
 	): Promise<Card | undefined>;
 	softDelete(id: string, deckId: string): Promise<boolean>;
+	findDueCards(deckId: string, now: Date, limit: number): Promise<Card[]>;
+	updateFSRSFields(
+		id: string,
+		deckId: string,
+		data: {
+			state: number;
+			due: Date;
+			stability: number;
+			difficulty: number;
+			elapsedDays: number;
+			scheduledDays: number;
+			reps: number;
+			lapses: number;
+			lastReview: Date;
+		},
+	): Promise<Card | undefined>;
+}
+
+export interface ReviewLog {
+	id: string;
+	cardId: string;
+	userId: string;
+	rating: number;
+	state: number;
+	scheduledDays: number;
+	elapsedDays: number;
+	reviewedAt: Date;
+	durationMs: number | null;
+	syncVersion: number;
+}
+
+export interface ReviewLogRepository {
+	create(data: {
+		cardId: string;
+		userId: string;
+		rating: number;
+		state: number;
+		scheduledDays: number;
+		elapsedDays: number;
+		durationMs?: number | null;
+	}): Promise<ReviewLog>;
 }

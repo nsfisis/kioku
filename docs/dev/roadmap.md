@@ -118,10 +118,10 @@ Smaller features first to enable early MVP validation.
 **Goal**: Study with FSRS algorithm
 
 ### Server API
-- [ ] ts-fsrs integration
-- [ ] GET /api/decks/:deckId/study - Get due cards
-- [ ] POST /api/decks/:deckId/study/:cardId - Submit review
-- [ ] Add tests
+- [x] ts-fsrs integration
+- [x] GET /api/decks/:deckId/study - Get due cards
+- [x] POST /api/decks/:deckId/study/:cardId - Submit review
+- [x] Add tests
 
 ### Frontend
 - [ ] Study session page

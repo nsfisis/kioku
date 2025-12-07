@@ -18,6 +18,8 @@ function createMockCardRepo(): CardRepository {
 		create: vi.fn(),
 		update: vi.fn(),
 		softDelete: vi.fn(),
+		findDueCards: vi.fn(),
+		updateFSRSFields: vi.fn(),
 	};
 }
 
