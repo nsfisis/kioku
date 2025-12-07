@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { CreateDeckModal } from "../components/CreateDeckModal";
 import { DeleteDeckModal } from "../components/DeleteDeckModal";
@@ -131,7 +132,14 @@ export function HomePage() {
 									}}
 								>
 									<div>
-										<h3 style={{ margin: 0 }}>{deck.name}</h3>
+										<h3 style={{ margin: 0 }}>
+											<Link
+												href={`/decks/${deck.id}`}
+												style={{ textDecoration: "none", color: "inherit" }}
+											>
+												{deck.name}
+											</Link>
+										</h3>
 										{deck.description && (
 											<p style={{ margin: "0.5rem 0 0 0", color: "#666" }}>
 												{deck.description}

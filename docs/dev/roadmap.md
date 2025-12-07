@@ -103,7 +103,7 @@ Smaller features first to enable early MVP validation.
 - [x] Add tests
 
 ### Frontend
-- [ ] Card list view (in deck detail page)
+- [x] Card list view (in deck detail page)
 - [ ] Create card form (front/back)
 - [ ] Edit card
 - [ ] Delete card
