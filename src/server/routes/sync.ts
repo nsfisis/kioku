@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { authMiddleware, getAuthUser } from "../middleware/index.js";
 import {
+	type SyncPullQuery,
 	type SyncPushData,
 	type SyncRepository,
 	syncRepository,
@@ -58,6 +59,10 @@ const syncPushSchema = z.object({
 	reviewLogs: z.array(syncReviewLogSchema).default([]),
 });
 
+const syncPullQuerySchema = z.object({
+	lastSyncVersion: z.coerce.number().int().min(0).default(0),
+});
+
 export function createSyncRouter(deps: SyncDependencies) {
 	const { syncRepo } = deps;
 
@@ -68,6 +73,14 @@ export function createSyncRouter(deps: SyncDependencies) {
 			const data = c.req.valid("json") as SyncPushData;
 
 			const result = await syncRepo.pushChanges(user.id, data);
+
+			return c.json(result, 200);
+		})
+		.get("/pull", zValidator("query", syncPullQuerySchema), async (c) => {
+			const user = getAuthUser(c);
+			const query = c.req.valid("query") as SyncPullQuery;
+
+			const result = await syncRepo.pullChanges(user.id, query);
 
 			return c.json(result, 200);
 		});

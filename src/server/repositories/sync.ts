@@ -62,8 +62,20 @@ export interface SyncPushResult {
 	};
 }
 
+export interface SyncPullQuery {
+	lastSyncVersion: number;
+}
+
+export interface SyncPullResult {
+	decks: Deck[];
+	cards: Card[];
+	reviewLogs: ReviewLog[];
+	currentSyncVersion: number;
+}
+
 export interface SyncRepository {
 	pushChanges(userId: string, data: SyncPushData): Promise<SyncPushResult>;
+	pullChanges(userId: string, query: SyncPullQuery): Promise<SyncPullResult>;
 }
 
 export const syncRepository: SyncRepository = {
@@ -275,5 +287,66 @@ export const syncRepository: SyncRepository = {
 		}
 
 		return result;
+	},
+
+	async pullChanges(userId: string, query: SyncPullQuery): Promise<SyncPullResult> {
+		const { lastSyncVersion } = query;
+
+		// Get all decks with syncVersion > lastSyncVersion
+		const pulledDecks = await db
+			.select()
+			.from(decks)
+			.where(and(eq(decks.userId, userId), gt(decks.syncVersion, lastSyncVersion)));
+
+		// Get all cards from user's decks with syncVersion > lastSyncVersion
+		const userDeckIds = await db
+			.select({ id: decks.id })
+			.from(decks)
+			.where(eq(decks.userId, userId));
+
+		const deckIdList = userDeckIds.map((d) => d.id);
+
+		let pulledCards: Card[] = [];
+		if (deckIdList.length > 0) {
+			const cardResults = await db
+				.select()
+				.from(cards)
+				.where(gt(cards.syncVersion, lastSyncVersion));
+
+			// Filter cards that belong to user's decks
+			pulledCards = cardResults.filter((c) => deckIdList.includes(c.deckId));
+		}
+
+		// Get all review logs for user with syncVersion > lastSyncVersion
+		const pulledReviewLogs = await db
+			.select()
+			.from(reviewLogs)
+			.where(and(eq(reviewLogs.userId, userId), gt(reviewLogs.syncVersion, lastSyncVersion)));
+
+		// Calculate current max sync version across all entities
+		let currentSyncVersion = lastSyncVersion;
+
+		for (const deck of pulledDecks) {
+			if (deck.syncVersion > currentSyncVersion) {
+				currentSyncVersion = deck.syncVersion;
+			}
+		}
+		for (const card of pulledCards) {
+			if (card.syncVersion > currentSyncVersion) {
+				currentSyncVersion = card.syncVersion;
+			}
+		}
+		for (const log of pulledReviewLogs) {
+			if (log.syncVersion > currentSyncVersion) {
+				currentSyncVersion = log.syncVersion;
+			}
+		}
+
+		return {
+			decks: pulledDecks,
+			cards: pulledCards,
+			reviewLogs: pulledReviewLogs,
+			currentSyncVersion,
+		};
 	},
 };

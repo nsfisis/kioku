@@ -3,15 +3,18 @@ import { sign } from "hono/jwt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware/index.js";
 import type {
+	SyncPullResult,
 	SyncPushData,
 	SyncPushResult,
 	SyncRepository,
 } from "../repositories/sync.js";
+import type { Card, Deck, ReviewLog } from "../repositories/types.js";
 import { createSyncRouter } from "./sync.js";
 
 function createMockSyncRepo(): SyncRepository {
 	return {
 		pushChanges: vi.fn(),
+		pullChanges: vi.fn(),
 	};
 }
 
@@ -437,5 +440,328 @@ describe("POST /api/sync/push", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as SyncPushResponse;
 		expect(body.decks).toHaveLength(1);
+	});
+});
+
+interface SyncPullResponse {
+	decks?: Deck[];
+	cards?: Card[];
+	reviewLogs?: ReviewLog[];
+	currentSyncVersion?: number;
+	error?: {
+		code: string;
+		message: string;
+	};
+}
+
+describe("GET /api/sync/pull", () => {
+	let app: Hono;
+	let mockSyncRepo: ReturnType<typeof createMockSyncRepo>;
+	let authToken: string;
+	const userId = "user-uuid-123";
+
+	beforeEach(async () => {
+		vi.clearAllMocks();
+		mockSyncRepo = createMockSyncRepo();
+		const syncRouter = createSyncRouter({ syncRepo: mockSyncRepo });
+		app = new Hono();
+		app.onError(errorHandler);
+		app.route("/api/sync", syncRouter);
+		authToken = await createTestToken(userId);
+	});
+
+	it("returns 401 without authentication", async () => {
+		const res = await app.request("/api/sync/pull");
+
+		expect(res.status).toBe(401);
+	});
+
+	it("successfully pulls with default lastSyncVersion (0)", async () => {
+		const mockDeck: Deck = {
+			id: "550e8400-e29b-41d4-a716-446655440000",
+			userId,
+			name: "Test Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 1,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [mockDeck],
+			cards: [],
+			reviewLogs: [],
+			currentSyncVersion: 1,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.decks).toHaveLength(1);
+		expect(body.cards).toHaveLength(0);
+		expect(body.reviewLogs).toHaveLength(0);
+		expect(body.currentSyncVersion).toBe(1);
+		expect(mockSyncRepo.pullChanges).toHaveBeenCalledWith(userId, {
+			lastSyncVersion: 0,
+		});
+	});
+
+	it("successfully pulls with specified lastSyncVersion", async () => {
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			currentSyncVersion: 5,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull?lastSyncVersion=5", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.decks).toEqual([]);
+		expect(body.currentSyncVersion).toBe(5);
+		expect(mockSyncRepo.pullChanges).toHaveBeenCalledWith(userId, {
+			lastSyncVersion: 5,
+		});
+	});
+
+	it("returns decks with proper fields", async () => {
+		const mockDeck: Deck = {
+			id: "550e8400-e29b-41d4-a716-446655440000",
+			userId,
+			name: "Test Deck",
+			description: "A test description",
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 2,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [mockDeck],
+			cards: [],
+			reviewLogs: [],
+			currentSyncVersion: 2,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull?lastSyncVersion=1", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.decks?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440000");
+		expect(body.decks?.[0]?.name).toBe("Test Deck");
+		expect(body.decks?.[0]?.description).toBe("A test description");
+		expect(body.decks?.[0]?.syncVersion).toBe(2);
+	});
+
+	it("returns cards with FSRS fields", async () => {
+		const mockCard: Card = {
+			id: "550e8400-e29b-41d4-a716-446655440001",
+			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			front: "Question",
+			back: "Answer",
+			state: 2,
+			due: new Date("2024-01-05T00:00:00.000Z"),
+			stability: 5.5,
+			difficulty: 0.3,
+			elapsedDays: 3,
+			scheduledDays: 4,
+			reps: 2,
+			lapses: 0,
+			lastReview: new Date("2024-01-02T00:00:00.000Z"),
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 3,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [mockCard],
+			reviewLogs: [],
+			currentSyncVersion: 3,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull?lastSyncVersion=2", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.cards).toHaveLength(1);
+		expect(body.cards?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440001");
+		expect(body.cards?.[0]?.state).toBe(2);
+		expect(body.cards?.[0]?.stability).toBe(5.5);
+		expect(body.cards?.[0]?.difficulty).toBe(0.3);
+		expect(body.cards?.[0]?.reps).toBe(2);
+	});
+
+	it("returns review logs", async () => {
+		const mockReviewLog: ReviewLog = {
+			id: "550e8400-e29b-41d4-a716-446655440002",
+			cardId: "550e8400-e29b-41d4-a716-446655440001",
+			userId,
+			rating: 3,
+			state: 2,
+			scheduledDays: 4,
+			elapsedDays: 3,
+			reviewedAt: new Date("2024-01-02T00:00:00.000Z"),
+			durationMs: 5000,
+			syncVersion: 1,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [mockReviewLog],
+			currentSyncVersion: 1,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.reviewLogs).toHaveLength(1);
+		expect(body.reviewLogs?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440002");
+		expect(body.reviewLogs?.[0]?.rating).toBe(3);
+		expect(body.reviewLogs?.[0]?.durationMs).toBe(5000);
+	});
+
+	it("returns multiple entities", async () => {
+		const mockDeck: Deck = {
+			id: "550e8400-e29b-41d4-a716-446655440000",
+			userId,
+			name: "Test Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 1,
+		};
+
+		const mockCard: Card = {
+			id: "550e8400-e29b-41d4-a716-446655440001",
+			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			front: "Q",
+			back: "A",
+			state: 0,
+			due: new Date("2024-01-01T00:00:00.000Z"),
+			stability: 0,
+			difficulty: 0,
+			elapsedDays: 0,
+			scheduledDays: 0,
+			reps: 0,
+			lapses: 0,
+			lastReview: null,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 2,
+		};
+
+		const mockReviewLog: ReviewLog = {
+			id: "550e8400-e29b-41d4-a716-446655440002",
+			cardId: "550e8400-e29b-41d4-a716-446655440001",
+			userId,
+			rating: 3,
+			state: 0,
+			scheduledDays: 1,
+			elapsedDays: 0,
+			reviewedAt: new Date("2024-01-01T00:00:00.000Z"),
+			durationMs: null,
+			syncVersion: 3,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [mockDeck],
+			cards: [mockCard],
+			reviewLogs: [mockReviewLog],
+			currentSyncVersion: 3,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.decks).toHaveLength(1);
+		expect(body.cards).toHaveLength(1);
+		expect(body.reviewLogs).toHaveLength(1);
+		expect(body.currentSyncVersion).toBe(3);
+	});
+
+	it("returns soft-deleted entities", async () => {
+		const deletedDeck: Deck = {
+			id: "550e8400-e29b-41d4-a716-446655440000",
+			userId,
+			name: "Deleted Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: new Date("2024-01-02T00:00:00.000Z"),
+			syncVersion: 2,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [deletedDeck],
+			cards: [],
+			reviewLogs: [],
+			currentSyncVersion: 2,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull?lastSyncVersion=1", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.decks).toHaveLength(1);
+		expect(body.decks?.[0]?.deletedAt).not.toBeNull();
+	});
+
+	it("validates lastSyncVersion is non-negative", async () => {
+		const res = await app.request("/api/sync/pull?lastSyncVersion=-1", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(400);
 	});
 });
