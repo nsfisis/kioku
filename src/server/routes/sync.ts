@@ -14,7 +14,7 @@ export interface SyncDependencies {
 }
 
 const syncDeckSchema = z.object({
-	id: z.string().uuid(),
+	id: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().nullable(),
 	newCardsPerDay: z.number().int().min(0).max(1000),
@@ -24,8 +24,8 @@ const syncDeckSchema = z.object({
 });
 
 const syncCardSchema = z.object({
-	id: z.string().uuid(),
-	deckId: z.string().uuid(),
+	id: z.uuid(),
+	deckId: z.uuid(),
 	front: z.string().min(1),
 	back: z.string().min(1),
 	state: z.number().int().min(0).max(3),
@@ -43,8 +43,8 @@ const syncCardSchema = z.object({
 });
 
 const syncReviewLogSchema = z.object({
-	id: z.string().uuid(),
-	cardId: z.string().uuid(),
+	id: z.uuid(),
+	cardId: z.uuid(),
 	rating: z.number().int().min(1).max(4),
 	state: z.number().int().min(0).max(3),
 	scheduledDays: z.number().int().min(0),

@@ -25,12 +25,12 @@ export interface StudyDependencies {
 }
 
 const deckIdParamSchema = z.object({
-	deckId: z.string().uuid(),
+	deckId: z.uuid(),
 });
 
 const cardIdParamSchema = z.object({
-	deckId: z.string().uuid(),
-	cardId: z.string().uuid(),
+	deckId: z.uuid(),
+	cardId: z.uuid(),
 });
 
 const f = fsrs();

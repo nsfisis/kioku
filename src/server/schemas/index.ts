@@ -18,7 +18,7 @@ export const ratingSchema = z.union([
 
 // User schema
 export const userSchema = z.object({
-	id: z.string().uuid(),
+	id: z.uuid(),
 	username: z.string().min(1).max(255),
 	passwordHash: z.string(),
 	createdAt: z.coerce.date(),
@@ -44,8 +44,8 @@ export const refreshTokenSchema = z.object({
 
 // Deck schema
 export const deckSchema = z.object({
-	id: z.string().uuid(),
-	userId: z.string().uuid(),
+	id: z.uuid(),
+	userId: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().max(1000).nullable(),
 	newCardsPerDay: z.number().int().min(0).default(20),
@@ -71,8 +71,8 @@ export const updateDeckSchema = z.object({
 
 // Card schema
 export const cardSchema = z.object({
-	id: z.string().uuid(),
-	deckId: z.string().uuid(),
+	id: z.uuid(),
+	deckId: z.uuid(),
 	front: z.string().min(1),
 	back: z.string().min(1),
 
@@ -107,9 +107,9 @@ export const updateCardSchema = z.object({
 
 // ReviewLog schema
 export const reviewLogSchema = z.object({
-	id: z.string().uuid(),
-	cardId: z.string().uuid(),
-	userId: z.string().uuid(),
+	id: z.uuid(),
+	cardId: z.uuid(),
+	userId: z.uuid(),
 	rating: ratingSchema,
 	state: cardStateSchema,
 	scheduledDays: z.number().int().min(0),

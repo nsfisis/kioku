@@ -10,7 +10,7 @@ export interface DeckDependencies {
 }
 
 const deckIdParamSchema = z.object({
-	id: z.string().uuid(),
+	id: z.uuid(),
 });
 
 export function createDecksRouter(deps: DeckDependencies) {

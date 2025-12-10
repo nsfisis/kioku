@@ -16,12 +16,12 @@ export interface CardDependencies {
 }
 
 const deckIdParamSchema = z.object({
-	deckId: z.string().uuid(),
+	deckId: z.uuid(),
 });
 
 const cardIdParamSchema = z.object({
-	deckId: z.string().uuid(),
-	cardId: z.string().uuid(),
+	deckId: z.uuid(),
+	cardId: z.uuid(),
 });
 
 export function createCardsRouter(deps: CardDependencies) {
