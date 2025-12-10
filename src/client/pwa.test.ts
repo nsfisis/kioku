@@ -142,15 +142,19 @@ describe("PWA Configuration", () => {
 		});
 
 		it("has proper viewBox for square icon", () => {
-			expect(iconSvg).toContain('viewBox="0 0 512 512"');
+			expect(iconSvg).toContain('viewBox="0 0 100 100"');
 		});
 
-		it("uses theme color", () => {
-			expect(iconSvg).toContain('fill="#4CAF50"');
+		it("uses gradient fills for visual appeal", () => {
+			expect(iconSvg).toContain("<linearGradient");
+			expect(iconSvg).toContain('fill="url(#grad');
 		});
 
-		it("contains K letter for Kioku branding", () => {
-			expect(iconSvg).toContain(">K<");
+		it("contains flashcard and K shapes for Kioku branding", () => {
+			// Three stacked rectangles representing flashcards
+			expect(iconSvg).toContain("<rect");
+			// K letter path on the right
+			expect(iconSvg).toContain("<path");
 		});
 	});
 });
