@@ -173,7 +173,7 @@ Smaller features first to enable early MVP validation.
 
 ## Phase 8: Anki Import
 
-**Goal**: Import existing Anki decks
+**Goal**: Import existing Anki decks (.apkg, .colpkg)
 
 ### Parser
 - [ ] ZIP extraction
@@ -181,16 +181,8 @@ Smaller features first to enable early MVP validation.
 - [ ] Note/Card mapping to Kioku format
 - [ ] Add tests
 
-### Server API
-- [ ] POST /api/import/apkg
-- [ ] Progress tracking
-- [ ] Add tests
-
-### Frontend
-- [ ] File upload component
-- [ ] Import progress indicator
-- [ ] Import results display
-- [ ] Add tests
+### Server command
+- [ ] Add `src/server/scripts/import-anki.ts`
 
 **✅ Milestone**: Anki users can migrate their decks
 
