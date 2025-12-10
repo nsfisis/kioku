@@ -1,10 +1,7 @@
 import * as esbuild from "esbuild";
 
 await esbuild.build({
-	entryPoints: [
-		"src/server/index.ts",
-		"src/server/scripts/add-user.ts",
-	],
+	entryPoints: ["src/server/index.ts", "src/server/scripts/add-user.ts"],
 	bundle: true,
 	platform: "node",
 	target: "node22",
