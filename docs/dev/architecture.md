@@ -5,6 +5,8 @@
 | Layer | Technology |
 |-------|------------|
 | Frontend | React + Vite |
+| Routing | Wouter |
+| Styling | TailwindCSS |
 | Backend | Hono + TypeScript |
 | Database | PostgreSQL |
 | ORM | Drizzle |
@@ -37,9 +39,9 @@
 |                    Server                        |
 |  +----------------------------------------------+|
 |  |              Hono (TypeScript)               ||
-|  |  +--------+ +--------+ +--------+ +--------+ ||
-|  |  |  Auth  | |  FSRS  | |  Sync  | | Import | ||
-|  |  +--------+ +--------+ +--------+ +--------+ ||
+|  |  +----------+ +----------+ +----------+      ||
+|  |  |   Auth   | |   FSRS   | |   Sync   |      ||
+|  |  +----------+ +----------+ +----------+      ||
 |  +----------------------------------------------+|
 |                       |                          |
 |                       v                          |
@@ -60,17 +62,15 @@ kioku/
 │   │   ├── middleware/
 │   │   ├── repositories/
 │   │   ├── routes/
-│   │   ├── types/            # Server types
 │   │   ├── schemas/          # Zod validation
-│   │   └── lib/
-│   │       └── apkg/         # Anki import
+│   │   └── scripts/          # CLI scripts (add-user)
 │   └── client/               # React frontend
 │       ├── index.tsx
 │       ├── components/
+│       ├── pages/
 │       ├── stores/
 │       ├── db/               # Dexie IndexedDB
 │       ├── sync/             # Sync engine
-│       ├── types/            # Client types
 │       └── api/
 ├── drizzle/                  # Drizzle migrations
 ├── public/                   # Static files (PWA manifest)
@@ -92,6 +92,18 @@ interface User {
   password_hash: string;
   created_at: Date;
   updated_at: Date;
+}
+```
+
+### RefreshToken
+
+```typescript
+interface RefreshToken {
+  id: string;          // UUID
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  created_at: Date;
 }
 ```
 
@@ -176,7 +188,6 @@ interface ReviewLog {
 ```
 POST /api/auth/login      - Login (returns JWT)
 POST /api/auth/refresh    - Refresh token
-POST /api/auth/logout     - Logout
 ```
 
 Note: User registration is disabled. Use CLI to add users: `pnpm user:add`
@@ -212,12 +223,6 @@ POST   /api/decks/:deckId/study/:cardId   - Submit review
 ```
 POST /api/sync/push   - Push local changes to server
 GET  /api/sync/pull   - Pull server changes
-```
-
-### Import
-
-```
-POST /api/import/apkg - Import Anki deck
 ```
 
 ## Offline Sync Strategy
