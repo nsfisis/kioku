@@ -182,7 +182,7 @@ Smaller features first to enable early MVP validation.
 - [x] Add tests
 
 ### Server command
-- [ ] Add `src/server/scripts/import-anki.ts`
+- [x] Add `src/server/scripts/import-anki.ts`
 
 **✅ Milestone**: Anki users can migrate their decks
 
