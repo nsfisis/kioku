@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	type AnkiPackage,
 	listAnkiPackageContents,
+	mapAnkiToKioku,
 	parseAnkiPackage,
 } from "./parser.js";
 
@@ -521,6 +522,347 @@ describe("Anki Parser", () => {
 
 			const files = await listAnkiPackageContents(testPath);
 			expect(files).toContain("test.txt");
+		});
+	});
+
+	describe("mapAnkiToKioku", () => {
+		let pkg: AnkiPackage;
+
+		beforeAll(async () => {
+			pkg = await parseAnkiPackage(testApkgPath);
+		});
+
+		it("should map decks correctly", () => {
+			const result = mapAnkiToKioku(pkg);
+
+			// Should have Test Deck (skipping Default deck by default)
+			expect(result.length).toBe(1);
+
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+			expect(testDeckData).toBeDefined();
+			expect(testDeckData?.deck.description).toBe("A test deck");
+		});
+
+		it("should include default deck when skipDefaultDeck is false", () => {
+			// Create a package with cards in both default and test decks
+			const pkgWithDefault: AnkiPackage = {
+				notes: [
+					{
+						id: 1,
+						guid: "test1",
+						mid: 1,
+						mod: 0,
+						tags: [],
+						fields: ["Front1", "Back1"],
+						sfld: "Front1",
+					},
+					{
+						id: 2,
+						guid: "test2",
+						mid: 1,
+						mod: 0,
+						tags: [],
+						fields: ["Front2", "Back2"],
+						sfld: "Front2",
+					},
+				],
+				cards: [
+					{
+						id: 1,
+						nid: 1,
+						did: 1, // Default deck
+						ord: 0,
+						mod: 0,
+						type: 0,
+						queue: 0,
+						due: 0,
+						ivl: 0,
+						factor: 0,
+						reps: 0,
+						lapses: 0,
+					},
+					{
+						id: 2,
+						nid: 2,
+						did: 2, // Test deck
+						ord: 0,
+						mod: 0,
+						type: 0,
+						queue: 0,
+						due: 0,
+						ivl: 0,
+						factor: 0,
+						reps: 0,
+						lapses: 0,
+					},
+				],
+				decks: [
+					{ id: 1, name: "Default", description: "" },
+					{ id: 2, name: "Test Deck", description: "" },
+				],
+				models: [
+					{
+						id: 1,
+						name: "Basic",
+						fields: ["Front", "Back"],
+						templates: [
+							{ name: "Card 1", qfmt: "{{Front}}", afmt: "{{Back}}" },
+						],
+					},
+				],
+			};
+
+			// With skipDefaultDeck = true (default), should only have Test Deck
+			const resultSkip = mapAnkiToKioku(pkgWithDefault);
+			expect(resultSkip.length).toBe(1);
+			expect(resultSkip[0]?.deck.name).toBe("Test Deck");
+
+			// With skipDefaultDeck = false, should have both decks
+			const result = mapAnkiToKioku(pkgWithDefault, { skipDefaultDeck: false });
+			const deckNames = result.map((d) => d.deck.name);
+			expect(deckNames).toContain("Default");
+			expect(deckNames).toContain("Test Deck");
+		});
+
+		it("should map note fields to front/back", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			expect(testDeckData?.cards.length).toBe(3);
+
+			// Card 1: Hello/World
+			const card1 = testDeckData?.cards.find((c) => c.front === "Hello");
+			expect(card1).toBeDefined();
+			expect(card1?.back).toBe("World");
+
+			// Card 2: 日本語/Japanese
+			const card2 = testDeckData?.cards.find((c) => c.front === "日本語");
+			expect(card2).toBeDefined();
+			expect(card2?.back).toBe("Japanese");
+
+			// Card 3: Question/Answer
+			const card3 = testDeckData?.cards.find((c) => c.front === "Question");
+			expect(card3).toBeDefined();
+			expect(card3?.back).toBe("Answer");
+		});
+
+		it("should map card states correctly", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			// New card (Hello/World)
+			const newCard = testDeckData?.cards.find((c) => c.front === "Hello");
+			expect(newCard?.state).toBe(0); // New
+
+			// Review card (日本語/Japanese)
+			const reviewCard = testDeckData?.cards.find((c) => c.front === "日本語");
+			expect(reviewCard?.state).toBe(2); // Review
+			expect(reviewCard?.reps).toBe(5);
+			expect(reviewCard?.lapses).toBe(1);
+
+			// Learning card (Question/Answer)
+			const learningCard = testDeckData?.cards.find(
+				(c) => c.front === "Question",
+			);
+			expect(learningCard?.state).toBe(1); // Learning
+		});
+
+		it("should map scheduling data correctly", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			// Review card has interval of 30 days
+			const reviewCard = testDeckData?.cards.find((c) => c.front === "日本語");
+			expect(reviewCard?.scheduledDays).toBe(30);
+			expect(reviewCard?.stability).toBe(30); // Stability approximates interval
+			expect(reviewCard?.elapsedDays).toBe(30);
+
+			// New card has no interval
+			const newCard = testDeckData?.cards.find((c) => c.front === "Hello");
+			expect(newCard?.scheduledDays).toBe(0);
+			expect(newCard?.stability).toBe(0);
+			expect(newCard?.elapsedDays).toBe(0);
+		});
+
+		it("should convert Anki factor to FSRS difficulty", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			// Review card has factor 2500 (default ease)
+			const reviewCard = testDeckData?.cards.find((c) => c.front === "日本語");
+			// Factor 2500 should map to a moderate difficulty (around 5)
+			expect(reviewCard?.difficulty).toBeGreaterThan(0);
+			expect(reviewCard?.difficulty).toBeLessThan(10);
+
+			// New card has factor 0, should have difficulty 0
+			const newCard = testDeckData?.cards.find((c) => c.front === "Hello");
+			expect(newCard?.difficulty).toBe(0);
+		});
+
+		it("should set due date for cards", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			// All cards should have valid due dates
+			for (const card of testDeckData?.cards || []) {
+				expect(card.due).toBeInstanceOf(Date);
+				expect(card.due.getTime()).not.toBeNaN();
+			}
+		});
+
+		it("should set lastReview for reviewed cards", () => {
+			const result = mapAnkiToKioku(pkg);
+			const testDeckData = result.find((d) => d.deck.name === "Test Deck");
+
+			// Review card has been reviewed
+			const reviewCard = testDeckData?.cards.find((c) => c.front === "日本語");
+			expect(reviewCard?.lastReview).toBeInstanceOf(Date);
+
+			// New card has not been reviewed
+			const newCard = testDeckData?.cards.find((c) => c.front === "Hello");
+			expect(newCard?.lastReview).toBeNull();
+		});
+
+		it("should strip HTML tags from fields", () => {
+			// Create a mock package with HTML in fields
+			const htmlPkg: AnkiPackage = {
+				notes: [
+					{
+						id: 1,
+						guid: "test1",
+						mid: 1,
+						mod: 0,
+						tags: [],
+						fields: ["<b>Bold</b> text", "<div>Answer</div><br/>Line 2"],
+						sfld: "Bold text",
+					},
+				],
+				cards: [
+					{
+						id: 1,
+						nid: 1,
+						did: 2,
+						ord: 0,
+						mod: 0,
+						type: 0,
+						queue: 0,
+						due: 0,
+						ivl: 0,
+						factor: 0,
+						reps: 0,
+						lapses: 0,
+					},
+				],
+				decks: [{ id: 2, name: "HTML Test", description: "" }],
+				models: [
+					{
+						id: 1,
+						name: "Basic",
+						fields: ["Front", "Back"],
+						templates: [
+							{ name: "Card 1", qfmt: "{{Front}}", afmt: "{{Back}}" },
+						],
+					},
+				],
+			};
+
+			const result = mapAnkiToKioku(htmlPkg);
+			const card = result[0]?.cards[0];
+
+			expect(card?.front).toBe("Bold text");
+			expect(card?.back).toBe("Answer\nLine 2");
+		});
+
+		it("should decode HTML entities", () => {
+			const htmlPkg: AnkiPackage = {
+				notes: [
+					{
+						id: 1,
+						guid: "test1",
+						mid: 1,
+						mod: 0,
+						tags: [],
+						fields: [
+							"&lt;code&gt; &amp; &quot;quotes&quot;",
+							"&nbsp;spaced&nbsp;",
+						],
+						sfld: "code",
+					},
+				],
+				cards: [
+					{
+						id: 1,
+						nid: 1,
+						did: 2,
+						ord: 0,
+						mod: 0,
+						type: 0,
+						queue: 0,
+						due: 0,
+						ivl: 0,
+						factor: 0,
+						reps: 0,
+						lapses: 0,
+					},
+				],
+				decks: [{ id: 2, name: "Entity Test", description: "" }],
+				models: [
+					{
+						id: 1,
+						name: "Basic",
+						fields: ["Front", "Back"],
+						templates: [
+							{ name: "Card 1", qfmt: "{{Front}}", afmt: "{{Back}}" },
+						],
+					},
+				],
+			};
+
+			const result = mapAnkiToKioku(htmlPkg);
+			const card = result[0]?.cards[0];
+
+			expect(card?.front).toBe('<code> & "quotes"');
+			expect(card?.back).toBe("spaced");
+		});
+
+		it("should handle empty package", () => {
+			const emptyPkg: AnkiPackage = {
+				notes: [],
+				cards: [],
+				decks: [],
+				models: [],
+			};
+
+			const result = mapAnkiToKioku(emptyPkg);
+			expect(result).toEqual([]);
+		});
+
+		it("should skip cards with missing notes", () => {
+			const incompletePkg: AnkiPackage = {
+				notes: [], // No notes
+				cards: [
+					{
+						id: 1,
+						nid: 999, // Non-existent note
+						did: 2,
+						ord: 0,
+						mod: 0,
+						type: 0,
+						queue: 0,
+						due: 0,
+						ivl: 0,
+						factor: 0,
+						reps: 0,
+						lapses: 0,
+					},
+				],
+				decks: [{ id: 2, name: "Test", description: "" }],
+				models: [],
+			};
+
+			const result = mapAnkiToKioku(incompletePkg);
+			// Should have deck but no cards
+			expect(result).toEqual([]);
 		});
 	});
 });

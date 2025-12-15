@@ -178,7 +178,7 @@ Smaller features first to enable early MVP validation.
 ### Parser
 - [x] ZIP extraction
 - [x] SQLite database reading
-- [ ] Note/Card mapping to Kioku format
+- [x] Note/Card mapping to Kioku format
 - [x] Add tests
 
 ### Server command
