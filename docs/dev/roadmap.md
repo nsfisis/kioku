@@ -176,10 +176,10 @@ Smaller features first to enable early MVP validation.
 **Goal**: Import existing Anki decks (.apkg, .colpkg)
 
 ### Parser
-- [ ] ZIP extraction
-- [ ] SQLite database reading
+- [x] ZIP extraction
+- [x] SQLite database reading
 - [ ] Note/Card mapping to Kioku format
-- [ ] Add tests
+- [x] Add tests
 
 ### Server command
 - [ ] Add `src/server/scripts/import-anki.ts`
