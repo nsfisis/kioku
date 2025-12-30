@@ -146,10 +146,10 @@ Create these as default note types for each user:
 ### Phase 2: Server Repositories
 
 **Tasks:**
-- [ ] Create `NoteTypeRepository`
+- [x] Create `NoteTypeRepository`
   - CRUD operations
   - Include fields when fetching
-- [ ] Create `NoteTypeFieldRepository`
+- [x] Create `NoteTypeFieldRepository`
   - CRUD operations
   - Reorder fields
 - [ ] Create `NoteRepository`

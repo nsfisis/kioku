@@ -162,3 +162,84 @@ export interface ReviewLogRepository {
 		durationMs?: number | null;
 	}): Promise<ReviewLog>;
 }
+
+export interface NoteType {
+	id: string;
+	userId: string;
+	name: string;
+	frontTemplate: string;
+	backTemplate: string;
+	isReversible: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+export interface NoteFieldType {
+	id: string;
+	noteTypeId: string;
+	name: string;
+	order: number;
+	fieldType: string;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+export interface NoteTypeWithFields extends NoteType {
+	fields: NoteFieldType[];
+}
+
+export interface NoteTypeRepository {
+	findByUserId(userId: string): Promise<NoteType[]>;
+	findById(id: string, userId: string): Promise<NoteType | undefined>;
+	findByIdWithFields(
+		id: string,
+		userId: string,
+	): Promise<NoteTypeWithFields | undefined>;
+	create(data: {
+		userId: string;
+		name: string;
+		frontTemplate: string;
+		backTemplate: string;
+		isReversible?: boolean;
+	}): Promise<NoteType>;
+	update(
+		id: string,
+		userId: string,
+		data: {
+			name?: string;
+			frontTemplate?: string;
+			backTemplate?: string;
+			isReversible?: boolean;
+		},
+	): Promise<NoteType | undefined>;
+	softDelete(id: string, userId: string): Promise<boolean>;
+	hasNotes(id: string, userId: string): Promise<boolean>;
+}
+
+export interface NoteFieldTypeRepository {
+	findByNoteTypeId(noteTypeId: string): Promise<NoteFieldType[]>;
+	findById(id: string, noteTypeId: string): Promise<NoteFieldType | undefined>;
+	create(
+		noteTypeId: string,
+		data: {
+			name: string;
+			order: number;
+			fieldType?: string;
+		},
+	): Promise<NoteFieldType>;
+	update(
+		id: string,
+		noteTypeId: string,
+		data: {
+			name?: string;
+			order?: number;
+		},
+	): Promise<NoteFieldType | undefined>;
+	softDelete(id: string, noteTypeId: string): Promise<boolean>;
+	reorder(noteTypeId: string, fieldIds: string[]): Promise<NoteFieldType[]>;
+	hasNoteFieldValues(id: string): Promise<boolean>;
+}
