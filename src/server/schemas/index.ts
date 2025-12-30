@@ -105,6 +105,98 @@ export const updateCardSchema = z.object({
 	back: z.string().min(1).optional(),
 });
 
+// Field type schema
+export const fieldTypeSchema = z.literal("text");
+
+// NoteType schema
+export const noteTypeSchema = z.object({
+	id: z.uuid(),
+	userId: z.uuid(),
+	name: z.string().min(1).max(255),
+	frontTemplate: z.string().min(1),
+	backTemplate: z.string().min(1),
+	isReversible: z.boolean(),
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	deletedAt: z.coerce.date().nullable(),
+	syncVersion: z.number().int().min(0),
+});
+
+// NoteType creation input schema
+export const createNoteTypeSchema = z.object({
+	name: z.string().min(1).max(255),
+	frontTemplate: z.string().min(1),
+	backTemplate: z.string().min(1),
+	isReversible: z.boolean().default(false),
+});
+
+// NoteType update input schema
+export const updateNoteTypeSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	frontTemplate: z.string().min(1).optional(),
+	backTemplate: z.string().min(1).optional(),
+	isReversible: z.boolean().optional(),
+});
+
+// NoteFieldType schema
+export const noteFieldTypeSchema = z.object({
+	id: z.uuid(),
+	noteTypeId: z.uuid(),
+	name: z.string().min(1).max(255),
+	order: z.number().int().min(0),
+	fieldType: fieldTypeSchema,
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	deletedAt: z.coerce.date().nullable(),
+	syncVersion: z.number().int().min(0),
+});
+
+// NoteFieldType creation input schema
+export const createNoteFieldTypeSchema = z.object({
+	name: z.string().min(1).max(255),
+	order: z.number().int().min(0),
+	fieldType: fieldTypeSchema.default("text"),
+});
+
+// NoteFieldType update input schema
+export const updateNoteFieldTypeSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	order: z.number().int().min(0).optional(),
+});
+
+// Note schema
+export const noteSchema = z.object({
+	id: z.uuid(),
+	deckId: z.uuid(),
+	noteTypeId: z.uuid(),
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	deletedAt: z.coerce.date().nullable(),
+	syncVersion: z.number().int().min(0),
+});
+
+// Note creation input schema (fields is a map of fieldTypeId -> value)
+export const createNoteSchema = z.object({
+	noteTypeId: z.uuid(),
+	fields: z.record(z.uuid(), z.string()),
+});
+
+// Note update input schema
+export const updateNoteSchema = z.object({
+	fields: z.record(z.uuid(), z.string()),
+});
+
+// NoteFieldValue schema
+export const noteFieldValueSchema = z.object({
+	id: z.uuid(),
+	noteId: z.uuid(),
+	noteFieldTypeId: z.uuid(),
+	value: z.string(),
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	syncVersion: z.number().int().min(0),
+});
+
 // ReviewLog schema
 export const reviewLogSchema = z.object({
 	id: z.uuid(),
@@ -138,3 +230,18 @@ export type CreateCardSchema = z.infer<typeof createCardSchema>;
 export type UpdateCardSchema = z.infer<typeof updateCardSchema>;
 export type ReviewLogSchema = z.infer<typeof reviewLogSchema>;
 export type SubmitReviewSchema = z.infer<typeof submitReviewSchema>;
+export type FieldTypeSchema = z.infer<typeof fieldTypeSchema>;
+export type NoteTypeSchema = z.infer<typeof noteTypeSchema>;
+export type CreateNoteTypeSchema = z.infer<typeof createNoteTypeSchema>;
+export type UpdateNoteTypeSchema = z.infer<typeof updateNoteTypeSchema>;
+export type NoteFieldTypeSchema = z.infer<typeof noteFieldTypeSchema>;
+export type CreateNoteFieldTypeSchema = z.infer<
+	typeof createNoteFieldTypeSchema
+>;
+export type UpdateNoteFieldTypeSchema = z.infer<
+	typeof updateNoteFieldTypeSchema
+>;
+export type NoteSchema = z.infer<typeof noteSchema>;
+export type CreateNoteSchema = z.infer<typeof createNoteSchema>;
+export type UpdateNoteSchema = z.infer<typeof updateNoteSchema>;
+export type NoteFieldValueSchema = z.infer<typeof noteFieldValueSchema>;

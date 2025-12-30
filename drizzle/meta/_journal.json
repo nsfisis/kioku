@@ -15,6 +15,13 @@
       "when": 1764708169736,
       "tag": "0001_spotty_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767108756805,
+      "tag": "0002_married_moondragon",
+      "breakpoints": true
     }
   ]
 }

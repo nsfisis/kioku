@@ -1,4 +1,5 @@
 import {
+	boolean,
 	integer,
 	pgTable,
 	real,
@@ -25,6 +26,11 @@ export const Rating = {
 	Easy: 4,
 } as const;
 
+// Field types for note fields
+export const FieldType = {
+	Text: "text",
+} as const;
+
 export const users = pgTable("users", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	username: varchar("username", { length: 255 }).notNull().unique(),
@@ -49,6 +55,45 @@ export const refreshTokens = pgTable("refresh_tokens", {
 		.defaultNow(),
 });
 
+export const noteTypes = pgTable("note_types", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	userId: uuid("user_id")
+		.notNull()
+		.references(() => users.id),
+	name: varchar("name", { length: 255 }).notNull(),
+	frontTemplate: text("front_template").notNull(),
+	backTemplate: text("back_template").notNull(),
+	isReversible: boolean("is_reversible").notNull().default(false),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true }),
+	syncVersion: integer("sync_version").notNull().default(0),
+});
+
+export const noteFieldTypes = pgTable("note_field_types", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	noteTypeId: uuid("note_type_id")
+		.notNull()
+		.references(() => noteTypes.id),
+	name: varchar("name", { length: 255 }).notNull(),
+	order: integer("order").notNull(),
+	fieldType: varchar("field_type", { length: 50 })
+		.notNull()
+		.default(FieldType.Text),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true }),
+	syncVersion: integer("sync_version").notNull().default(0),
+});
+
 export const decks = pgTable("decks", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	userId: uuid("user_id")
@@ -67,11 +112,49 @@ export const decks = pgTable("decks", {
 	syncVersion: integer("sync_version").notNull().default(0),
 });
 
+export const notes = pgTable("notes", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	deckId: uuid("deck_id")
+		.notNull()
+		.references(() => decks.id),
+	noteTypeId: uuid("note_type_id")
+		.notNull()
+		.references(() => noteTypes.id),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true }),
+	syncVersion: integer("sync_version").notNull().default(0),
+});
+
+export const noteFieldValues = pgTable("note_field_values", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	noteId: uuid("note_id")
+		.notNull()
+		.references(() => notes.id),
+	noteFieldTypeId: uuid("note_field_type_id")
+		.notNull()
+		.references(() => noteFieldTypes.id),
+	value: text("value").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	syncVersion: integer("sync_version").notNull().default(0),
+});
+
 export const cards = pgTable("cards", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	deckId: uuid("deck_id")
 		.notNull()
 		.references(() => decks.id),
+	noteId: uuid("note_id").references(() => notes.id),
+	isReversed: boolean("is_reversed"),
 	front: text("front").notNull(),
 	back: text("back").notNull(),
 
