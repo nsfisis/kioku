@@ -3,14 +3,18 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CardState, db, Rating } from "../db/index";
+import { CardState, db, FieldType, Rating } from "../db/index";
 import {
 	localCardRepository,
 	localDeckRepository,
+	localNoteFieldTypeRepository,
+	localNoteFieldValueRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
 	localReviewLogRepository,
 } from "../db/repositories";
-import type { PendingChanges } from "./queue";
 import { PushService, pendingChangesToPushData } from "./push";
+import type { PendingChanges } from "./queue";
 import { SyncQueue } from "./queue";
 
 function createEmptyPending(): Omit<
@@ -277,6 +281,193 @@ describe("pendingChangesToPushData", () => {
 
 		expect(result.reviewLogs[0]?.durationMs).toBeNull();
 	});
+
+	it("should convert note types to sync format", () => {
+		const noteTypes = [
+			{
+				id: "note-type-1",
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: true,
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: false,
+			},
+		];
+
+		const result = pendingChangesToPushData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes,
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		});
+
+		expect(result.noteTypes).toHaveLength(1);
+		expect(result.noteTypes[0]).toEqual({
+			id: "note-type-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: true,
+			createdAt: "2024-01-01T10:00:00.000Z",
+			updatedAt: "2024-01-02T15:30:00.000Z",
+			deletedAt: null,
+		});
+	});
+
+	it("should convert note field types to sync format", () => {
+		const noteFieldTypes = [
+			{
+				id: "field-type-1",
+				noteTypeId: "note-type-1",
+				name: "Front",
+				order: 0,
+				fieldType: FieldType.Text,
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: false,
+			},
+		];
+
+		const result = pendingChangesToPushData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes,
+			notes: [],
+			noteFieldValues: [],
+		});
+
+		expect(result.noteFieldTypes).toHaveLength(1);
+		expect(result.noteFieldTypes[0]).toEqual({
+			id: "field-type-1",
+			noteTypeId: "note-type-1",
+			name: "Front",
+			order: 0,
+			fieldType: "text",
+			createdAt: "2024-01-01T10:00:00.000Z",
+			updatedAt: "2024-01-02T15:30:00.000Z",
+			deletedAt: null,
+		});
+	});
+
+	it("should convert notes to sync format", () => {
+		const notes = [
+			{
+				id: "note-1",
+				deckId: "deck-1",
+				noteTypeId: "note-type-1",
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: false,
+			},
+		];
+
+		const result = pendingChangesToPushData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes,
+			noteFieldValues: [],
+		});
+
+		expect(result.notes).toHaveLength(1);
+		expect(result.notes[0]).toEqual({
+			id: "note-1",
+			deckId: "deck-1",
+			noteTypeId: "note-type-1",
+			createdAt: "2024-01-01T10:00:00.000Z",
+			updatedAt: "2024-01-02T15:30:00.000Z",
+			deletedAt: null,
+		});
+	});
+
+	it("should convert note field values to sync format", () => {
+		const noteFieldValues = [
+			{
+				id: "field-value-1",
+				noteId: "note-1",
+				noteFieldTypeId: "field-type-1",
+				value: "What is the capital of Japan?",
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				syncVersion: 0,
+				_synced: false,
+			},
+		];
+
+		const result = pendingChangesToPushData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues,
+		});
+
+		expect(result.noteFieldValues).toHaveLength(1);
+		expect(result.noteFieldValues[0]).toEqual({
+			id: "field-value-1",
+			noteId: "note-1",
+			noteFieldTypeId: "field-type-1",
+			value: "What is the capital of Japan?",
+			createdAt: "2024-01-01T10:00:00.000Z",
+			updatedAt: "2024-01-02T15:30:00.000Z",
+		});
+	});
+
+	it("should convert cards with noteId and isReversed to sync format", () => {
+		const cards = [
+			{
+				id: "card-1",
+				deckId: "deck-1",
+				noteId: "note-1",
+				isReversed: true,
+				front: "Question",
+				back: "Answer",
+				state: CardState.Review,
+				due: new Date("2024-01-05T09:00:00Z"),
+				stability: 10.5,
+				difficulty: 5.2,
+				elapsedDays: 3,
+				scheduledDays: 5,
+				reps: 4,
+				lapses: 1,
+				lastReview: new Date("2024-01-02T10:00:00Z"),
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T10:00:00Z"),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: false,
+			},
+		];
+
+		const result = pendingChangesToPushData({
+			decks: [],
+			cards,
+			reviewLogs: [],
+			...createEmptyPending(),
+		});
+
+		expect(result.cards).toHaveLength(1);
+		expect(result.cards[0]?.noteId).toBe("note-1");
+		expect(result.cards[0]?.isReversed).toBe(true);
+	});
 });
 
 describe("PushService", () => {
@@ -286,6 +477,10 @@ describe("PushService", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 		localStorage.clear();
 		syncQueue = new SyncQueue();
 	});
@@ -294,6 +489,10 @@ describe("PushService", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 		localStorage.clear();
 	});
 
@@ -583,6 +782,283 @@ describe("PushService", () => {
 			expect(updatedDeck?._synced).toBe(true);
 			expect(updatedCard?._synced).toBe(true);
 			expect(updatedLog?._synced).toBe(true);
+		});
+
+		it("should push pending note types to server", async () => {
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+
+			const pushToServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [{ id: noteType.id, syncVersion: 1 }],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: createEmptyConflicts(),
+			});
+
+			const pushService = new PushService({
+				syncQueue,
+				pushToServer,
+			});
+
+			const result = await pushService.push();
+
+			expect(pushToServer).toHaveBeenCalledWith(
+				expect.objectContaining({
+					noteTypes: [
+						expect.objectContaining({
+							id: noteType.id,
+							name: "Basic",
+						}),
+					],
+				}),
+			);
+			expect(result.noteTypes).toHaveLength(1);
+			expect(result.noteTypes[0]?.id).toBe(noteType.id);
+
+			const updatedNoteType = await localNoteTypeRepository.findById(
+				noteType.id,
+			);
+			expect(updatedNoteType?._synced).toBe(true);
+			expect(updatedNoteType?.syncVersion).toBe(1);
+		});
+
+		it("should push pending note field types to server", async () => {
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const fieldType = await localNoteFieldTypeRepository.create({
+				noteTypeId: noteType.id,
+				name: "Front",
+				order: 0,
+			});
+
+			const pushToServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [{ id: fieldType.id, syncVersion: 1 }],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: createEmptyConflicts(),
+			});
+
+			const pushService = new PushService({
+				syncQueue,
+				pushToServer,
+			});
+
+			const result = await pushService.push();
+
+			expect(result.noteFieldTypes).toHaveLength(1);
+
+			const updatedFieldType = await localNoteFieldTypeRepository.findById(
+				fieldType.id,
+			);
+			expect(updatedFieldType?._synced).toBe(true);
+			expect(updatedFieldType?.syncVersion).toBe(1);
+		});
+
+		it("should push pending notes to server", async () => {
+			const deck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				newCardsPerDay: 20,
+			});
+			await localDeckRepository.markSynced(deck.id, 1);
+
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const note = await localNoteRepository.create({
+				deckId: deck.id,
+				noteTypeId: noteType.id,
+			});
+
+			const pushToServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [{ id: note.id, syncVersion: 1 }],
+				noteFieldValues: [],
+				conflicts: createEmptyConflicts(),
+			});
+
+			const pushService = new PushService({
+				syncQueue,
+				pushToServer,
+			});
+
+			const result = await pushService.push();
+
+			expect(result.notes).toHaveLength(1);
+
+			const updatedNote = await localNoteRepository.findById(note.id);
+			expect(updatedNote?._synced).toBe(true);
+			expect(updatedNote?.syncVersion).toBe(1);
+		});
+
+		it("should push pending note field values to server", async () => {
+			const deck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				newCardsPerDay: 20,
+			});
+			await localDeckRepository.markSynced(deck.id, 1);
+
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const fieldType = await localNoteFieldTypeRepository.create({
+				noteTypeId: noteType.id,
+				name: "Front",
+				order: 0,
+			});
+			await localNoteFieldTypeRepository.markSynced(fieldType.id, 1);
+
+			const note = await localNoteRepository.create({
+				deckId: deck.id,
+				noteTypeId: noteType.id,
+			});
+			await localNoteRepository.markSynced(note.id, 1);
+
+			const fieldValue = await localNoteFieldValueRepository.create({
+				noteId: note.id,
+				noteFieldTypeId: fieldType.id,
+				value: "What is 2+2?",
+			});
+
+			const pushToServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [{ id: fieldValue.id, syncVersion: 1 }],
+				conflicts: createEmptyConflicts(),
+			});
+
+			const pushService = new PushService({
+				syncQueue,
+				pushToServer,
+			});
+
+			const result = await pushService.push();
+
+			expect(result.noteFieldValues).toHaveLength(1);
+
+			const updatedFieldValue = await localNoteFieldValueRepository.findById(
+				fieldValue.id,
+			);
+			expect(updatedFieldValue?._synced).toBe(true);
+			expect(updatedFieldValue?.syncVersion).toBe(1);
+		});
+
+		it("should push all note-related entities together", async () => {
+			const deck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				newCardsPerDay: 20,
+			});
+
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+
+			const fieldType = await localNoteFieldTypeRepository.create({
+				noteTypeId: noteType.id,
+				name: "Front",
+				order: 0,
+			});
+
+			const note = await localNoteRepository.create({
+				deckId: deck.id,
+				noteTypeId: noteType.id,
+			});
+
+			const fieldValue = await localNoteFieldValueRepository.create({
+				noteId: note.id,
+				noteFieldTypeId: fieldType.id,
+				value: "What is 2+2?",
+			});
+
+			const pushToServer = vi.fn().mockResolvedValue({
+				decks: [{ id: deck.id, syncVersion: 1 }],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [{ id: noteType.id, syncVersion: 1 }],
+				noteFieldTypes: [{ id: fieldType.id, syncVersion: 1 }],
+				notes: [{ id: note.id, syncVersion: 1 }],
+				noteFieldValues: [{ id: fieldValue.id, syncVersion: 1 }],
+				conflicts: createEmptyConflicts(),
+			});
+
+			const pushService = new PushService({
+				syncQueue,
+				pushToServer,
+			});
+
+			const result = await pushService.push();
+
+			expect(result.decks).toHaveLength(1);
+			expect(result.noteTypes).toHaveLength(1);
+			expect(result.noteFieldTypes).toHaveLength(1);
+			expect(result.notes).toHaveLength(1);
+			expect(result.noteFieldValues).toHaveLength(1);
+
+			// Verify all items are marked as synced
+			const updatedNoteType = await localNoteTypeRepository.findById(
+				noteType.id,
+			);
+			const updatedFieldType = await localNoteFieldTypeRepository.findById(
+				fieldType.id,
+			);
+			const updatedNote = await localNoteRepository.findById(note.id);
+			const updatedFieldValue = await localNoteFieldValueRepository.findById(
+				fieldValue.id,
+			);
+
+			expect(updatedNoteType?._synced).toBe(true);
+			expect(updatedFieldType?._synced).toBe(true);
+			expect(updatedNote?._synced).toBe(true);
+			expect(updatedFieldValue?._synced).toBe(true);
 		});
 	});
 

@@ -5,8 +5,8 @@ import {
 	decks,
 	noteFieldTypes,
 	noteFieldValues,
-	noteTypes,
 	notes,
+	noteTypes,
 	reviewLogs,
 } from "../db/schema.js";
 import type {
@@ -634,9 +634,7 @@ export const syncRepository: SyncRepository = {
 						noteTypeId: noteData.noteTypeId,
 						createdAt: new Date(noteData.createdAt),
 						updatedAt: clientUpdatedAt,
-						deletedAt: noteData.deletedAt
-							? new Date(noteData.deletedAt)
-							: null,
+						deletedAt: noteData.deletedAt ? new Date(noteData.deletedAt) : null,
 						syncVersion: 1,
 					})
 					.returning({ id: notes.id, syncVersion: notes.syncVersion });
@@ -860,10 +858,7 @@ export const syncRepository: SyncRepository = {
 			pulledNotes = noteResults.filter((n) => deckIdList.includes(n.deckId));
 		}
 
-		// Get note IDs for filtering note field values
-		const noteIdList = pulledNotes.map((n) => n.id);
-
-		// Also get all user's note IDs (not just recently synced ones) for field value filtering
+		// Get all user's note IDs (not just recently synced ones) for field value filtering
 		let allUserNoteIds: string[] = [];
 		if (deckIdList.length > 0) {
 			const allNotes = await db

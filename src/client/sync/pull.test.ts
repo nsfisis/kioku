@@ -4,8 +4,19 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CardState, db, Rating } from "../db/index";
-import { localCardRepository, localDeckRepository } from "../db/repositories";
-import { PullService, pullResultToLocalData, type SyncPullResult } from "./pull";
+import {
+	localCardRepository,
+	localDeckRepository,
+	localNoteFieldTypeRepository,
+	localNoteFieldValueRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
+import {
+	PullService,
+	pullResultToLocalData,
+	type SyncPullResult,
+} from "./pull";
 import { SyncQueue } from "./queue";
 
 function createEmptyPullResult(
@@ -237,6 +248,201 @@ describe("pullResultToLocalData", () => {
 
 		expect(result.reviewLogs[0]?.durationMs).toBeNull();
 	});
+
+	it("should convert server note types to local format", () => {
+		const serverNoteTypes = [
+			{
+				id: "note-type-1",
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: true,
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 5,
+			},
+		];
+
+		const result = pullResultToLocalData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: serverNoteTypes,
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			currentSyncVersion: 5,
+		});
+
+		expect(result.noteTypes).toHaveLength(1);
+		expect(result.noteTypes[0]).toEqual({
+			id: "note-type-1",
+			userId: "user-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: true,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: true,
+		});
+	});
+
+	it("should convert server note field types to local format", () => {
+		const serverNoteFieldTypes = [
+			{
+				id: "field-type-1",
+				noteTypeId: "note-type-1",
+				name: "Front",
+				order: 0,
+				fieldType: "text",
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 3,
+			},
+		];
+
+		const result = pullResultToLocalData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: serverNoteFieldTypes,
+			notes: [],
+			noteFieldValues: [],
+			currentSyncVersion: 3,
+		});
+
+		expect(result.noteFieldTypes).toHaveLength(1);
+		expect(result.noteFieldTypes[0]).toEqual({
+			id: "field-type-1",
+			noteTypeId: "note-type-1",
+			name: "Front",
+			order: 0,
+			fieldType: "text",
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 3,
+			_synced: true,
+		});
+	});
+
+	it("should convert server notes to local format", () => {
+		const serverNotes = [
+			{
+				id: "note-1",
+				deckId: "deck-1",
+				noteTypeId: "note-type-1",
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				deletedAt: null,
+				syncVersion: 2,
+			},
+		];
+
+		const result = pullResultToLocalData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: serverNotes,
+			noteFieldValues: [],
+			currentSyncVersion: 2,
+		});
+
+		expect(result.notes).toHaveLength(1);
+		expect(result.notes[0]).toEqual({
+			id: "note-1",
+			deckId: "deck-1",
+			noteTypeId: "note-type-1",
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 2,
+			_synced: true,
+		});
+	});
+
+	it("should convert server note field values to local format", () => {
+		const serverNoteFieldValues = [
+			{
+				id: "field-value-1",
+				noteId: "note-1",
+				noteFieldTypeId: "field-type-1",
+				value: "What is the capital of Japan?",
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T15:30:00Z"),
+				syncVersion: 4,
+			},
+		];
+
+		const result = pullResultToLocalData({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: serverNoteFieldValues,
+			currentSyncVersion: 4,
+		});
+
+		expect(result.noteFieldValues).toHaveLength(1);
+		expect(result.noteFieldValues[0]).toEqual({
+			id: "field-value-1",
+			noteId: "note-1",
+			noteFieldTypeId: "field-type-1",
+			value: "What is the capital of Japan?",
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			syncVersion: 4,
+			_synced: true,
+		});
+	});
+
+	it("should convert server cards with noteId and isReversed to local format", () => {
+		const serverCards = [
+			{
+				id: "card-1",
+				deckId: "deck-1",
+				noteId: "note-1",
+				isReversed: true,
+				front: "Question",
+				back: "Answer",
+				state: CardState.Review,
+				due: new Date("2024-01-05T09:00:00Z"),
+				stability: 10.5,
+				difficulty: 5.2,
+				elapsedDays: 3,
+				scheduledDays: 5,
+				reps: 4,
+				lapses: 1,
+				lastReview: new Date("2024-01-02T10:00:00Z"),
+				createdAt: new Date("2024-01-01T10:00:00Z"),
+				updatedAt: new Date("2024-01-02T10:00:00Z"),
+				deletedAt: null,
+				syncVersion: 2,
+			},
+		];
+
+		const result = pullResultToLocalData({
+			decks: [],
+			cards: serverCards,
+			reviewLogs: [],
+			...createEmptyPullResult(2),
+		});
+
+		expect(result.cards).toHaveLength(1);
+		expect(result.cards[0]?.noteId).toBe("note-1");
+		expect(result.cards[0]?.isReversed).toBe(true);
+	});
 });
 
 describe("PullService", () => {
@@ -246,6 +452,10 @@ describe("PullService", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 		localStorage.clear();
 		syncQueue = new SyncQueue();
 	});
@@ -254,6 +464,10 @@ describe("PullService", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 		localStorage.clear();
 	});
 
@@ -548,6 +762,366 @@ describe("PullService", () => {
 			expect(result.cards).toHaveLength(1);
 			expect(result.reviewLogs).toHaveLength(1);
 			expect(syncQueue.getLastSyncVersion()).toBe(3);
+		});
+
+		it("should apply pulled note types to local database", async () => {
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [
+					{
+						id: "note-type-1",
+						userId: "user-1",
+						name: "Basic",
+						frontTemplate: "{{Front}}",
+						backTemplate: "{{Back}}",
+						isReversible: false,
+						createdAt: new Date("2024-01-01T10:00:00Z"),
+						updatedAt: new Date("2024-01-02T10:00:00Z"),
+						deletedAt: null,
+						syncVersion: 5,
+					},
+				],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				currentSyncVersion: 5,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			await pullService.pull();
+
+			const noteType = await localNoteTypeRepository.findById("note-type-1");
+			expect(noteType).toBeDefined();
+			expect(noteType?.name).toBe("Basic");
+			expect(noteType?.frontTemplate).toBe("{{Front}}");
+			expect(noteType?.isReversible).toBe(false);
+			expect(noteType?._synced).toBe(true);
+			expect(noteType?.syncVersion).toBe(5);
+		});
+
+		it("should apply pulled note field types to local database", async () => {
+			// First create the note type
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [
+					{
+						id: "field-type-1",
+						noteTypeId: noteType.id,
+						name: "Front",
+						order: 0,
+						fieldType: "text",
+						createdAt: new Date("2024-01-01T10:00:00Z"),
+						updatedAt: new Date("2024-01-02T10:00:00Z"),
+						deletedAt: null,
+						syncVersion: 3,
+					},
+				],
+				notes: [],
+				noteFieldValues: [],
+				currentSyncVersion: 3,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			await pullService.pull();
+
+			const fieldType =
+				await localNoteFieldTypeRepository.findById("field-type-1");
+			expect(fieldType).toBeDefined();
+			expect(fieldType?.name).toBe("Front");
+			expect(fieldType?.order).toBe(0);
+			expect(fieldType?._synced).toBe(true);
+			expect(fieldType?.syncVersion).toBe(3);
+		});
+
+		it("should apply pulled notes to local database", async () => {
+			// First create the deck and note type
+			const deck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				newCardsPerDay: 20,
+			});
+			await localDeckRepository.markSynced(deck.id, 1);
+
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [
+					{
+						id: "note-1",
+						deckId: deck.id,
+						noteTypeId: noteType.id,
+						createdAt: new Date("2024-01-01T10:00:00Z"),
+						updatedAt: new Date("2024-01-02T10:00:00Z"),
+						deletedAt: null,
+						syncVersion: 4,
+					},
+				],
+				noteFieldValues: [],
+				currentSyncVersion: 4,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			await pullService.pull();
+
+			const note = await localNoteRepository.findById("note-1");
+			expect(note).toBeDefined();
+			expect(note?.deckId).toBe(deck.id);
+			expect(note?.noteTypeId).toBe(noteType.id);
+			expect(note?._synced).toBe(true);
+			expect(note?.syncVersion).toBe(4);
+		});
+
+		it("should apply pulled note field values to local database", async () => {
+			// First create the deck, note type, field type, and note
+			const deck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				newCardsPerDay: 20,
+			});
+			await localDeckRepository.markSynced(deck.id, 1);
+
+			const noteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Basic",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			});
+			await localNoteTypeRepository.markSynced(noteType.id, 1);
+
+			const fieldType = await localNoteFieldTypeRepository.create({
+				noteTypeId: noteType.id,
+				name: "Front",
+				order: 0,
+			});
+			await localNoteFieldTypeRepository.markSynced(fieldType.id, 1);
+
+			const note = await localNoteRepository.create({
+				deckId: deck.id,
+				noteTypeId: noteType.id,
+			});
+			await localNoteRepository.markSynced(note.id, 1);
+
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [
+					{
+						id: "field-value-1",
+						noteId: note.id,
+						noteFieldTypeId: fieldType.id,
+						value: "What is 2+2?",
+						createdAt: new Date("2024-01-01T10:00:00Z"),
+						updatedAt: new Date("2024-01-02T10:00:00Z"),
+						syncVersion: 6,
+					},
+				],
+				currentSyncVersion: 6,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			await pullService.pull();
+
+			const fieldValue =
+				await localNoteFieldValueRepository.findById("field-value-1");
+			expect(fieldValue).toBeDefined();
+			expect(fieldValue?.value).toBe("What is 2+2?");
+			expect(fieldValue?._synced).toBe(true);
+			expect(fieldValue?.syncVersion).toBe(6);
+		});
+
+		it("should handle pulling all note-related entities together", async () => {
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [
+					{
+						id: "deck-1",
+						userId: "user-1",
+						name: "Deck",
+						description: null,
+						newCardsPerDay: 20,
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						deletedAt: null,
+						syncVersion: 1,
+					},
+				],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [
+					{
+						id: "note-type-1",
+						userId: "user-1",
+						name: "Basic",
+						frontTemplate: "{{Front}}",
+						backTemplate: "{{Back}}",
+						isReversible: false,
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						deletedAt: null,
+						syncVersion: 2,
+					},
+				],
+				noteFieldTypes: [
+					{
+						id: "field-type-1",
+						noteTypeId: "note-type-1",
+						name: "Front",
+						order: 0,
+						fieldType: "text",
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						deletedAt: null,
+						syncVersion: 3,
+					},
+				],
+				notes: [
+					{
+						id: "note-1",
+						deckId: "deck-1",
+						noteTypeId: "note-type-1",
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						deletedAt: null,
+						syncVersion: 4,
+					},
+				],
+				noteFieldValues: [
+					{
+						id: "field-value-1",
+						noteId: "note-1",
+						noteFieldTypeId: "field-type-1",
+						value: "What is 2+2?",
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						syncVersion: 5,
+					},
+				],
+				currentSyncVersion: 5,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			const result = await pullService.pull();
+
+			expect(result.noteTypes).toHaveLength(1);
+			expect(result.noteFieldTypes).toHaveLength(1);
+			expect(result.notes).toHaveLength(1);
+			expect(result.noteFieldValues).toHaveLength(1);
+			expect(syncQueue.getLastSyncVersion()).toBe(5);
+
+			// Verify all items are stored in local database
+			const noteType = await localNoteTypeRepository.findById("note-type-1");
+			const fieldType =
+				await localNoteFieldTypeRepository.findById("field-type-1");
+			const note = await localNoteRepository.findById("note-1");
+			const fieldValue =
+				await localNoteFieldValueRepository.findById("field-value-1");
+
+			expect(noteType?._synced).toBe(true);
+			expect(fieldType?._synced).toBe(true);
+			expect(note?._synced).toBe(true);
+			expect(fieldValue?._synced).toBe(true);
+		});
+
+		it("should update existing note types when pulling", async () => {
+			// Create an existing note type
+			const existingNoteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Old Name",
+				frontTemplate: "{{Old}}",
+				backTemplate: "{{Old}}",
+				isReversible: false,
+			});
+
+			const pullFromServer = vi.fn().mockResolvedValue({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [
+					{
+						id: existingNoteType.id,
+						userId: "user-1",
+						name: "Updated Name",
+						frontTemplate: "{{Front}}",
+						backTemplate: "{{Back}}",
+						isReversible: true,
+						createdAt: existingNoteType.createdAt,
+						updatedAt: new Date(),
+						deletedAt: null,
+						syncVersion: 10,
+					},
+				],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				currentSyncVersion: 10,
+			});
+
+			const pullService = new PullService({
+				syncQueue,
+				pullFromServer,
+			});
+
+			await pullService.pull();
+
+			const updatedNoteType = await localNoteTypeRepository.findById(
+				existingNoteType.id,
+			);
+			expect(updatedNoteType?.name).toBe("Updated Name");
+			expect(updatedNoteType?.frontTemplate).toBe("{{Front}}");
+			expect(updatedNoteType?.isReversible).toBe(true);
+			expect(updatedNoteType?._synced).toBe(true);
 		});
 	});
 
