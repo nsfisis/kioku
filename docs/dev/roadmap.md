@@ -207,7 +207,7 @@ Create these as default note types for each user:
 - [x] Add `LocalNoteFieldValue` interface and table
 - [x] Modify `LocalCard` interface: add `noteId`, `isReversed`
 - [x] Update Dexie schema version and upgrade handler
-- [ ] Create client repositories for new entities
+- [x] Create client repositories for new entities
 
 **Files to modify:**
 - `src/client/db/index.ts`
