@@ -107,6 +107,8 @@ describe("pullResultToLocalData", () => {
 		expect(result.cards[0]).toEqual({
 			id: "card-1",
 			deckId: "deck-1",
+			noteId: null,
+			isReversed: null,
 			front: "Question",
 			back: "Answer",
 			state: CardState.Review,

@@ -28,6 +28,8 @@ export interface ServerDeck {
 export interface ServerCard {
 	id: string;
 	deckId: string;
+	noteId?: string | null;
+	isReversed?: boolean | null;
 	front: string;
 	back: string;
 	state: number;
@@ -104,6 +106,8 @@ function serverCardToLocal(card: ServerCard): LocalCard {
 	return {
 		id: card.id,
 		deckId: card.deckId,
+		noteId: card.noteId ?? null,
+		isReversed: card.isReversed ?? null,
 		front: card.front,
 		back: card.back,
 		state: card.state as CardStateType,

@@ -6,8 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	CardState,
 	db,
+	FieldType,
 	type LocalCard,
 	type LocalDeck,
+	type LocalNote,
+	type LocalNoteFieldType,
+	type LocalNoteFieldValue,
+	type LocalNoteType,
 	type LocalReviewLog,
 	Rating,
 } from "./index";
@@ -18,6 +23,10 @@ describe("KiokuDatabase", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 	});
 
 	afterEach(async () => {
@@ -25,6 +34,10 @@ describe("KiokuDatabase", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 	});
 
 	describe("database initialization", () => {
@@ -119,6 +132,8 @@ describe("KiokuDatabase", () => {
 		const testCard: LocalCard = {
 			id: "card-1",
 			deckId: "deck-1",
+			noteId: null,
+			isReversed: null,
 			front: "Question",
 			back: "Answer",
 			state: CardState.New,
@@ -289,6 +304,251 @@ describe("KiokuDatabase", () => {
 		});
 	});
 
+	describe("noteTypes table", () => {
+		const testNoteType: LocalNoteType = {
+			id: "note-type-1",
+			userId: "user-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+			createdAt: new Date("2024-01-01"),
+			updatedAt: new Date("2024-01-01"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: false,
+		};
+
+		it("should add and retrieve a note type", async () => {
+			await db.noteTypes.add(testNoteType);
+			const retrieved = await db.noteTypes.get("note-type-1");
+			expect(retrieved).toEqual(testNoteType);
+		});
+
+		it("should find note types by userId", async () => {
+			await db.noteTypes.add(testNoteType);
+			await db.noteTypes.add({
+				...testNoteType,
+				id: "note-type-2",
+				userId: "user-2",
+			});
+
+			const userNoteTypes = await db.noteTypes
+				.where("userId")
+				.equals("user-1")
+				.toArray();
+			expect(userNoteTypes).toHaveLength(1);
+			expect(userNoteTypes[0]?.id).toBe("note-type-1");
+		});
+
+		it("should find unsynced note types", async () => {
+			await db.noteTypes.add(testNoteType);
+			await db.noteTypes.add({
+				...testNoteType,
+				id: "note-type-2",
+				_synced: true,
+			});
+
+			const unsynced = await db.noteTypes.filter((nt) => !nt._synced).toArray();
+			expect(unsynced).toHaveLength(1);
+			expect(unsynced[0]?.id).toBe("note-type-1");
+		});
+
+		it("should update a note type", async () => {
+			await db.noteTypes.add(testNoteType);
+			await db.noteTypes.update("note-type-1", {
+				name: "Updated Name",
+				isReversible: true,
+			});
+
+			const updated = await db.noteTypes.get("note-type-1");
+			expect(updated?.name).toBe("Updated Name");
+			expect(updated?.isReversible).toBe(true);
+		});
+	});
+
+	describe("noteFieldTypes table", () => {
+		const testNoteFieldType: LocalNoteFieldType = {
+			id: "field-type-1",
+			noteTypeId: "note-type-1",
+			name: "Front",
+			order: 0,
+			fieldType: FieldType.Text,
+			createdAt: new Date("2024-01-01"),
+			updatedAt: new Date("2024-01-01"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: false,
+		};
+
+		it("should add and retrieve a note field type", async () => {
+			await db.noteFieldTypes.add(testNoteFieldType);
+			const retrieved = await db.noteFieldTypes.get("field-type-1");
+			expect(retrieved).toEqual(testNoteFieldType);
+		});
+
+		it("should find note field types by noteTypeId", async () => {
+			await db.noteFieldTypes.add(testNoteFieldType);
+			await db.noteFieldTypes.add({
+				...testNoteFieldType,
+				id: "field-type-2",
+				noteTypeId: "note-type-2",
+			});
+
+			const fields = await db.noteFieldTypes
+				.where("noteTypeId")
+				.equals("note-type-1")
+				.toArray();
+			expect(fields).toHaveLength(1);
+			expect(fields[0]?.id).toBe("field-type-1");
+		});
+
+		it("should find unsynced note field types", async () => {
+			await db.noteFieldTypes.add(testNoteFieldType);
+			await db.noteFieldTypes.add({
+				...testNoteFieldType,
+				id: "field-type-2",
+				_synced: true,
+			});
+
+			const unsynced = await db.noteFieldTypes
+				.filter((nft) => !nft._synced)
+				.toArray();
+			expect(unsynced).toHaveLength(1);
+			expect(unsynced[0]?.id).toBe("field-type-1");
+		});
+	});
+
+	describe("notes table", () => {
+		const testNote: LocalNote = {
+			id: "note-1",
+			deckId: "deck-1",
+			noteTypeId: "note-type-1",
+			createdAt: new Date("2024-01-01"),
+			updatedAt: new Date("2024-01-01"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: false,
+		};
+
+		it("should add and retrieve a note", async () => {
+			await db.notes.add(testNote);
+			const retrieved = await db.notes.get("note-1");
+			expect(retrieved).toEqual(testNote);
+		});
+
+		it("should find notes by deckId", async () => {
+			await db.notes.add(testNote);
+			await db.notes.add({
+				...testNote,
+				id: "note-2",
+				deckId: "deck-2",
+			});
+
+			const deckNotes = await db.notes
+				.where("deckId")
+				.equals("deck-1")
+				.toArray();
+			expect(deckNotes).toHaveLength(1);
+			expect(deckNotes[0]?.id).toBe("note-1");
+		});
+
+		it("should find notes by noteTypeId", async () => {
+			await db.notes.add(testNote);
+			await db.notes.add({
+				...testNote,
+				id: "note-2",
+				noteTypeId: "note-type-2",
+			});
+
+			const typeNotes = await db.notes
+				.where("noteTypeId")
+				.equals("note-type-1")
+				.toArray();
+			expect(typeNotes).toHaveLength(1);
+			expect(typeNotes[0]?.id).toBe("note-1");
+		});
+
+		it("should find unsynced notes", async () => {
+			await db.notes.add(testNote);
+			await db.notes.add({
+				...testNote,
+				id: "note-2",
+				_synced: true,
+			});
+
+			const unsynced = await db.notes.filter((n) => !n._synced).toArray();
+			expect(unsynced).toHaveLength(1);
+			expect(unsynced[0]?.id).toBe("note-1");
+		});
+	});
+
+	describe("noteFieldValues table", () => {
+		const testNoteFieldValue: LocalNoteFieldValue = {
+			id: "field-value-1",
+			noteId: "note-1",
+			noteFieldTypeId: "field-type-1",
+			value: "Test value",
+			createdAt: new Date("2024-01-01"),
+			updatedAt: new Date("2024-01-01"),
+			syncVersion: 0,
+			_synced: false,
+		};
+
+		it("should add and retrieve a note field value", async () => {
+			await db.noteFieldValues.add(testNoteFieldValue);
+			const retrieved = await db.noteFieldValues.get("field-value-1");
+			expect(retrieved).toEqual(testNoteFieldValue);
+		});
+
+		it("should find note field values by noteId", async () => {
+			await db.noteFieldValues.add(testNoteFieldValue);
+			await db.noteFieldValues.add({
+				...testNoteFieldValue,
+				id: "field-value-2",
+				noteId: "note-2",
+			});
+
+			const noteFieldValues = await db.noteFieldValues
+				.where("noteId")
+				.equals("note-1")
+				.toArray();
+			expect(noteFieldValues).toHaveLength(1);
+			expect(noteFieldValues[0]?.id).toBe("field-value-1");
+		});
+
+		it("should find note field values by noteFieldTypeId", async () => {
+			await db.noteFieldValues.add(testNoteFieldValue);
+			await db.noteFieldValues.add({
+				...testNoteFieldValue,
+				id: "field-value-2",
+				noteFieldTypeId: "field-type-2",
+			});
+
+			const typeFieldValues = await db.noteFieldValues
+				.where("noteFieldTypeId")
+				.equals("field-type-1")
+				.toArray();
+			expect(typeFieldValues).toHaveLength(1);
+			expect(typeFieldValues[0]?.id).toBe("field-value-1");
+		});
+
+		it("should find unsynced note field values", async () => {
+			await db.noteFieldValues.add(testNoteFieldValue);
+			await db.noteFieldValues.add({
+				...testNoteFieldValue,
+				id: "field-value-2",
+				_synced: true,
+			});
+
+			const unsynced = await db.noteFieldValues
+				.filter((nfv) => !nfv._synced)
+				.toArray();
+			expect(unsynced).toHaveLength(1);
+			expect(unsynced[0]?.id).toBe("field-value-1");
+		});
+	});
+
 	describe("constants", () => {
 		it("should export CardState enum", () => {
 			expect(CardState.New).toBe(0);
@@ -302,6 +562,10 @@ describe("KiokuDatabase", () => {
 			expect(Rating.Hard).toBe(2);
 			expect(Rating.Good).toBe(3);
 			expect(Rating.Easy).toBe(4);
+		});
+
+		it("should export FieldType enum", () => {
+			expect(FieldType.Text).toBe("text");
 		});
 	});
 });

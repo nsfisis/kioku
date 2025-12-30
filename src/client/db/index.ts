@@ -25,6 +25,50 @@ export const Rating = {
 export type RatingType = (typeof Rating)[keyof typeof Rating];
 
 /**
+ * Field types for note fields
+ */
+export const FieldType = {
+	Text: "text",
+} as const;
+
+export type FieldTypeType = (typeof FieldType)[keyof typeof FieldType];
+
+/**
+ * Local note type stored in IndexedDB
+ * Defines the structure of notes (fields and card templates)
+ */
+export interface LocalNoteType {
+	id: string;
+	userId: string;
+	name: string;
+	frontTemplate: string;
+	backTemplate: string;
+	isReversible: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+	_synced: boolean;
+}
+
+/**
+ * Local note field type stored in IndexedDB
+ * Defines a field within a note type
+ */
+export interface LocalNoteFieldType {
+	id: string;
+	noteTypeId: string;
+	name: string;
+	order: number;
+	fieldType: FieldTypeType;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+	_synced: boolean;
+}
+
+/**
  * Local deck stored in IndexedDB
  * Includes _synced flag for offline sync tracking
  */
@@ -42,12 +86,44 @@ export interface LocalDeck {
 }
 
 /**
+ * Local note stored in IndexedDB
+ * Contains field values for a note type
+ */
+export interface LocalNote {
+	id: string;
+	deckId: string;
+	noteTypeId: string;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+	_synced: boolean;
+}
+
+/**
+ * Local note field value stored in IndexedDB
+ * Contains the value for a specific field in a note
+ */
+export interface LocalNoteFieldValue {
+	id: string;
+	noteId: string;
+	noteFieldTypeId: string;
+	value: string;
+	createdAt: Date;
+	updatedAt: Date;
+	syncVersion: number;
+	_synced: boolean;
+}
+
+/**
  * Local card stored in IndexedDB
  * Includes _synced flag for offline sync tracking
  */
 export interface LocalCard {
 	id: string;
 	deckId: string;
+	noteId: string | null;
+	isReversed: boolean | null;
 	front: string;
 	back: string;
 
@@ -91,13 +167,17 @@ export interface LocalReviewLog {
 /**
  * Kioku local database using Dexie (IndexedDB wrapper)
  *
- * This database stores decks, cards, and review logs locally for offline support.
+ * This database stores decks, cards, notes, and review logs locally for offline support.
  * Each entity has a _synced flag to track whether it has been synchronized with the server.
  */
 export class KiokuDatabase extends Dexie {
 	decks!: EntityTable<LocalDeck, "id">;
 	cards!: EntityTable<LocalCard, "id">;
 	reviewLogs!: EntityTable<LocalReviewLog, "id">;
+	noteTypes!: EntityTable<LocalNoteType, "id">;
+	noteFieldTypes!: EntityTable<LocalNoteFieldType, "id">;
+	notes!: EntityTable<LocalNote, "id">;
+	noteFieldValues!: EntityTable<LocalNoteFieldValue, "id">;
 
 	constructor() {
 		super("kioku");
@@ -120,6 +200,47 @@ export class KiokuDatabase extends Dexie {
 			// reviewedAt: for ordering reviews
 			reviewLogs: "id, cardId, userId, reviewedAt",
 		});
+
+		// Version 2: Add note-related tables for Anki-compatible note system
+		this.version(2)
+			.stores({
+				decks: "id, userId, updatedAt",
+				// Add noteId index for filtering cards by note
+				cards: "id, deckId, noteId, updatedAt, due, state",
+				reviewLogs: "id, cardId, userId, reviewedAt",
+
+				// Note types define the structure of notes (templates and fields)
+				// userId: for filtering by user
+				noteTypes: "id, userId, updatedAt",
+
+				// Note field types define the fields for a note type
+				// noteTypeId: for filtering fields by note type
+				noteFieldTypes: "id, noteTypeId, updatedAt",
+
+				// Notes contain field values for a note type
+				// deckId: for filtering notes by deck
+				// noteTypeId: for filtering notes by note type
+				notes: "id, deckId, noteTypeId, updatedAt",
+
+				// Note field values contain the actual field data
+				// noteId: for filtering values by note
+				// noteFieldTypeId: for filtering values by field type
+				noteFieldValues: "id, noteId, noteFieldTypeId, updatedAt",
+			})
+			.upgrade((tx) => {
+				// Migrate existing cards to have noteId and isReversed as null
+				return tx
+					.table("cards")
+					.toCollection()
+					.modify((card) => {
+						if (card.noteId === undefined) {
+							card.noteId = null;
+						}
+						if (card.isReversed === undefined) {
+							card.isReversed = null;
+						}
+					});
+			});
 	}
 }
 

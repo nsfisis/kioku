@@ -201,12 +201,12 @@ Create these as default note types for each user:
 ### Phase 4: Client Database (Dexie)
 
 **Tasks:**
-- [ ] Add `LocalNoteType` interface and table
-- [ ] Add `LocalNoteTypeField` interface and table
-- [ ] Add `LocalNote` interface and table
-- [ ] Add `LocalNoteFieldValue` interface and table
-- [ ] Modify `LocalCard` interface: add `noteId`, `isReversed`
-- [ ] Update Dexie schema version and upgrade handler
+- [x] Add `LocalNoteType` interface and table
+- [x] Add `LocalNoteFieldType` interface and table
+- [x] Add `LocalNote` interface and table
+- [x] Add `LocalNoteFieldValue` interface and table
+- [x] Modify `LocalCard` interface: add `noteId`, `isReversed`
+- [x] Update Dexie schema version and upgrade handler
 - [ ] Create client repositories for new entities
 
 **Files to modify:**

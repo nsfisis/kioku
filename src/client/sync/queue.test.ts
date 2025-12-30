@@ -420,6 +420,8 @@ describe("SyncQueue", () => {
 			const serverCard = {
 				id: "server-card-1",
 				deckId: deck.id,
+				noteId: null,
+				isReversed: null,
 				front: "Server Question",
 				back: "Server Answer",
 				state: CardState.New,

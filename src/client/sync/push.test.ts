@@ -77,6 +77,8 @@ describe("pendingChangesToPushData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
+				noteId: null,
+				isReversed: null,
 				front: "Question",
 				back: "Answer",
 				state: CardState.Review,
@@ -128,6 +130,8 @@ describe("pendingChangesToPushData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
+				noteId: null,
+				isReversed: null,
 				front: "New Card",
 				back: "Answer",
 				state: CardState.New,
