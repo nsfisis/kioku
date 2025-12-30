@@ -188,6 +188,23 @@ Smaller features first to enable early MVP validation.
 
 ---
 
+## Phase 9: Security Hardening
+
+**Goal**: Address security vulnerabilities identified in code review
+
+### High Priority
+- [ ] Add rate limiting to login endpoint (brute force protection)
+- [ ] Configure CORS middleware
+
+### Medium Priority
+- [ ] Fix card update authorization in sync push (verify existing card ownership)
+- [ ] Unify password length requirement (add-user.ts: 8 chars → 15 chars)
+
+### Low Priority
+- [ ] Consider httpOnly cookie for token storage (XSS mitigation)
+
+---
+
 ## Future Considerations
 
 By priority:
