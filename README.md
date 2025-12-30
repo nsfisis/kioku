@@ -1,9 +1,11 @@
 # Kioku
 
+A spaced repetition learning application (Anki clone).
+
+![Kioku icon](./public/icon.svg)
+
 > [!NOTE]
 > Built with AI & Vibe Coding - This project is developed through collaborative coding with AI assistants.
-
-A spaced repetition learning application (Anki clone) with PWA offline support and cloud sync.
 
 ## Features
 
