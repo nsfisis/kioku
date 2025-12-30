@@ -243,3 +243,55 @@ export interface NoteFieldTypeRepository {
 	reorder(noteTypeId: string, fieldIds: string[]): Promise<NoteFieldType[]>;
 	hasNoteFieldValues(id: string): Promise<boolean>;
 }
+
+export interface Note {
+	id: string;
+	deckId: string;
+	noteTypeId: string;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+export interface NoteFieldValue {
+	id: string;
+	noteId: string;
+	noteFieldTypeId: string;
+	value: string;
+	createdAt: Date;
+	updatedAt: Date;
+	syncVersion: number;
+}
+
+export interface NoteWithFieldValues extends Note {
+	fieldValues: NoteFieldValue[];
+}
+
+export interface CreateNoteResult {
+	note: Note;
+	fieldValues: NoteFieldValue[];
+	cards: Card[];
+}
+
+export interface NoteRepository {
+	findByDeckId(deckId: string): Promise<Note[]>;
+	findById(id: string, deckId: string): Promise<Note | undefined>;
+	findByIdWithFieldValues(
+		id: string,
+		deckId: string,
+	): Promise<NoteWithFieldValues | undefined>;
+	create(
+		deckId: string,
+		data: {
+			noteTypeId: string;
+			fields: Record<string, string>;
+		},
+	): Promise<CreateNoteResult>;
+	update(
+		id: string,
+		deckId: string,
+		fields: Record<string, string>,
+	): Promise<NoteWithFieldValues | undefined>;
+	softDelete(id: string, deckId: string): Promise<boolean>;
+}

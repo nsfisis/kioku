@@ -1,5 +1,6 @@
 export { cardRepository } from "./card.js";
 export { deckRepository } from "./deck.js";
+export { noteRepository } from "./note.js";
 export {
 	noteFieldTypeRepository,
 	noteTypeRepository,
