@@ -130,13 +130,13 @@ Create these as default note types for each user:
 ### Phase 1: Database Schema
 
 **Tasks:**
-- [ ] Add `note_types` table schema (Drizzle)
-- [ ] Add `note_field_types` table schema
-- [ ] Add `notes` table schema
-- [ ] Add `note_field_values` table schema
-- [ ] Modify `cards` table: add `note_id`, `is_reversed` columns (nullable initially)
-- [ ] Create migration file
-- [ ] Add Zod validation schemas
+- [x] Add `note_types` table schema (Drizzle)
+- [x] Add `note_field_types` table schema
+- [x] Add `notes` table schema
+- [x] Add `note_field_values` table schema
+- [x] Modify `cards` table: add `note_id`, `is_reversed` columns (nullable initially)
+- [x] Create migration file
+- [x] Add Zod validation schemas
 
 **Files to modify:**
 - `src/server/db/schema.ts`
@@ -216,11 +216,11 @@ Create these as default note types for each user:
 ### Phase 5: Sync Logic
 
 **Tasks:**
-- [ ] Add sync for NoteType, NoteFieldType
-- [ ] Add sync for Note, NoteFieldValue
-- [ ] Update Card sync to include `noteId`, `isReversed`
-- [ ] Define sync order (NoteTypes → Notes → Cards)
-- [ ] Update pull/push sync handlers
+- [x] Add sync for NoteType, NoteFieldType
+- [x] Add sync for Note, NoteFieldValue
+- [x] Update Card sync to include `noteId`, `isReversed`
+- [x] Define sync order (NoteTypes → Notes → Cards)
+- [x] Update pull/push sync handlers
 
 **Files to modify:**
 - `src/server/routes/sync.ts`
@@ -398,9 +398,9 @@ Note: Templates (`front_template`, `back_template`) are fetched separately via N
 
 ## Testing Checklist
 
-- [ ] Unit tests for all new repositories
-- [ ] Integration tests for note CRUD
-- [ ] Test card generation from different note types
-- [ ] Test sync with note data
+- [x] Unit tests for all new repositories
+- [x] Integration tests for note CRUD
+- [x] Test card generation from different note types
+- [x] Test sync with note data
 - [ ] Test migration script
 - [ ] E2E tests for study flow with note-based cards
