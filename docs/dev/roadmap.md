@@ -193,8 +193,8 @@ Smaller features first to enable early MVP validation.
 **Goal**: Address security vulnerabilities identified in code review
 
 ### High Priority
-- [ ] Add rate limiting to login endpoint (brute force protection)
-- [ ] Configure CORS middleware
+- [x] Add rate limiting to login endpoint (brute force protection)
+- [x] Configure CORS middleware
 
 ### Medium Priority
 - [ ] Fix card update authorization in sync push (verify existing card ownership)

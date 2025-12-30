@@ -62,6 +62,56 @@ describe("POST /login", () => {
 		app.route("/api/auth", auth);
 	});
 
+	it("returns rate limit headers on login request", async () => {
+		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue(undefined);
+
+		const res = await app.request("/api/auth/login", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Forwarded-For": "192.168.1.1",
+			},
+			body: JSON.stringify({
+				username: "testuser",
+				password: "somepassword",
+			}),
+		});
+
+		expect(res.headers.get("RateLimit-Limit")).toBe("5");
+		expect(res.headers.get("RateLimit-Remaining")).toBeDefined();
+	});
+
+	it("returns 429 after exceeding rate limit", async () => {
+		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue(undefined);
+
+		const makeRequest = () =>
+			app.request("/api/auth/login", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Forwarded-For": "10.0.0.1",
+				},
+				body: JSON.stringify({
+					username: "testuser",
+					password: "wrongpassword",
+				}),
+			});
+
+		// Make 5 requests (the limit)
+		for (let i = 0; i < 5; i++) {
+			const res = await makeRequest();
+			expect(res.status).toBe(401);
+		}
+
+		// 6th request should be rate limited
+		const rateLimitedRes = await makeRequest();
+		expect(rateLimitedRes.status).toBe(429);
+		const body = (await rateLimitedRes.json()) as {
+			error?: { code: string; message: string };
+		};
+		expect(body.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+	});
+
 	it("returns access token for valid credentials", async () => {
 		vi.mocked(mockUserRepo.findByUsername).mockResolvedValue({
 			id: "user-uuid-123",

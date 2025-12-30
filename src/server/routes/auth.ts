@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import * as argon2 from "argon2";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
-import { Errors } from "../middleware/index.js";
+import { Errors, loginRateLimiter } from "../middleware/index.js";
 import {
 	type RefreshTokenRepository,
 	refreshTokenRepository,
@@ -39,63 +39,73 @@ export function createAuthRouter(deps: AuthDependencies) {
 	const { userRepo, refreshTokenRepo } = deps;
 
 	return new Hono()
-		.post("/login", zValidator("json", loginSchema), async (c) => {
-			const { username, password } = c.req.valid("json");
+		.post(
+			"/login",
+			loginRateLimiter,
+			zValidator("json", loginSchema),
+			async (c) => {
+				const { username, password } = c.req.valid("json");
 
-			// Find user by username
-			const user = await userRepo.findByUsername(username);
+				// Find user by username
+				const user = await userRepo.findByUsername(username);
 
-			if (!user) {
-				throw Errors.unauthorized(
-					"Invalid username or password",
-					"INVALID_CREDENTIALS",
+				if (!user) {
+					throw Errors.unauthorized(
+						"Invalid username or password",
+						"INVALID_CREDENTIALS",
+					);
+				}
+
+				// Verify password
+				const isPasswordValid = await argon2.verify(
+					user.passwordHash,
+					password,
 				);
-			}
+				if (!isPasswordValid) {
+					throw Errors.unauthorized(
+						"Invalid username or password",
+						"INVALID_CREDENTIALS",
+					);
+				}
 
-			// Verify password
-			const isPasswordValid = await argon2.verify(user.passwordHash, password);
-			if (!isPasswordValid) {
-				throw Errors.unauthorized(
-					"Invalid username or password",
-					"INVALID_CREDENTIALS",
-				);
-			}
-
-			// Generate JWT access token
-			const now = Math.floor(Date.now() / 1000);
-			const accessToken = await sign(
-				{
-					sub: user.id,
-					iat: now,
-					exp: now + ACCESS_TOKEN_EXPIRES_IN,
-				},
-				getJwtSecret(),
-			);
-
-			// Generate refresh token
-			const refreshToken = generateRefreshToken();
-			const tokenHash = hashToken(refreshToken);
-			const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000);
-
-			// Store refresh token in database
-			await refreshTokenRepo.create({
-				userId: user.id,
-				tokenHash,
-				expiresAt,
-			});
-
-			return c.json(
-				{
-					accessToken,
-					refreshToken,
-					user: {
-						id: user.id,
-						username: user.username,
+				// Generate JWT access token
+				const now = Math.floor(Date.now() / 1000);
+				const accessToken = await sign(
+					{
+						sub: user.id,
+						iat: now,
+						exp: now + ACCESS_TOKEN_EXPIRES_IN,
 					},
-				},
-				200,
-			);
-		})
+					getJwtSecret(),
+				);
+
+				// Generate refresh token
+				const refreshToken = generateRefreshToken();
+				const tokenHash = hashToken(refreshToken);
+				const expiresAt = new Date(
+					Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000,
+				);
+
+				// Store refresh token in database
+				await refreshTokenRepo.create({
+					userId: user.id,
+					tokenHash,
+					expiresAt,
+				});
+
+				return c.json(
+					{
+						accessToken,
+						refreshToken,
+						user: {
+							id: user.id,
+							username: user.username,
+						},
+					},
+					200,
+				);
+			},
+		)
 		.post("/refresh", zValidator("json", refreshTokenSchema), async (c) => {
 			const { refreshToken } = c.req.valid("json");
 			const tokenHash = hashToken(refreshToken);
