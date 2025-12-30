@@ -247,7 +247,7 @@ Create these as default note types for each user:
 ### Phase 7: Frontend - Note CRUD
 
 **Tasks:**
-- [ ] Update CreateCardModal → CreateNoteModal
+- [x] Update CreateCardModal → CreateNoteModal
   - Select note type
   - Dynamic field inputs based on note type
   - Preview generated cards

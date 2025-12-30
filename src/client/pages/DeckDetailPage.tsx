@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
-import { CreateCardModal } from "../components/CreateCardModal";
+import { CreateNoteModal } from "../components/CreateNoteModal";
 import { DeleteCardModal } from "../components/DeleteCardModal";
 import { EditCardModal } from "../components/EditCardModal";
 
@@ -238,7 +238,7 @@ export function DeckDetailPage() {
 									className="w-5 h-5"
 									aria-hidden="true"
 								/>
-								Add Card
+								Add Note
 							</button>
 						</div>
 
@@ -256,7 +256,7 @@ export function DeckDetailPage() {
 									No cards yet
 								</h3>
 								<p className="text-muted text-sm mb-4">
-									Add cards to start studying
+									Add notes to start studying
 								</p>
 								<button
 									type="button"
@@ -268,7 +268,7 @@ export function DeckDetailPage() {
 										className="w-5 h-5"
 										aria-hidden="true"
 									/>
-									Add Your First Card
+									Add Your First Note
 								</button>
 							</div>
 						)}
@@ -360,11 +360,11 @@ export function DeckDetailPage() {
 
 			{/* Modals */}
 			{deckId && (
-				<CreateCardModal
+				<CreateNoteModal
 					isOpen={isCreateModalOpen}
 					deckId={deckId}
 					onClose={() => setIsCreateModalOpen(false)}
-					onCardCreated={fetchCards}
+					onNoteCreated={fetchCards}
 				/>
 			)}
 

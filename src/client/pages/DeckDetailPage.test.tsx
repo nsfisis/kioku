@@ -171,7 +171,7 @@ describe("DeckDetailPage", () => {
 		await waitFor(() => {
 			expect(screen.getByText("No cards yet")).toBeDefined();
 		});
-		expect(screen.getByText("Add cards to start studying")).toBeDefined();
+		expect(screen.getByText("Add notes to start studying")).toBeDefined();
 	});
 
 	it("displays list of cards", async () => {
