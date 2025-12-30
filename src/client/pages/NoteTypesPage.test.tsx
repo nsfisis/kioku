@@ -95,9 +95,7 @@ describe("NoteTypesPage", () => {
 
 		renderWithProviders();
 
-		expect(
-			screen.getByRole("heading", { name: "Note Types" }),
-		).toBeDefined();
+		expect(screen.getByRole("heading", { name: "Note Types" })).toBeDefined();
 		expect(screen.getByRole("link", { name: "Back to Home" })).toBeDefined();
 	});
 
@@ -137,9 +135,7 @@ describe("NoteTypesPage", () => {
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "Basic" }),
-			).toBeDefined();
+			expect(screen.getByRole("heading", { name: "Basic" })).toBeDefined();
 		});
 		expect(
 			screen.getByRole("heading", { name: "Basic (and reversed card)" }),
@@ -279,9 +275,7 @@ describe("NoteTypesPage", () => {
 				expect(screen.getByText("No note types yet")).toBeDefined();
 			});
 
-			await user.click(
-				screen.getByRole("button", { name: /New Note Type/i }),
-			);
+			await user.click(screen.getByRole("button", { name: /New Note Type/i }));
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 			expect(
@@ -322,9 +316,7 @@ describe("NoteTypesPage", () => {
 			});
 
 			// Open modal
-			await user.click(
-				screen.getByRole("button", { name: /New Note Type/i }),
-			);
+			await user.click(screen.getByRole("button", { name: /New Note Type/i }));
 
 			// Fill in form
 			await user.type(screen.getByLabelText("Name"), "New Note Type");
@@ -367,10 +359,35 @@ describe("NoteTypesPage", () => {
 
 		it("opens edit modal when Edit button is clicked", async () => {
 			const user = userEvent.setup();
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			});
+			const mockNoteTypeWithFields = {
+				...mockNoteTypes[0],
+				fields: [
+					{
+						id: "field-1",
+						noteTypeId: "note-type-1",
+						name: "Front",
+						order: 0,
+						fieldType: "text",
+					},
+					{
+						id: "field-2",
+						noteTypeId: "note-type-1",
+						name: "Back",
+						order: 1,
+						fieldType: "text",
+					},
+				],
+			};
+
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ noteTypes: mockNoteTypes }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ noteType: mockNoteTypeWithFields }),
+				});
 
 			renderWithProviders();
 
@@ -387,11 +404,33 @@ describe("NoteTypesPage", () => {
 			expect(
 				screen.getByRole("heading", { name: "Edit Note Type" }),
 			).toBeDefined();
-			expect(screen.getByLabelText("Name")).toHaveProperty("value", "Basic");
+
+			await waitFor(() => {
+				expect(screen.getByLabelText("Name")).toHaveProperty("value", "Basic");
+			});
 		});
 
 		it("edits note type and refreshes list", async () => {
 			const user = userEvent.setup();
+			const mockNoteTypeWithFields = {
+				...mockNoteTypes[0],
+				fields: [
+					{
+						id: "field-1",
+						noteTypeId: "note-type-1",
+						name: "Front",
+						order: 0,
+						fieldType: "text",
+					},
+					{
+						id: "field-2",
+						noteTypeId: "note-type-1",
+						name: "Back",
+						order: 1,
+						fieldType: "text",
+					},
+				],
+			};
 			const updatedNoteType = {
 				...mockNoteTypes[0],
 				name: "Updated Basic",
@@ -404,11 +443,17 @@ describe("NoteTypesPage", () => {
 				})
 				.mockResolvedValueOnce({
 					ok: true,
+					json: async () => ({ noteType: mockNoteTypeWithFields }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
 					json: async () => ({ noteType: updatedNoteType }),
 				})
 				.mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ noteTypes: [updatedNoteType, mockNoteTypes[1]] }),
+					json: async () => ({
+						noteTypes: [updatedNoteType, mockNoteTypes[1]],
+					}),
 				});
 
 			renderWithProviders();
@@ -422,6 +467,11 @@ describe("NoteTypesPage", () => {
 				name: "Edit note type",
 			});
 			await user.click(editButtons.at(0) as HTMLElement);
+
+			// Wait for the editor to load
+			await waitFor(() => {
+				expect(screen.getByLabelText("Name")).toHaveProperty("value", "Basic");
+			});
 
 			// Update name
 			const nameInput = screen.getByLabelText("Name");
@@ -539,9 +589,7 @@ describe("NoteTypesPage", () => {
 
 			// Note type list should be refreshed without deleted note type
 			await waitFor(() => {
-				expect(
-					screen.queryByRole("heading", { name: "Basic" }),
-				).toBeNull();
+				expect(screen.queryByRole("heading", { name: "Basic" })).toBeNull();
 			});
 			expect(
 				screen.getByRole("heading", { name: "Basic (and reversed card)" }),

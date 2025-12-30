@@ -232,7 +232,7 @@ Create these as default note types for each user:
 
 **Tasks:**
 - [x] Create NoteType list page (`/note-types`)
-- [ ] Create NoteType editor component
+- [x] Create NoteType editor component
   - Edit name
   - Manage fields (add/remove/reorder)
   - Edit front/back templates (mustache syntax)

@@ -13,7 +13,7 @@ import { Link } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { CreateNoteTypeModal } from "../components/CreateNoteTypeModal";
 import { DeleteNoteTypeModal } from "../components/DeleteNoteTypeModal";
-import { EditNoteTypeModal } from "../components/EditNoteTypeModal";
+import { NoteTypeEditor } from "../components/NoteTypeEditor";
 
 interface NoteType {
 	id: string;
@@ -30,7 +30,9 @@ export function NoteTypesPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-	const [editingNoteType, setEditingNoteType] = useState<NoteType | null>(null);
+	const [editingNoteTypeId, setEditingNoteTypeId] = useState<string | null>(
+		null,
+	);
 	const [deletingNoteType, setDeletingNoteType] = useState<NoteType | null>(
 		null,
 	);
@@ -217,7 +219,7 @@ export function NoteTypesPage() {
 									<div className="flex items-center gap-2 shrink-0">
 										<button
 											type="button"
-											onClick={() => setEditingNoteType(noteType)}
+											onClick={() => setEditingNoteTypeId(noteType.id)}
 											className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
 											title="Edit note type"
 										>
@@ -254,10 +256,10 @@ export function NoteTypesPage() {
 				onNoteTypeCreated={fetchNoteTypes}
 			/>
 
-			<EditNoteTypeModal
-				isOpen={editingNoteType !== null}
-				noteType={editingNoteType}
-				onClose={() => setEditingNoteType(null)}
+			<NoteTypeEditor
+				isOpen={editingNoteTypeId !== null}
+				noteTypeId={editingNoteTypeId}
+				onClose={() => setEditingNoteTypeId(null)}
 				onNoteTypeUpdated={fetchNoteTypes}
 			/>
 

@@ -203,7 +203,9 @@ describe("DeleteNoteTypeModal", () => {
 		mockFetch.mockResolvedValue({
 			ok: false,
 			status: 409,
-			json: async () => ({ error: "Cannot delete note type with existing notes" }),
+			json: async () => ({
+				error: "Cannot delete note type with existing notes",
+			}),
 		});
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);

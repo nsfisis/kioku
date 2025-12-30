@@ -185,22 +185,19 @@ describe("EditNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						name: "Updated Basic",
-						frontTemplate: "{{Front}}",
-						backTemplate: "{{Back}}",
-						isReversible: true,
-					}),
+			expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-123", {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: "Bearer access-token",
 				},
-			);
+				body: JSON.stringify({
+					name: "Updated Basic",
+					frontTemplate: "{{Front}}",
+					backTemplate: "{{Back}}",
+					isReversible: true,
+				}),
+			});
 		});
 
 		expect(onNoteTypeUpdated).toHaveBeenCalledTimes(1);
