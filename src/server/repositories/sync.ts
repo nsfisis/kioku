@@ -171,18 +171,18 @@ export const syncRepository: SyncRepository = {
 		for (const cardData of data.cards) {
 			const clientUpdatedAt = new Date(cardData.updatedAt);
 
-			// Verify deck belongs to user
+			// Verify target deck belongs to user
 			const deckCheck = await db
 				.select({ id: decks.id })
 				.from(decks)
 				.where(and(eq(decks.id, cardData.deckId), eq(decks.userId, userId)));
 
 			if (deckCheck.length === 0) {
-				// Deck doesn't belong to user, skip
+				// Target deck doesn't belong to user, skip
 				continue;
 			}
 
-			// Check if card exists
+			// Check if card exists AND belongs to user (via deck ownership)
 			const existing = await db
 				.select({
 					id: cards.id,
@@ -190,7 +190,8 @@ export const syncRepository: SyncRepository = {
 					syncVersion: cards.syncVersion,
 				})
 				.from(cards)
-				.where(eq(cards.id, cardData.id));
+				.innerJoin(decks, eq(cards.deckId, decks.id))
+				.where(and(eq(cards.id, cardData.id), eq(decks.userId, userId)));
 
 			if (existing.length === 0) {
 				// New card - insert

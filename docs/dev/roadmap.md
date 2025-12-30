@@ -197,7 +197,7 @@ Smaller features first to enable early MVP validation.
 - [x] Configure CORS middleware
 
 ### Medium Priority
-- [ ] Fix card update authorization in sync push (verify existing card ownership)
+- [x] Fix card update authorization in sync push (verify existing card ownership)
 - [ ] Unify password length requirement (add-user.ts: 8 chars → 15 chars)
 
 ### Low Priority
