@@ -198,7 +198,7 @@ Smaller features first to enable early MVP validation.
 
 ### Medium Priority
 - [x] Fix card update authorization in sync push (verify existing card ownership)
-- [ ] Unify password length requirement (add-user.ts: 8 chars → 15 chars)
+- [x] Unify password length requirement (add-user.ts: 8 chars → 15 chars)
 
 ### Low Priority
 - [ ] Consider httpOnly cookie for token storage (XSS mitigation)

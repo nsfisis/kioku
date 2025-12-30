@@ -17,8 +17,8 @@ async function main() {
 		process.exit(1);
 	}
 
-	if (password.length < 8) {
-		console.error("Error: Password must be at least 8 characters");
+	if (password.length < 15) {
+		console.error("Error: Password must be at least 15 characters");
 		process.exit(1);
 	}
 
