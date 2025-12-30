@@ -1,5 +1,8 @@
 # Kioku
 
+> [!NOTE]
+> Built with AI & Vibe Coding - This project is developed through collaborative coding with AI assistants.
+
 A spaced repetition learning application (Anki clone) with PWA offline support and cloud sync.
 
 ## Features
