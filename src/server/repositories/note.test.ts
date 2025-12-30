@@ -40,6 +40,8 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 	return {
 		id: "card-uuid-123",
 		deckId: "deck-uuid-123",
+		noteId: null,
+		isReversed: null,
 		front: "Front text",
 		back: "Back text",
 		state: 0,

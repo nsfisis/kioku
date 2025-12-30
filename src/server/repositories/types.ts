@@ -81,6 +81,8 @@ export interface DeckRepository {
 export interface Card {
 	id: string;
 	deckId: string;
+	noteId: string | null;
+	isReversed: boolean | null;
 	front: string;
 	back: string;
 
@@ -101,9 +103,19 @@ export interface Card {
 	syncVersion: number;
 }
 
+export interface CardWithNoteData extends Card {
+	note: Note | null;
+	fieldValues: NoteFieldValue[];
+}
+
 export interface CardRepository {
 	findByDeckId(deckId: string): Promise<Card[]>;
 	findById(id: string, deckId: string): Promise<Card | undefined>;
+	findByIdWithNoteData(
+		id: string,
+		deckId: string,
+	): Promise<CardWithNoteData | undefined>;
+	findByNoteId(noteId: string): Promise<Card[]>;
 	create(
 		deckId: string,
 		data: {
@@ -120,6 +132,7 @@ export interface CardRepository {
 		},
 	): Promise<Card | undefined>;
 	softDelete(id: string, deckId: string): Promise<boolean>;
+	softDeleteByNoteId(noteId: string): Promise<boolean>;
 	findDueCards(deckId: string, now: Date, limit: number): Promise<Card[]>;
 	updateFSRSFields(
 		id: string,

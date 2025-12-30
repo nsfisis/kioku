@@ -152,11 +152,11 @@ Create these as default note types for each user:
 - [x] Create `NoteTypeFieldRepository`
   - CRUD operations
   - Reorder fields
-- [ ] Create `NoteRepository`
+- [x] Create `NoteRepository`
   - Create note with field values (auto-generate cards based on `is_reversible`)
   - Update note (updates field values)
   - Delete note (cascade soft-delete to cards)
-- [ ] Modify `CardRepository`
+- [x] Modify `CardRepository`
   - Fetch card with note data for display
   - Support note-based card creation
 

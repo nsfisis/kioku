@@ -17,9 +17,12 @@ function createMockCardRepo(): CardRepository {
 	return {
 		findByDeckId: vi.fn(),
 		findById: vi.fn(),
+		findByIdWithNoteData: vi.fn(),
+		findByNoteId: vi.fn(),
 		create: vi.fn(),
 		update: vi.fn(),
 		softDelete: vi.fn(),
+		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
@@ -74,6 +77,8 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 	return {
 		id: "card-uuid-123",
 		deckId: "deck-uuid-123",
+		noteId: null,
+		isReversed: null,
 		front: "Question",
 		back: "Answer",
 		state: CardState.New,

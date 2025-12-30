@@ -1,0 +1,402 @@
+import { describe, expect, it, vi } from "vitest";
+import type {
+	Card,
+	CardRepository,
+	CardWithNoteData,
+	Note,
+	NoteFieldValue,
+} from "./types.js";
+
+function createMockCard(overrides: Partial<Card> = {}): Card {
+	return {
+		id: "card-uuid-123",
+		deckId: "deck-uuid-123",
+		noteId: null,
+		isReversed: null,
+		front: "Front text",
+		back: "Back text",
+		state: 0,
+		due: new Date("2024-01-01"),
+		stability: 0,
+		difficulty: 0,
+		elapsedDays: 0,
+		scheduledDays: 0,
+		reps: 0,
+		lapses: 0,
+		lastReview: null,
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		deletedAt: null,
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
+function createMockNote(overrides: Partial<Note> = {}): Note {
+	return {
+		id: "note-uuid-123",
+		deckId: "deck-uuid-123",
+		noteTypeId: "note-type-uuid-123",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		deletedAt: null,
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
+function createMockNoteFieldValue(
+	overrides: Partial<NoteFieldValue> = {},
+): NoteFieldValue {
+	return {
+		id: "field-value-uuid-123",
+		noteId: "note-uuid-123",
+		noteFieldTypeId: "field-type-uuid-123",
+		value: "Test value",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
+function createMockCardWithNoteData(
+	overrides: Partial<CardWithNoteData> = {},
+): CardWithNoteData {
+	const card = createMockCard({
+		noteId: "note-uuid-123",
+		isReversed: false,
+		...overrides,
+	});
+	return {
+		...card,
+		note: overrides.note ?? createMockNote(),
+		fieldValues: overrides.fieldValues ?? [
+			createMockNoteFieldValue({
+				noteFieldTypeId: "field-front",
+				value: "Question",
+			}),
+			createMockNoteFieldValue({
+				id: "field-value-uuid-456",
+				noteFieldTypeId: "field-back",
+				value: "Answer",
+			}),
+		],
+	};
+}
+
+function createMockCardRepo(): CardRepository {
+	return {
+		findByDeckId: vi.fn(),
+		findById: vi.fn(),
+		findByIdWithNoteData: vi.fn(),
+		findByNoteId: vi.fn(),
+		create: vi.fn(),
+		update: vi.fn(),
+		softDelete: vi.fn(),
+		softDeleteByNoteId: vi.fn(),
+		findDueCards: vi.fn(),
+		updateFSRSFields: vi.fn(),
+	};
+}
+
+describe("CardRepository mock factory", () => {
+	describe("createMockCard", () => {
+		it("creates a valid Card with defaults", () => {
+			const card = createMockCard();
+
+			expect(card.id).toBe("card-uuid-123");
+			expect(card.deckId).toBe("deck-uuid-123");
+			expect(card.noteId).toBeNull();
+			expect(card.isReversed).toBeNull();
+			expect(card.front).toBe("Front text");
+			expect(card.back).toBe("Back text");
+			expect(card.state).toBe(0);
+			expect(card.deletedAt).toBeNull();
+			expect(card.syncVersion).toBe(0);
+		});
+
+		it("allows overriding properties", () => {
+			const card = createMockCard({
+				id: "custom-id",
+				noteId: "note-uuid-456",
+				isReversed: true,
+				front: "Custom front",
+			});
+
+			expect(card.id).toBe("custom-id");
+			expect(card.noteId).toBe("note-uuid-456");
+			expect(card.isReversed).toBe(true);
+			expect(card.front).toBe("Custom front");
+		});
+
+		it("creates card with note association", () => {
+			const card = createMockCard({
+				noteId: "note-uuid-123",
+				isReversed: false,
+			});
+
+			expect(card.noteId).toBe("note-uuid-123");
+			expect(card.isReversed).toBe(false);
+		});
+
+		it("creates reversed card", () => {
+			const card = createMockCard({
+				noteId: "note-uuid-123",
+				isReversed: true,
+			});
+
+			expect(card.noteId).toBe("note-uuid-123");
+			expect(card.isReversed).toBe(true);
+		});
+	});
+
+	describe("createMockCardWithNoteData", () => {
+		it("creates CardWithNoteData with defaults", () => {
+			const cardWithNote = createMockCardWithNoteData();
+
+			expect(cardWithNote.noteId).toBe("note-uuid-123");
+			expect(cardWithNote.isReversed).toBe(false);
+			expect(cardWithNote.note).toBeDefined();
+			expect(cardWithNote.note?.id).toBe("note-uuid-123");
+			expect(cardWithNote.fieldValues).toHaveLength(2);
+		});
+
+		it("allows overriding note", () => {
+			const customNote = createMockNote({
+				id: "custom-note-id",
+				noteTypeId: "custom-note-type",
+			});
+			const cardWithNote = createMockCardWithNoteData({
+				note: customNote,
+			});
+
+			expect(cardWithNote.note?.id).toBe("custom-note-id");
+			expect(cardWithNote.note?.noteTypeId).toBe("custom-note-type");
+		});
+
+		it("allows overriding field values", () => {
+			const customFieldValues = [
+				createMockNoteFieldValue({ noteFieldTypeId: "word", value: "日本語" }),
+			];
+			const cardWithNote = createMockCardWithNoteData({
+				fieldValues: customFieldValues,
+			});
+
+			expect(cardWithNote.fieldValues).toHaveLength(1);
+			expect(cardWithNote.fieldValues[0]?.value).toBe("日本語");
+		});
+
+		it("can represent legacy card with null note", () => {
+			// For legacy cards without notes, we explicitly construct the type
+			const legacyCard: CardWithNoteData = {
+				...createMockCard({ noteId: null, isReversed: null }),
+				note: null,
+				fieldValues: [],
+			};
+
+			expect(legacyCard.noteId).toBeNull();
+			expect(legacyCard.note).toBeNull();
+			expect(legacyCard.fieldValues).toHaveLength(0);
+		});
+	});
+
+	describe("createMockCardRepo", () => {
+		it("creates a repository with all required methods", () => {
+			const repo = createMockCardRepo();
+
+			expect(repo.findByDeckId).toBeDefined();
+			expect(repo.findById).toBeDefined();
+			expect(repo.findByIdWithNoteData).toBeDefined();
+			expect(repo.findByNoteId).toBeDefined();
+			expect(repo.create).toBeDefined();
+			expect(repo.update).toBeDefined();
+			expect(repo.softDelete).toBeDefined();
+			expect(repo.softDeleteByNoteId).toBeDefined();
+			expect(repo.findDueCards).toBeDefined();
+			expect(repo.updateFSRSFields).toBeDefined();
+		});
+
+		it("methods are mockable for findByDeckId", async () => {
+			const repo = createMockCardRepo();
+			const mockCards = [createMockCard(), createMockCard({ id: "card-2" })];
+
+			vi.mocked(repo.findByDeckId).mockResolvedValue(mockCards);
+
+			const results = await repo.findByDeckId("deck-123");
+			expect(results).toHaveLength(2);
+			expect(repo.findByDeckId).toHaveBeenCalledWith("deck-123");
+		});
+
+		it("methods are mockable for findById", async () => {
+			const repo = createMockCardRepo();
+			const mockCard = createMockCard();
+
+			vi.mocked(repo.findById).mockResolvedValue(mockCard);
+
+			const found = await repo.findById("card-id", "deck-id");
+			expect(found).toEqual(mockCard);
+			expect(repo.findById).toHaveBeenCalledWith("card-id", "deck-id");
+		});
+
+		it("methods are mockable for findByIdWithNoteData", async () => {
+			const repo = createMockCardRepo();
+			const mockCardWithNote = createMockCardWithNoteData();
+
+			vi.mocked(repo.findByIdWithNoteData).mockResolvedValue(mockCardWithNote);
+
+			const found = await repo.findByIdWithNoteData("card-id", "deck-id");
+			expect(found?.note).toBeDefined();
+			expect(found?.fieldValues).toHaveLength(2);
+			expect(repo.findByIdWithNoteData).toHaveBeenCalledWith(
+				"card-id",
+				"deck-id",
+			);
+		});
+
+		it("methods are mockable for findByNoteId", async () => {
+			const repo = createMockCardRepo();
+			const mockCards = [
+				createMockCard({ id: "card-1", isReversed: false }),
+				createMockCard({ id: "card-2", isReversed: true }),
+			];
+
+			vi.mocked(repo.findByNoteId).mockResolvedValue(mockCards);
+
+			const found = await repo.findByNoteId("note-id");
+			expect(found).toHaveLength(2);
+			expect(found[0]?.isReversed).toBe(false);
+			expect(found[1]?.isReversed).toBe(true);
+			expect(repo.findByNoteId).toHaveBeenCalledWith("note-id");
+		});
+
+		it("methods are mockable for softDeleteByNoteId", async () => {
+			const repo = createMockCardRepo();
+
+			vi.mocked(repo.softDeleteByNoteId).mockResolvedValue(true);
+
+			const deleted = await repo.softDeleteByNoteId("note-id");
+			expect(deleted).toBe(true);
+			expect(repo.softDeleteByNoteId).toHaveBeenCalledWith("note-id");
+		});
+
+		it("returns undefined when card not found", async () => {
+			const repo = createMockCardRepo();
+
+			vi.mocked(repo.findById).mockResolvedValue(undefined);
+			vi.mocked(repo.findByIdWithNoteData).mockResolvedValue(undefined);
+
+			expect(await repo.findById("nonexistent", "deck-id")).toBeUndefined();
+			expect(
+				await repo.findByIdWithNoteData("nonexistent", "deck-id"),
+			).toBeUndefined();
+		});
+
+		it("returns false when soft delete fails", async () => {
+			const repo = createMockCardRepo();
+
+			vi.mocked(repo.softDelete).mockResolvedValue(false);
+			vi.mocked(repo.softDeleteByNoteId).mockResolvedValue(false);
+
+			expect(await repo.softDelete("nonexistent", "deck-id")).toBe(false);
+			expect(await repo.softDeleteByNoteId("nonexistent")).toBe(false);
+		});
+
+		it("returns empty array when no cards found for note", async () => {
+			const repo = createMockCardRepo();
+
+			vi.mocked(repo.findByNoteId).mockResolvedValue([]);
+
+			const found = await repo.findByNoteId("nonexistent-note");
+			expect(found).toHaveLength(0);
+		});
+	});
+});
+
+describe("Card interface contracts", () => {
+	it("Card has required sync fields", () => {
+		const card = createMockCard();
+
+		expect(card).toHaveProperty("syncVersion");
+		expect(card).toHaveProperty("createdAt");
+		expect(card).toHaveProperty("updatedAt");
+		expect(card).toHaveProperty("deletedAt");
+	});
+
+	it("Card has required note association fields", () => {
+		const card = createMockCard();
+
+		expect(card).toHaveProperty("noteId");
+		expect(card).toHaveProperty("isReversed");
+	});
+
+	it("Card has required FSRS fields", () => {
+		const card = createMockCard();
+
+		expect(card).toHaveProperty("state");
+		expect(card).toHaveProperty("due");
+		expect(card).toHaveProperty("stability");
+		expect(card).toHaveProperty("difficulty");
+		expect(card).toHaveProperty("elapsedDays");
+		expect(card).toHaveProperty("scheduledDays");
+		expect(card).toHaveProperty("reps");
+		expect(card).toHaveProperty("lapses");
+		expect(card).toHaveProperty("lastReview");
+	});
+
+	it("CardWithNoteData extends Card with note and fieldValues", () => {
+		const cardWithNote = createMockCardWithNoteData();
+
+		expect(cardWithNote).toHaveProperty("id");
+		expect(cardWithNote).toHaveProperty("deckId");
+		expect(cardWithNote).toHaveProperty("note");
+		expect(cardWithNote).toHaveProperty("fieldValues");
+		expect(Array.isArray(cardWithNote.fieldValues)).toBe(true);
+	});
+});
+
+describe("Card and Note relationship", () => {
+	it("legacy card has null noteId and isReversed", () => {
+		const card = createMockCard();
+
+		expect(card.noteId).toBeNull();
+		expect(card.isReversed).toBeNull();
+	});
+
+	it("note-based card has noteId and isReversed set", () => {
+		const card = createMockCard({
+			noteId: "note-uuid-123",
+			isReversed: false,
+		});
+
+		expect(card.noteId).toBe("note-uuid-123");
+		expect(card.isReversed).toBe(false);
+	});
+
+	it("reversed card has isReversed true", () => {
+		const card = createMockCard({
+			noteId: "note-uuid-123",
+			isReversed: true,
+		});
+
+		expect(card.noteId).toBe("note-uuid-123");
+		expect(card.isReversed).toBe(true);
+	});
+
+	it("multiple cards can reference the same note", () => {
+		const normalCard = createMockCard({
+			id: "card-normal",
+			noteId: "shared-note-id",
+			isReversed: false,
+		});
+		const reversedCard = createMockCard({
+			id: "card-reversed",
+			noteId: "shared-note-id",
+			isReversed: true,
+		});
+
+		expect(normalCard.noteId).toBe(reversedCard.noteId);
+		expect(normalCard.isReversed).toBe(false);
+		expect(reversedCard.isReversed).toBe(true);
+	});
+});

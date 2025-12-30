@@ -584,6 +584,8 @@ describe("GET /api/sync/pull", () => {
 		const mockCard: Card = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			noteId: null,
+			isReversed: null,
 			front: "Question",
 			back: "Answer",
 			state: 2,
@@ -679,6 +681,8 @@ describe("GET /api/sync/pull", () => {
 		const mockCard: Card = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			noteId: null,
+			isReversed: null,
 			front: "Q",
 			back: "A",
 			state: 0,

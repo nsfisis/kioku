@@ -1,7 +1,7 @@
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { CardState, cards } from "../db/schema.js";
-import type { Card, CardRepository } from "./types.js";
+import { CardState, cards, noteFieldValues, notes } from "../db/schema.js";
+import type { Card, CardRepository, CardWithNoteData } from "./types.js";
 
 export const cardRepository: CardRepository = {
 	async findByDeckId(deckId: string): Promise<Card[]> {
@@ -24,6 +24,50 @@ export const cardRepository: CardRepository = {
 				),
 			);
 		return result[0];
+	},
+
+	async findByIdWithNoteData(
+		id: string,
+		deckId: string,
+	): Promise<CardWithNoteData | undefined> {
+		const card = await this.findById(id, deckId);
+		if (!card) {
+			return undefined;
+		}
+
+		if (!card.noteId) {
+			return {
+				...card,
+				note: null,
+				fieldValues: [],
+			};
+		}
+
+		const noteResult = await db
+			.select()
+			.from(notes)
+			.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
+
+		const note = noteResult[0] ?? null;
+
+		const fieldValuesResult = await db
+			.select()
+			.from(noteFieldValues)
+			.where(eq(noteFieldValues.noteId, card.noteId));
+
+		return {
+			...card,
+			note,
+			fieldValues: fieldValuesResult,
+		};
+	},
+
+	async findByNoteId(noteId: string): Promise<Card[]> {
+		const result = await db
+			.select()
+			.from(cards)
+			.where(and(eq(cards.noteId, noteId), isNull(cards.deletedAt)));
+		return result;
 	},
 
 	async create(
@@ -96,6 +140,20 @@ export const cardRepository: CardRepository = {
 					isNull(cards.deletedAt),
 				),
 			)
+			.returning({ id: cards.id });
+		return result.length > 0;
+	},
+
+	async softDeleteByNoteId(noteId: string): Promise<boolean> {
+		const now = new Date();
+		const result = await db
+			.update(cards)
+			.set({
+				deletedAt: now,
+				updatedAt: now,
+				syncVersion: sql`${cards.syncVersion} + 1`,
+			})
+			.where(and(eq(cards.noteId, noteId), isNull(cards.deletedAt)))
 			.returning({ id: cards.id });
 		return result.length > 0;
 	},
