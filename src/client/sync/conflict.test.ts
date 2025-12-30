@@ -9,6 +9,29 @@ import { ConflictResolver } from "./conflict";
 import type { SyncPullResult } from "./pull";
 import type { SyncPushResult } from "./push";
 
+function createEmptyConflicts() {
+	return {
+		decks: [] as string[],
+		cards: [] as string[],
+		noteTypes: [] as string[],
+		noteFieldTypes: [] as string[],
+		notes: [] as string[],
+		noteFieldValues: [] as string[],
+	};
+}
+
+function createEmptyPullResult(
+	currentSyncVersion = 0,
+): Omit<SyncPullResult, "decks" | "cards" | "reviewLogs"> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+		currentSyncVersion,
+	};
+}
+
 describe("ConflictResolver", () => {
 	beforeEach(async () => {
 		await db.decks.clear();
@@ -31,7 +54,11 @@ describe("ConflictResolver", () => {
 				decks: [{ id: "deck-1", syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: createEmptyConflicts(),
 			};
 
 			expect(resolver.hasConflicts(pushResult)).toBe(false);
@@ -43,7 +70,11 @@ describe("ConflictResolver", () => {
 				decks: [{ id: "deck-1", syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: ["deck-1"], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: ["deck-1"] },
 			};
 
 			expect(resolver.hasConflicts(pushResult)).toBe(true);
@@ -55,7 +86,11 @@ describe("ConflictResolver", () => {
 				decks: [],
 				cards: [{ id: "card-1", syncVersion: 1 }],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: ["card-1"] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), cards: ["card-1"] },
 			};
 
 			expect(resolver.hasConflicts(pushResult)).toBe(true);
@@ -69,7 +104,11 @@ describe("ConflictResolver", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: ["deck-1", "deck-2"], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: ["deck-1", "deck-2"] },
 			};
 
 			expect(resolver.getConflictingDeckIds(pushResult)).toEqual([
@@ -86,7 +125,11 @@ describe("ConflictResolver", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: ["card-1", "card-2"] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), cards: ["card-1", "card-2"] },
 			};
 
 			expect(resolver.getConflictingCardIds(pushResult)).toEqual([
@@ -329,7 +372,14 @@ describe("ConflictResolver", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [deck1.id, deck2.id], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: {
+					...createEmptyConflicts(),
+					decks: [deck1.id, deck2.id],
+				},
 			};
 
 			const pullResult: SyncPullResult = {
@@ -359,7 +409,7 @@ describe("ConflictResolver", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 6,
+				...createEmptyPullResult(6),
 			};
 
 			const resolver = new ConflictResolver({ strategy: "server_wins" });
@@ -393,7 +443,11 @@ describe("ConflictResolver", () => {
 				decks: [],
 				cards: [{ id: card.id, syncVersion: 1 }],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [card.id] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), cards: [card.id] },
 			};
 
 			const pullResult: SyncPullResult = {
@@ -420,7 +474,7 @@ describe("ConflictResolver", () => {
 					},
 				],
 				reviewLogs: [],
-				currentSyncVersion: 3,
+				...createEmptyPullResult(3),
 			};
 
 			const resolver = new ConflictResolver({ strategy: "server_wins" });
@@ -438,7 +492,14 @@ describe("ConflictResolver", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: ["non-existent-deck"], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: {
+					...createEmptyConflicts(),
+					decks: ["non-existent-deck"],
+				},
 			};
 
 			const pullResult: SyncPullResult = {
@@ -457,7 +518,7 @@ describe("ConflictResolver", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 1,
+				...createEmptyPullResult(1),
 			};
 
 			const resolver = new ConflictResolver({ strategy: "server_wins" });
@@ -483,14 +544,18 @@ describe("ConflictResolver", () => {
 				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [deck.id], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [deck.id] },
 			};
 
 			const pullResult: SyncPullResult = {
 				decks: [], // Server doesn't have this deck
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 0,
+				...createEmptyPullResult(0),
 			};
 
 			const resolver = new ConflictResolver({ strategy: "server_wins" });
@@ -516,7 +581,11 @@ describe("ConflictResolver", () => {
 				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [deck.id], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [deck.id] },
 			};
 
 			const pullResult: SyncPullResult = {
@@ -535,7 +604,7 @@ describe("ConflictResolver", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 5,
+				...createEmptyPullResult(5),
 			};
 
 			// Create resolver without explicit strategy

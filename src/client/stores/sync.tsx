@@ -22,6 +22,10 @@ import {
 import type {
 	ServerCard,
 	ServerDeck,
+	ServerNote,
+	ServerNoteFieldType,
+	ServerNoteFieldValue,
+	ServerNoteType,
 	ServerReviewLog,
 	SyncPullResult,
 } from "../sync/pull";
@@ -71,6 +75,33 @@ interface PullResponse {
 	reviewLogs: Array<
 		Omit<ServerReviewLog, "reviewedAt"> & {
 			reviewedAt: string;
+		}
+	>;
+	noteTypes: Array<
+		Omit<ServerNoteType, "createdAt" | "updatedAt" | "deletedAt"> & {
+			createdAt: string;
+			updatedAt: string;
+			deletedAt: string | null;
+		}
+	>;
+	noteFieldTypes: Array<
+		Omit<ServerNoteFieldType, "createdAt" | "updatedAt" | "deletedAt"> & {
+			createdAt: string;
+			updatedAt: string;
+			deletedAt: string | null;
+		}
+	>;
+	notes: Array<
+		Omit<ServerNote, "createdAt" | "updatedAt" | "deletedAt"> & {
+			createdAt: string;
+			updatedAt: string;
+			deletedAt: string | null;
+		}
+	>;
+	noteFieldValues: Array<
+		Omit<ServerNoteFieldValue, "createdAt" | "updatedAt"> & {
+			createdAt: string;
+			updatedAt: string;
 		}
 	>;
 	currentSyncVersion: number;
@@ -140,6 +171,29 @@ async function pullFromServer(
 		reviewLogs: data.reviewLogs.map((r) => ({
 			...r,
 			reviewedAt: new Date(r.reviewedAt),
+		})),
+		noteTypes: data.noteTypes.map((n) => ({
+			...n,
+			createdAt: new Date(n.createdAt),
+			updatedAt: new Date(n.updatedAt),
+			deletedAt: n.deletedAt ? new Date(n.deletedAt) : null,
+		})),
+		noteFieldTypes: data.noteFieldTypes.map((f) => ({
+			...f,
+			createdAt: new Date(f.createdAt),
+			updatedAt: new Date(f.updatedAt),
+			deletedAt: f.deletedAt ? new Date(f.deletedAt) : null,
+		})),
+		notes: data.notes.map((n) => ({
+			...n,
+			createdAt: new Date(n.createdAt),
+			updatedAt: new Date(n.updatedAt),
+			deletedAt: n.deletedAt ? new Date(n.deletedAt) : null,
+		})),
+		noteFieldValues: data.noteFieldValues.map((v) => ({
+			...v,
+			createdAt: new Date(v.createdAt),
+			updatedAt: new Date(v.updatedAt),
 		})),
 		currentSyncVersion: data.currentSyncVersion,
 	};

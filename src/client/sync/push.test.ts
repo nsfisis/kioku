@@ -9,8 +9,56 @@ import {
 	localDeckRepository,
 	localReviewLogRepository,
 } from "../db/repositories";
+import type { PendingChanges } from "./queue";
 import { PushService, pendingChangesToPushData } from "./push";
 import { SyncQueue } from "./queue";
+
+function createEmptyPending(): Omit<
+	PendingChanges,
+	"decks" | "cards" | "reviewLogs"
+> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+	};
+}
+
+function createEmptyConflicts() {
+	return {
+		decks: [] as string[],
+		cards: [] as string[],
+		noteTypes: [] as string[],
+		noteFieldTypes: [] as string[],
+		notes: [] as string[],
+		noteFieldValues: [] as string[],
+	};
+}
+
+function createEmptyPushResult(): Omit<
+	import("./push").SyncPushResult,
+	"decks" | "cards" | "reviewLogs" | "conflicts"
+> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+	};
+}
+
+function createEmptyPushData(): Omit<
+	import("./push").SyncPushData,
+	"decks" | "cards" | "reviewLogs"
+> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+	};
+}
 
 describe("pendingChangesToPushData", () => {
 	it("should convert decks to sync format", () => {
@@ -33,6 +81,7 @@ describe("pendingChangesToPushData", () => {
 			decks,
 			cards: [],
 			reviewLogs: [],
+			...createEmptyPending(),
 		});
 
 		expect(result.decks).toHaveLength(1);
@@ -67,6 +116,7 @@ describe("pendingChangesToPushData", () => {
 			decks,
 			cards: [],
 			reviewLogs: [],
+			...createEmptyPending(),
 		});
 
 		expect(result.decks[0]?.deletedAt).toBe("2024-01-03T12:00:00.000Z");
@@ -102,12 +152,15 @@ describe("pendingChangesToPushData", () => {
 			decks: [],
 			cards,
 			reviewLogs: [],
+			...createEmptyPending(),
 		});
 
 		expect(result.cards).toHaveLength(1);
 		expect(result.cards[0]).toEqual({
 			id: "card-1",
 			deckId: "deck-1",
+			noteId: null,
+			isReversed: null,
 			front: "Question",
 			back: "Answer",
 			state: CardState.Review,
@@ -155,6 +208,7 @@ describe("pendingChangesToPushData", () => {
 			decks: [],
 			cards,
 			reviewLogs: [],
+			...createEmptyPending(),
 		});
 
 		expect(result.cards[0]?.lastReview).toBeNull();
@@ -181,6 +235,7 @@ describe("pendingChangesToPushData", () => {
 			decks: [],
 			cards: [],
 			reviewLogs,
+			...createEmptyPending(),
 		});
 
 		expect(result.reviewLogs).toHaveLength(1);
@@ -217,6 +272,7 @@ describe("pendingChangesToPushData", () => {
 			decks: [],
 			cards: [],
 			reviewLogs,
+			...createEmptyPending(),
 		});
 
 		expect(result.reviewLogs[0]?.durationMs).toBeNull();
@@ -255,7 +311,8 @@ describe("PushService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 			expect(pushToServer).not.toHaveBeenCalled();
 		});
@@ -272,7 +329,8 @@ describe("PushService", () => {
 				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 
 			const pushService = new PushService({
@@ -292,6 +350,7 @@ describe("PushService", () => {
 				],
 				cards: [],
 				reviewLogs: [],
+				...createEmptyPushData(),
 			});
 			expect(result.decks).toHaveLength(1);
 			expect(result.decks[0]?.id).toBe(deck.id);
@@ -316,7 +375,8 @@ describe("PushService", () => {
 				decks: [],
 				cards: [{ id: card.id, syncVersion: 1 }],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 
 			const pushService = new PushService({
@@ -336,6 +396,7 @@ describe("PushService", () => {
 					}),
 				],
 				reviewLogs: [],
+				...createEmptyPushData(),
 			});
 			expect(result.cards).toHaveLength(1);
 		});
@@ -371,7 +432,8 @@ describe("PushService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [{ id: log.id, syncVersion: 1 }],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 
 			const pushService = new PushService({
@@ -390,6 +452,7 @@ describe("PushService", () => {
 						rating: Rating.Good,
 					}),
 				],
+				...createEmptyPushData(),
 			});
 			expect(result.reviewLogs).toHaveLength(1);
 		});
@@ -406,7 +469,8 @@ describe("PushService", () => {
 				decks: [{ id: deck.id, syncVersion: 5 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 
 			const pushService = new PushService({
@@ -433,7 +497,8 @@ describe("PushService", () => {
 				decks: [{ id: deck.id, syncVersion: 3 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [deck.id], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: { ...createEmptyConflicts(), decks: [deck.id] },
 			});
 
 			const pushService = new PushService({
@@ -495,7 +560,8 @@ describe("PushService", () => {
 				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [{ id: card.id, syncVersion: 1 }],
 				reviewLogs: [{ id: log.id, syncVersion: 1 }],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			});
 
 			const pushService = new PushService({

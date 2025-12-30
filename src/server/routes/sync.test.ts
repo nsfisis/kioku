@@ -7,7 +7,15 @@ import type {
 	SyncPushResult,
 	SyncRepository,
 } from "../repositories/sync.js";
-import type { Card, Deck, ReviewLog } from "../repositories/types.js";
+import type {
+	Card,
+	Deck,
+	Note,
+	NoteFieldType,
+	NoteFieldValue,
+	NoteType,
+	ReviewLog,
+} from "../repositories/types.js";
 import { createSyncRouter } from "./sync.js";
 
 function createMockSyncRepo(): SyncRepository {
@@ -35,9 +43,17 @@ interface SyncPushResponse {
 	decks?: { id: string; syncVersion: number }[];
 	cards?: { id: string; syncVersion: number }[];
 	reviewLogs?: { id: string; syncVersion: number }[];
+	noteTypes?: { id: string; syncVersion: number }[];
+	noteFieldTypes?: { id: string; syncVersion: number }[];
+	notes?: { id: string; syncVersion: number }[];
+	noteFieldValues?: { id: string; syncVersion: number }[];
 	conflicts?: {
 		decks: string[];
 		cards: string[];
+		noteTypes: string[];
+		noteFieldTypes: string[];
+		notes: string[];
+		noteFieldValues: string[];
 	};
 	error?: {
 		code: string;
@@ -76,7 +92,18 @@ describe("POST /api/sync/push", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: [],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -94,11 +121,18 @@ describe("POST /api/sync/push", () => {
 		expect(body.decks).toEqual([]);
 		expect(body.cards).toEqual([]);
 		expect(body.reviewLogs).toEqual([]);
-		expect(body.conflicts).toEqual({ decks: [], cards: [] });
+		expect(body.noteTypes).toEqual([]);
+		expect(body.noteFieldTypes).toEqual([]);
+		expect(body.notes).toEqual([]);
+		expect(body.noteFieldValues).toEqual([]);
 		expect(mockSyncRepo.pushChanges).toHaveBeenCalledWith(userId, {
 			decks: [],
 			cards: [],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 		});
 	});
 
@@ -117,7 +151,18 @@ describe("POST /api/sync/push", () => {
 			decks: [{ id: "deck-uuid-123", syncVersion: 1 }],
 			cards: [],
 			reviewLogs: [],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -141,6 +186,8 @@ describe("POST /api/sync/push", () => {
 		const cardData = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			noteId: null,
+			isReversed: null,
 			front: "Question",
 			back: "Answer",
 			state: 0,
@@ -161,7 +208,18 @@ describe("POST /api/sync/push", () => {
 			decks: [],
 			cards: [{ id: "550e8400-e29b-41d4-a716-446655440001", syncVersion: 1 }],
 			reviewLogs: [],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -198,7 +256,18 @@ describe("POST /api/sync/push", () => {
 			reviewLogs: [
 				{ id: "550e8400-e29b-41d4-a716-446655440002", syncVersion: 1 },
 			],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -238,7 +307,18 @@ describe("POST /api/sync/push", () => {
 			decks: [{ id: "550e8400-e29b-41d4-a716-446655440003", syncVersion: 5 }],
 			cards: [],
 			reviewLogs: [],
-			conflicts: { decks: ["550e8400-e29b-41d4-a716-446655440003"], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: ["550e8400-e29b-41d4-a716-446655440003"],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -355,6 +435,8 @@ describe("POST /api/sync/push", () => {
 		const cardData = {
 			id: "550e8400-e29b-41d4-a716-446655440005",
 			deckId: "550e8400-e29b-41d4-a716-446655440004",
+			noteId: null,
+			isReversed: null,
 			front: "Q",
 			back: "A",
 			state: 0,
@@ -388,7 +470,18 @@ describe("POST /api/sync/push", () => {
 			reviewLogs: [
 				{ id: "550e8400-e29b-41d4-a716-446655440006", syncVersion: 1 },
 			],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -412,6 +505,121 @@ describe("POST /api/sync/push", () => {
 		expect(body.reviewLogs).toHaveLength(1);
 	});
 
+	it("successfully pushes note types", async () => {
+		const noteTypeData = {
+			id: "550e8400-e29b-41d4-a716-446655440010",
+			name: "Basic Note",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+			createdAt: "2024-01-01T00:00:00.000Z",
+			updatedAt: "2024-01-02T00:00:00.000Z",
+			deletedAt: null,
+		};
+
+		const mockResult: SyncPushResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [
+				{ id: "550e8400-e29b-41d4-a716-446655440010", syncVersion: 1 },
+			],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
+		};
+		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/push", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [noteTypeData],
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPushResponse;
+		expect(body.noteTypes).toHaveLength(1);
+		expect(body.noteTypes?.[0]?.id).toBe(
+			"550e8400-e29b-41d4-a716-446655440010",
+		);
+	});
+
+	it("successfully pushes cards with noteId and isReversed", async () => {
+		const cardData = {
+			id: "550e8400-e29b-41d4-a716-446655440011",
+			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: true,
+			front: "Question",
+			back: "Answer",
+			state: 0,
+			due: "2024-01-01T00:00:00.000Z",
+			stability: 0,
+			difficulty: 0,
+			elapsedDays: 0,
+			scheduledDays: 0,
+			reps: 0,
+			lapses: 0,
+			lastReview: null,
+			createdAt: "2024-01-01T00:00:00.000Z",
+			updatedAt: "2024-01-02T00:00:00.000Z",
+			deletedAt: null,
+		};
+
+		const mockResult: SyncPushResult = {
+			decks: [],
+			cards: [{ id: "550e8400-e29b-41d4-a716-446655440011", syncVersion: 1 }],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
+		};
+		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/push", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				decks: [],
+				cards: [cardData],
+				reviewLogs: [],
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPushResponse;
+		expect(body.cards).toHaveLength(1);
+		expect(body.cards?.[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440011");
+	});
+
 	it("handles soft-deleted entities", async () => {
 		const deletedDeck = {
 			id: "550e8400-e29b-41d4-a716-446655440007",
@@ -427,7 +635,18 @@ describe("POST /api/sync/push", () => {
 			decks: [{ id: "550e8400-e29b-41d4-a716-446655440007", syncVersion: 2 }],
 			cards: [],
 			reviewLogs: [],
-			conflicts: { decks: [], cards: [] },
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
 		};
 		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
 
@@ -454,6 +673,10 @@ interface SyncPullResponse {
 	decks?: Deck[];
 	cards?: Card[];
 	reviewLogs?: ReviewLog[];
+	noteTypes?: NoteType[];
+	noteFieldTypes?: NoteFieldType[];
+	notes?: Note[];
+	noteFieldValues?: NoteFieldValue[];
 	currentSyncVersion?: number;
 	error?: {
 		code: string;
@@ -500,6 +723,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [mockDeck],
 			cards: [],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -515,6 +742,10 @@ describe("GET /api/sync/pull", () => {
 		expect(body.decks).toHaveLength(1);
 		expect(body.cards).toHaveLength(0);
 		expect(body.reviewLogs).toHaveLength(0);
+		expect(body.noteTypes).toHaveLength(0);
+		expect(body.noteFieldTypes).toHaveLength(0);
+		expect(body.notes).toHaveLength(0);
+		expect(body.noteFieldValues).toHaveLength(0);
 		expect(body.currentSyncVersion).toBe(1);
 		expect(mockSyncRepo.pullChanges).toHaveBeenCalledWith(userId, {
 			lastSyncVersion: 0,
@@ -526,6 +757,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 5,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -562,6 +797,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [mockDeck],
 			cards: [],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 2,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -607,6 +846,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [],
 			cards: [mockCard],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 3,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -645,6 +888,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: [mockReviewLog],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -717,6 +964,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [mockDeck],
 			cards: [mockCard],
 			reviewLogs: [mockReviewLog],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 3,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -732,7 +983,104 @@ describe("GET /api/sync/pull", () => {
 		expect(body.decks).toHaveLength(1);
 		expect(body.cards).toHaveLength(1);
 		expect(body.reviewLogs).toHaveLength(1);
+		expect(body.noteTypes).toHaveLength(0);
+		expect(body.noteFieldTypes).toHaveLength(0);
+		expect(body.notes).toHaveLength(0);
+		expect(body.noteFieldValues).toHaveLength(0);
 		expect(body.currentSyncVersion).toBe(3);
+	});
+
+	it("returns note types", async () => {
+		const mockNoteType: NoteType = {
+			id: "550e8400-e29b-41d4-a716-446655440010",
+			userId,
+			name: "Basic Note",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 1,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [mockNoteType],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			currentSyncVersion: 1,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.noteTypes).toHaveLength(1);
+		expect(body.noteTypes?.[0]?.id).toBe(
+			"550e8400-e29b-41d4-a716-446655440010",
+		);
+		expect(body.noteTypes?.[0]?.name).toBe("Basic Note");
+		expect(body.noteTypes?.[0]?.frontTemplate).toBe("{{Front}}");
+		expect(body.noteTypes?.[0]?.isReversible).toBe(false);
+	});
+
+	it("returns cards with noteId and isReversed fields", async () => {
+		const mockCard: Card = {
+			id: "550e8400-e29b-41d4-a716-446655440001",
+			deckId: "550e8400-e29b-41d4-a716-446655440000",
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: true,
+			front: "Question",
+			back: "Answer",
+			state: 0,
+			due: new Date("2024-01-01T00:00:00.000Z"),
+			stability: 0,
+			difficulty: 0,
+			elapsedDays: 0,
+			scheduledDays: 0,
+			reps: 0,
+			lapses: 0,
+			lastReview: null,
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			deletedAt: null,
+			syncVersion: 1,
+		};
+
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [mockCard],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			currentSyncVersion: 1,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as SyncPullResponse;
+		expect(body.cards).toHaveLength(1);
+		expect(body.cards?.[0]?.noteId).toBe(
+			"550e8400-e29b-41d4-a716-446655440020",
+		);
+		expect(body.cards?.[0]?.isReversed).toBe(true);
 	});
 
 	it("returns soft-deleted entities", async () => {
@@ -752,6 +1100,10 @@ describe("GET /api/sync/pull", () => {
 			decks: [deletedDeck],
 			cards: [],
 			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 			currentSyncVersion: 2,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);

@@ -26,6 +26,8 @@ const syncDeckSchema = z.object({
 const syncCardSchema = z.object({
 	id: z.uuid(),
 	deckId: z.uuid(),
+	noteId: z.uuid().nullable(),
+	isReversed: z.boolean().nullable(),
 	front: z.string().min(1),
 	back: z.string().min(1),
 	state: z.number().int().min(0).max(3),
@@ -53,10 +55,54 @@ const syncReviewLogSchema = z.object({
 	durationMs: z.number().int().min(0).nullable(),
 });
 
+const syncNoteTypeSchema = z.object({
+	id: z.uuid(),
+	name: z.string().min(1).max(255),
+	frontTemplate: z.string(),
+	backTemplate: z.string(),
+	isReversible: z.boolean(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+	deletedAt: z.string().datetime().nullable(),
+});
+
+const syncNoteFieldTypeSchema = z.object({
+	id: z.uuid(),
+	noteTypeId: z.uuid(),
+	name: z.string().min(1).max(255),
+	order: z.number().int().min(0),
+	fieldType: z.string(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+	deletedAt: z.string().datetime().nullable(),
+});
+
+const syncNoteSchema = z.object({
+	id: z.uuid(),
+	deckId: z.uuid(),
+	noteTypeId: z.uuid(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+	deletedAt: z.string().datetime().nullable(),
+});
+
+const syncNoteFieldValueSchema = z.object({
+	id: z.uuid(),
+	noteId: z.uuid(),
+	noteFieldTypeId: z.uuid(),
+	value: z.string(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
+});
+
 const syncPushSchema = z.object({
 	decks: z.array(syncDeckSchema).default([]),
 	cards: z.array(syncCardSchema).default([]),
 	reviewLogs: z.array(syncReviewLogSchema).default([]),
+	noteTypes: z.array(syncNoteTypeSchema).default([]),
+	noteFieldTypes: z.array(syncNoteFieldTypeSchema).default([]),
+	notes: z.array(syncNoteSchema).default([]),
+	noteFieldValues: z.array(syncNoteFieldValueSchema).default([]),
 });
 
 const syncPullQuerySchema = z.object({

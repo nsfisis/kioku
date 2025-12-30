@@ -1,4 +1,12 @@
-import type { LocalCard, LocalDeck, LocalReviewLog } from "../db/index";
+import type {
+	LocalCard,
+	LocalDeck,
+	LocalNote,
+	LocalNoteFieldType,
+	LocalNoteFieldValue,
+	LocalNoteType,
+	LocalReviewLog,
+} from "../db/index";
 import type { PendingChanges, SyncQueue } from "./queue";
 
 /**
@@ -8,6 +16,10 @@ export interface SyncPushData {
 	decks: SyncDeckData[];
 	cards: SyncCardData[];
 	reviewLogs: SyncReviewLogData[];
+	noteTypes: SyncNoteTypeData[];
+	noteFieldTypes: SyncNoteFieldTypeData[];
+	notes: SyncNoteData[];
+	noteFieldValues: SyncNoteFieldValueData[];
 }
 
 export interface SyncDeckData {
@@ -23,6 +35,8 @@ export interface SyncDeckData {
 export interface SyncCardData {
 	id: string;
 	deckId: string;
+	noteId: string | null;
+	isReversed: boolean | null;
 	front: string;
 	back: string;
 	state: number;
@@ -50,6 +64,46 @@ export interface SyncReviewLogData {
 	durationMs: number | null;
 }
 
+export interface SyncNoteTypeData {
+	id: string;
+	name: string;
+	frontTemplate: string;
+	backTemplate: string;
+	isReversible: boolean;
+	createdAt: string;
+	updatedAt: string;
+	deletedAt: string | null;
+}
+
+export interface SyncNoteFieldTypeData {
+	id: string;
+	noteTypeId: string;
+	name: string;
+	order: number;
+	fieldType: string;
+	createdAt: string;
+	updatedAt: string;
+	deletedAt: string | null;
+}
+
+export interface SyncNoteData {
+	id: string;
+	deckId: string;
+	noteTypeId: string;
+	createdAt: string;
+	updatedAt: string;
+	deletedAt: string | null;
+}
+
+export interface SyncNoteFieldValueData {
+	id: string;
+	noteId: string;
+	noteFieldTypeId: string;
+	value: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
 /**
  * Response from push endpoint
  */
@@ -57,9 +111,17 @@ export interface SyncPushResult {
 	decks: { id: string; syncVersion: number }[];
 	cards: { id: string; syncVersion: number }[];
 	reviewLogs: { id: string; syncVersion: number }[];
+	noteTypes: { id: string; syncVersion: number }[];
+	noteFieldTypes: { id: string; syncVersion: number }[];
+	notes: { id: string; syncVersion: number }[];
+	noteFieldValues: { id: string; syncVersion: number }[];
 	conflicts: {
 		decks: string[];
 		cards: string[];
+		noteTypes: string[];
+		noteFieldTypes: string[];
+		notes: string[];
+		noteFieldValues: string[];
 	};
 }
 
@@ -93,6 +155,8 @@ function cardToSyncData(card: LocalCard): SyncCardData {
 	return {
 		id: card.id,
 		deckId: card.deckId,
+		noteId: card.noteId,
+		isReversed: card.isReversed,
 		front: card.front,
 		back: card.back,
 		state: card.state,
@@ -127,6 +191,70 @@ function reviewLogToSyncData(log: LocalReviewLog): SyncReviewLogData {
 }
 
 /**
+ * Convert local note type to sync format
+ */
+function noteTypeToSyncData(noteType: LocalNoteType): SyncNoteTypeData {
+	return {
+		id: noteType.id,
+		name: noteType.name,
+		frontTemplate: noteType.frontTemplate,
+		backTemplate: noteType.backTemplate,
+		isReversible: noteType.isReversible,
+		createdAt: noteType.createdAt.toISOString(),
+		updatedAt: noteType.updatedAt.toISOString(),
+		deletedAt: noteType.deletedAt?.toISOString() ?? null,
+	};
+}
+
+/**
+ * Convert local note field type to sync format
+ */
+function noteFieldTypeToSyncData(
+	fieldType: LocalNoteFieldType,
+): SyncNoteFieldTypeData {
+	return {
+		id: fieldType.id,
+		noteTypeId: fieldType.noteTypeId,
+		name: fieldType.name,
+		order: fieldType.order,
+		fieldType: fieldType.fieldType,
+		createdAt: fieldType.createdAt.toISOString(),
+		updatedAt: fieldType.updatedAt.toISOString(),
+		deletedAt: fieldType.deletedAt?.toISOString() ?? null,
+	};
+}
+
+/**
+ * Convert local note to sync format
+ */
+function noteToSyncData(note: LocalNote): SyncNoteData {
+	return {
+		id: note.id,
+		deckId: note.deckId,
+		noteTypeId: note.noteTypeId,
+		createdAt: note.createdAt.toISOString(),
+		updatedAt: note.updatedAt.toISOString(),
+		deletedAt: note.deletedAt?.toISOString() ?? null,
+	};
+}
+
+/**
+ * Convert local note field value to sync format
+ */
+function noteFieldValueToSyncData(
+	fieldValue: LocalNoteFieldValue,
+): SyncNoteFieldValueData {
+	return {
+		id: fieldValue.id,
+		noteId: fieldValue.noteId,
+		noteFieldTypeId: fieldValue.noteFieldTypeId,
+		value: fieldValue.value,
+		createdAt: fieldValue.createdAt.toISOString(),
+		updatedAt: fieldValue.updatedAt.toISOString(),
+	};
+}
+
+/**
  * Convert pending changes to sync push data format
  */
 export function pendingChangesToPushData(
@@ -136,6 +264,10 @@ export function pendingChangesToPushData(
 		decks: changes.decks.map(deckToSyncData),
 		cards: changes.cards.map(cardToSyncData),
 		reviewLogs: changes.reviewLogs.map(reviewLogToSyncData),
+		noteTypes: changes.noteTypes.map(noteTypeToSyncData),
+		noteFieldTypes: changes.noteFieldTypes.map(noteFieldTypeToSyncData),
+		notes: changes.notes.map(noteToSyncData),
+		noteFieldValues: changes.noteFieldValues.map(noteFieldValueToSyncData),
 	};
 }
 
@@ -171,13 +303,28 @@ export class PushService {
 		if (
 			pendingChanges.decks.length === 0 &&
 			pendingChanges.cards.length === 0 &&
-			pendingChanges.reviewLogs.length === 0
+			pendingChanges.reviewLogs.length === 0 &&
+			pendingChanges.noteTypes.length === 0 &&
+			pendingChanges.noteFieldTypes.length === 0 &&
+			pendingChanges.notes.length === 0 &&
+			pendingChanges.noteFieldValues.length === 0
 		) {
 			return {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: {
+					decks: [],
+					cards: [],
+					noteTypes: [],
+					noteFieldTypes: [],
+					notes: [],
+					noteFieldValues: [],
+				},
 			};
 		}
 
@@ -192,6 +339,10 @@ export class PushService {
 			decks: result.decks,
 			cards: result.cards,
 			reviewLogs: result.reviewLogs,
+			noteTypes: result.noteTypes,
+			noteFieldTypes: result.noteFieldTypes,
+			notes: result.notes,
+			noteFieldValues: result.noteFieldValues,
 		});
 
 		return result;

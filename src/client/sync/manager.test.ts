@@ -19,6 +19,41 @@ import { PullService, type SyncPullResult } from "./pull";
 import { PushService, type SyncPushResult } from "./push";
 import { SyncQueue } from "./queue";
 
+function createEmptyConflicts() {
+	return {
+		decks: [] as string[],
+		cards: [] as string[],
+		noteTypes: [] as string[],
+		noteFieldTypes: [] as string[],
+		notes: [] as string[],
+		noteFieldValues: [] as string[],
+	};
+}
+
+function createEmptyPullResult(
+	currentSyncVersion = 0,
+): Omit<SyncPullResult, "decks" | "cards" | "reviewLogs"> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+		currentSyncVersion,
+	};
+}
+
+function createEmptyPushResult(): Omit<
+	SyncPushResult,
+	"decks" | "cards" | "reviewLogs" | "conflicts"
+> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+	};
+}
+
 describe("SyncManager", () => {
 	let syncQueue: SyncQueue;
 	let conflictResolver: ConflictResolver;
@@ -63,14 +98,15 @@ describe("SyncManager", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: [],
-			conflicts: { decks: [], cards: [] },
+			...createEmptyPushResult(),
+			conflicts: createEmptyConflicts(),
 		} satisfies SyncPushResult);
 
 		pullFromServer = vi.fn().mockResolvedValue({
 			decks: [],
 			cards: [],
 			reviewLogs: [],
-			currentSyncVersion: 0,
+			...createEmptyPullResult(0),
 		} satisfies SyncPullResult);
 
 		conflictResolver = new ConflictResolver({ strategy: "server_wins" });
@@ -249,7 +285,8 @@ describe("SyncManager", () => {
 				decks: [{ id: "deck-1", syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: createEmptyConflicts(),
 			};
 			pushToServer.mockResolvedValue(expectedPushResult);
 
@@ -257,7 +294,7 @@ describe("SyncManager", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 5,
+				...createEmptyPullResult(5),
 			};
 			pullFromServer.mockResolvedValue(expectedPullResult);
 
@@ -323,7 +360,8 @@ describe("SyncManager", () => {
 									decks: [],
 									cards: [],
 									reviewLogs: [],
-									conflicts: { decks: [], cards: [] },
+									...createEmptyPushResult(),
+									conflicts: createEmptyConflicts(),
 								}),
 							100,
 						),
@@ -357,7 +395,8 @@ describe("SyncManager", () => {
 				decks: [{ id: deck.id, syncVersion: 1 }],
 				cards: [],
 				reviewLogs: [],
-				conflicts: { decks: [deck.id], cards: [] },
+				...createEmptyPushResult(),
+				conflicts: { ...createEmptyConflicts(), decks: [deck.id] },
 			};
 			pushToServer.mockResolvedValue(pushResult);
 
@@ -377,7 +416,7 @@ describe("SyncManager", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 5,
+				...createEmptyPullResult(5),
 			};
 			pullFromServer.mockResolvedValue(pullResult);
 
@@ -573,7 +612,8 @@ describe("SyncManager", () => {
 									decks: [],
 									cards: [],
 									reviewLogs: [],
-									conflicts: { decks: [], cards: [] },
+									...createEmptyPushResult(),
+									conflicts: createEmptyConflicts(),
 								}),
 							100,
 						),

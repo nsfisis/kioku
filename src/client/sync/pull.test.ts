@@ -5,8 +5,20 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CardState, db, Rating } from "../db/index";
 import { localCardRepository, localDeckRepository } from "../db/repositories";
-import { PullService, pullResultToLocalData } from "./pull";
+import { PullService, pullResultToLocalData, type SyncPullResult } from "./pull";
 import { SyncQueue } from "./queue";
+
+function createEmptyPullResult(
+	currentSyncVersion = 0,
+): Omit<SyncPullResult, "decks" | "cards" | "reviewLogs"> {
+	return {
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+		currentSyncVersion,
+	};
+}
 
 describe("pullResultToLocalData", () => {
 	it("should convert server decks to local format", () => {
@@ -28,7 +40,7 @@ describe("pullResultToLocalData", () => {
 			decks: serverDecks,
 			cards: [],
 			reviewLogs: [],
-			currentSyncVersion: 5,
+			...createEmptyPullResult(5),
 		});
 
 		expect(result.decks).toHaveLength(1);
@@ -65,7 +77,7 @@ describe("pullResultToLocalData", () => {
 			decks: serverDecks,
 			cards: [],
 			reviewLogs: [],
-			currentSyncVersion: 3,
+			...createEmptyPullResult(3),
 		});
 
 		expect(result.decks[0]?.deletedAt).toEqual(
@@ -100,7 +112,7 @@ describe("pullResultToLocalData", () => {
 			decks: [],
 			cards: serverCards,
 			reviewLogs: [],
-			currentSyncVersion: 2,
+			...createEmptyPullResult(2),
 		});
 
 		expect(result.cards).toHaveLength(1);
@@ -155,7 +167,7 @@ describe("pullResultToLocalData", () => {
 			decks: [],
 			cards: serverCards,
 			reviewLogs: [],
-			currentSyncVersion: 1,
+			...createEmptyPullResult(1),
 		});
 
 		expect(result.cards[0]?.lastReview).toBeNull();
@@ -181,7 +193,7 @@ describe("pullResultToLocalData", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: serverReviewLogs,
-			currentSyncVersion: 1,
+			...createEmptyPullResult(1),
 		});
 
 		expect(result.reviewLogs).toHaveLength(1);
@@ -220,7 +232,7 @@ describe("pullResultToLocalData", () => {
 			decks: [],
 			cards: [],
 			reviewLogs: serverReviewLogs,
-			currentSyncVersion: 1,
+			...createEmptyPullResult(1),
 		});
 
 		expect(result.reviewLogs[0]?.durationMs).toBeNull();
@@ -251,7 +263,7 @@ describe("PullService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 0,
+				...createEmptyPullResult(0),
 			});
 
 			const pullService = new PullService({
@@ -265,7 +277,7 @@ describe("PullService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 0,
+				...createEmptyPullResult(0),
 			});
 			expect(pullFromServer).toHaveBeenCalledWith(0);
 		});
@@ -278,7 +290,7 @@ describe("PullService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 10,
+				...createEmptyPullResult(10),
 			});
 
 			const pullService = new PullService({
@@ -308,7 +320,7 @@ describe("PullService", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 5,
+				...createEmptyPullResult(5),
 			});
 
 			const pullService = new PullService({
@@ -342,6 +354,8 @@ describe("PullService", () => {
 					{
 						id: "server-card-1",
 						deckId: deck.id,
+						noteId: null,
+						isReversed: null,
 						front: "Server Question",
 						back: "Server Answer",
 						state: CardState.New,
@@ -360,7 +374,7 @@ describe("PullService", () => {
 					},
 				],
 				reviewLogs: [],
-				currentSyncVersion: 3,
+				...createEmptyPullResult(3),
 			});
 
 			const pullService = new PullService({
@@ -382,7 +396,7 @@ describe("PullService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 15,
+				...createEmptyPullResult(15),
 			});
 
 			const pullService = new PullService({
@@ -400,7 +414,7 @@ describe("PullService", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 0,
+				...createEmptyPullResult(0),
 			});
 
 			const pullService = new PullService({
@@ -451,7 +465,7 @@ describe("PullService", () => {
 				],
 				cards: [],
 				reviewLogs: [],
-				currentSyncVersion: 10,
+				...createEmptyPullResult(10),
 			});
 
 			const pullService = new PullService({
@@ -487,6 +501,8 @@ describe("PullService", () => {
 					{
 						id: "card-1",
 						deckId: "deck-1",
+						noteId: null,
+						isReversed: null,
 						front: "Q",
 						back: "A",
 						state: CardState.New,
@@ -518,7 +534,7 @@ describe("PullService", () => {
 						syncVersion: 3,
 					},
 				],
-				currentSyncVersion: 3,
+				...createEmptyPullResult(3),
 			});
 
 			const pullService = new PullService({

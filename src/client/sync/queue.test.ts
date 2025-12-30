@@ -303,6 +303,10 @@ describe("SyncQueue", () => {
 				decks: [{ id: deck.id, syncVersion: 5 }],
 				cards: [],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localDeckRepository.findById(deck.id);
@@ -327,6 +331,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [{ id: card.id, syncVersion: 3 }],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localCardRepository.findById(card.id);
@@ -361,6 +369,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [{ id: reviewLog.id, syncVersion: 2 }],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localReviewLogRepository.findById(reviewLog.id);
@@ -376,6 +388,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			expect(listener).toHaveBeenCalled();
@@ -401,6 +417,10 @@ describe("SyncQueue", () => {
 				decks: [serverDeck],
 				cards: [],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localDeckRepository.findById("server-deck-1");
@@ -444,6 +464,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [serverCard],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localCardRepository.findById("server-card-1");
@@ -482,6 +506,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [serverLog],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			const found = await localReviewLogRepository.findById("server-log-1");
@@ -497,6 +525,10 @@ describe("SyncQueue", () => {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
 			});
 
 			expect(listener).toHaveBeenCalled();

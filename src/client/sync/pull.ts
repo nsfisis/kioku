@@ -1,7 +1,12 @@
 import type {
 	CardStateType,
+	FieldTypeType,
 	LocalCard,
 	LocalDeck,
+	LocalNote,
+	LocalNoteFieldType,
+	LocalNoteFieldValue,
+	LocalNoteType,
 	LocalReviewLog,
 	RatingType,
 } from "../db/index";
@@ -64,12 +69,73 @@ export interface ServerReviewLog {
 }
 
 /**
+ * Server note type data format from pull response
+ */
+export interface ServerNoteType {
+	id: string;
+	userId: string;
+	name: string;
+	frontTemplate: string;
+	backTemplate: string;
+	isReversible: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+/**
+ * Server note field type data format from pull response
+ */
+export interface ServerNoteFieldType {
+	id: string;
+	noteTypeId: string;
+	name: string;
+	order: number;
+	fieldType: string;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+/**
+ * Server note data format from pull response
+ */
+export interface ServerNote {
+	id: string;
+	deckId: string;
+	noteTypeId: string;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt: Date | null;
+	syncVersion: number;
+}
+
+/**
+ * Server note field value data format from pull response
+ */
+export interface ServerNoteFieldValue {
+	id: string;
+	noteId: string;
+	noteFieldTypeId: string;
+	value: string;
+	createdAt: Date;
+	updatedAt: Date;
+	syncVersion: number;
+}
+
+/**
  * Response from pull endpoint
  */
 export interface SyncPullResult {
 	decks: ServerDeck[];
 	cards: ServerCard[];
 	reviewLogs: ServerReviewLog[];
+	noteTypes: ServerNoteType[];
+	noteFieldTypes: ServerNoteFieldType[];
+	notes: ServerNote[];
+	noteFieldValues: ServerNoteFieldValue[];
 	currentSyncVersion: number;
 }
 
@@ -147,17 +213,98 @@ function serverReviewLogToLocal(log: ServerReviewLog): LocalReviewLog {
 }
 
 /**
+ * Convert server note type to local note type format
+ */
+function serverNoteTypeToLocal(noteType: ServerNoteType): LocalNoteType {
+	return {
+		id: noteType.id,
+		userId: noteType.userId,
+		name: noteType.name,
+		frontTemplate: noteType.frontTemplate,
+		backTemplate: noteType.backTemplate,
+		isReversible: noteType.isReversible,
+		createdAt: new Date(noteType.createdAt),
+		updatedAt: new Date(noteType.updatedAt),
+		deletedAt: noteType.deletedAt ? new Date(noteType.deletedAt) : null,
+		syncVersion: noteType.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note field type to local note field type format
+ */
+function serverNoteFieldTypeToLocal(
+	fieldType: ServerNoteFieldType,
+): LocalNoteFieldType {
+	return {
+		id: fieldType.id,
+		noteTypeId: fieldType.noteTypeId,
+		name: fieldType.name,
+		order: fieldType.order,
+		fieldType: fieldType.fieldType as FieldTypeType,
+		createdAt: new Date(fieldType.createdAt),
+		updatedAt: new Date(fieldType.updatedAt),
+		deletedAt: fieldType.deletedAt ? new Date(fieldType.deletedAt) : null,
+		syncVersion: fieldType.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note to local note format
+ */
+function serverNoteToLocal(note: ServerNote): LocalNote {
+	return {
+		id: note.id,
+		deckId: note.deckId,
+		noteTypeId: note.noteTypeId,
+		createdAt: new Date(note.createdAt),
+		updatedAt: new Date(note.updatedAt),
+		deletedAt: note.deletedAt ? new Date(note.deletedAt) : null,
+		syncVersion: note.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note field value to local note field value format
+ */
+function serverNoteFieldValueToLocal(
+	fieldValue: ServerNoteFieldValue,
+): LocalNoteFieldValue {
+	return {
+		id: fieldValue.id,
+		noteId: fieldValue.noteId,
+		noteFieldTypeId: fieldValue.noteFieldTypeId,
+		value: fieldValue.value,
+		createdAt: new Date(fieldValue.createdAt),
+		updatedAt: new Date(fieldValue.updatedAt),
+		syncVersion: fieldValue.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
  * Convert server pull result to local format for storage
  */
 export function pullResultToLocalData(result: SyncPullResult): {
 	decks: LocalDeck[];
 	cards: LocalCard[];
 	reviewLogs: LocalReviewLog[];
+	noteTypes: LocalNoteType[];
+	noteFieldTypes: LocalNoteFieldType[];
+	notes: LocalNote[];
+	noteFieldValues: LocalNoteFieldValue[];
 } {
 	return {
 		decks: result.decks.map(serverDeckToLocal),
 		cards: result.cards.map(serverCardToLocal),
 		reviewLogs: result.reviewLogs.map(serverReviewLogToLocal),
+		noteTypes: result.noteTypes.map(serverNoteTypeToLocal),
+		noteFieldTypes: result.noteFieldTypes.map(serverNoteFieldTypeToLocal),
+		notes: result.notes.map(serverNoteToLocal),
+		noteFieldValues: result.noteFieldValues.map(serverNoteFieldValueToLocal),
 	};
 }
 
@@ -196,7 +343,11 @@ export class PullService {
 		if (
 			result.decks.length > 0 ||
 			result.cards.length > 0 ||
-			result.reviewLogs.length > 0
+			result.reviewLogs.length > 0 ||
+			result.noteTypes.length > 0 ||
+			result.noteFieldTypes.length > 0 ||
+			result.notes.length > 0 ||
+			result.noteFieldValues.length > 0
 		) {
 			const localData = pullResultToLocalData(result);
 			await this.syncQueue.applyPulledChanges(localData);

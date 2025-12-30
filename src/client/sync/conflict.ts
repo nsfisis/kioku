@@ -1,6 +1,28 @@
-import type { LocalCard, LocalDeck } from "../db/index";
-import { localCardRepository, localDeckRepository } from "../db/repositories";
-import type { ServerCard, ServerDeck, SyncPullResult } from "./pull";
+import type {
+	LocalCard,
+	LocalDeck,
+	LocalNote,
+	LocalNoteFieldType,
+	LocalNoteFieldValue,
+	LocalNoteType,
+} from "../db/index";
+import {
+	localCardRepository,
+	localDeckRepository,
+	localNoteFieldTypeRepository,
+	localNoteFieldValueRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
+import type {
+	ServerCard,
+	ServerDeck,
+	ServerNote,
+	ServerNoteFieldType,
+	ServerNoteFieldValue,
+	ServerNoteType,
+	SyncPullResult,
+} from "./pull";
 import type { SyncPushResult } from "./push";
 
 /**
@@ -17,6 +39,10 @@ export interface ConflictResolutionItem {
 export interface ConflictResolutionResult {
 	decks: ConflictResolutionItem[];
 	cards: ConflictResolutionItem[];
+	noteTypes: ConflictResolutionItem[];
+	noteFieldTypes: ConflictResolutionItem[];
+	notes: ConflictResolutionItem[];
+	noteFieldValues: ConflictResolutionItem[];
 }
 
 /**
@@ -87,6 +113,79 @@ function serverCardToLocal(card: ServerCard): LocalCard {
 }
 
 /**
+ * Convert server note type to local format for storage
+ */
+function serverNoteTypeToLocal(noteType: ServerNoteType): LocalNoteType {
+	return {
+		id: noteType.id,
+		userId: noteType.userId,
+		name: noteType.name,
+		frontTemplate: noteType.frontTemplate,
+		backTemplate: noteType.backTemplate,
+		isReversible: noteType.isReversible,
+		createdAt: new Date(noteType.createdAt),
+		updatedAt: new Date(noteType.updatedAt),
+		deletedAt: noteType.deletedAt ? new Date(noteType.deletedAt) : null,
+		syncVersion: noteType.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note field type to local format for storage
+ */
+function serverNoteFieldTypeToLocal(
+	fieldType: ServerNoteFieldType,
+): LocalNoteFieldType {
+	return {
+		id: fieldType.id,
+		noteTypeId: fieldType.noteTypeId,
+		name: fieldType.name,
+		order: fieldType.order,
+		fieldType: fieldType.fieldType as LocalNoteFieldType["fieldType"],
+		createdAt: new Date(fieldType.createdAt),
+		updatedAt: new Date(fieldType.updatedAt),
+		deletedAt: fieldType.deletedAt ? new Date(fieldType.deletedAt) : null,
+		syncVersion: fieldType.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note to local format for storage
+ */
+function serverNoteToLocal(note: ServerNote): LocalNote {
+	return {
+		id: note.id,
+		deckId: note.deckId,
+		noteTypeId: note.noteTypeId,
+		createdAt: new Date(note.createdAt),
+		updatedAt: new Date(note.updatedAt),
+		deletedAt: note.deletedAt ? new Date(note.deletedAt) : null,
+		syncVersion: note.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
+ * Convert server note field value to local format for storage
+ */
+function serverNoteFieldValueToLocal(
+	fieldValue: ServerNoteFieldValue,
+): LocalNoteFieldValue {
+	return {
+		id: fieldValue.id,
+		noteId: fieldValue.noteId,
+		noteFieldTypeId: fieldValue.noteFieldTypeId,
+		value: fieldValue.value,
+		createdAt: new Date(fieldValue.createdAt),
+		updatedAt: new Date(fieldValue.updatedAt),
+		syncVersion: fieldValue.syncVersion,
+		_synced: true,
+	};
+}
+
+/**
  * Conflict Resolver
  *
  * Handles conflicts reported by the server during push operations.
@@ -109,7 +208,11 @@ export class ConflictResolver {
 	hasConflicts(pushResult: SyncPushResult): boolean {
 		return (
 			pushResult.conflicts.decks.length > 0 ||
-			pushResult.conflicts.cards.length > 0
+			pushResult.conflicts.cards.length > 0 ||
+			pushResult.conflicts.noteTypes.length > 0 ||
+			pushResult.conflicts.noteFieldTypes.length > 0 ||
+			pushResult.conflicts.notes.length > 0 ||
+			pushResult.conflicts.noteFieldValues.length > 0
 		);
 	}
 
@@ -200,6 +303,142 @@ export class ConflictResolver {
 	}
 
 	/**
+	 * Resolve note type conflict using configured strategy
+	 */
+	async resolveNoteTypeConflict(
+		localNoteType: LocalNoteType,
+		serverNoteType: ServerNoteType,
+	): Promise<ConflictResolutionItem> {
+		let resolution: "server_wins" | "local_wins";
+
+		switch (this.strategy) {
+			case "server_wins":
+				resolution = "server_wins";
+				break;
+			case "local_wins":
+				resolution = "local_wins";
+				break;
+			case "newer_wins":
+				resolution = isServerNewer(
+					new Date(serverNoteType.updatedAt),
+					localNoteType.updatedAt,
+				)
+					? "server_wins"
+					: "local_wins";
+				break;
+		}
+
+		if (resolution === "server_wins") {
+			const localData = serverNoteTypeToLocal(serverNoteType);
+			await localNoteTypeRepository.upsertFromServer(localData);
+		}
+
+		return { id: localNoteType.id, resolution };
+	}
+
+	/**
+	 * Resolve note field type conflict using configured strategy
+	 */
+	async resolveNoteFieldTypeConflict(
+		localFieldType: LocalNoteFieldType,
+		serverFieldType: ServerNoteFieldType,
+	): Promise<ConflictResolutionItem> {
+		let resolution: "server_wins" | "local_wins";
+
+		switch (this.strategy) {
+			case "server_wins":
+				resolution = "server_wins";
+				break;
+			case "local_wins":
+				resolution = "local_wins";
+				break;
+			case "newer_wins":
+				resolution = isServerNewer(
+					new Date(serverFieldType.updatedAt),
+					localFieldType.updatedAt,
+				)
+					? "server_wins"
+					: "local_wins";
+				break;
+		}
+
+		if (resolution === "server_wins") {
+			const localData = serverNoteFieldTypeToLocal(serverFieldType);
+			await localNoteFieldTypeRepository.upsertFromServer(localData);
+		}
+
+		return { id: localFieldType.id, resolution };
+	}
+
+	/**
+	 * Resolve note conflict using configured strategy
+	 */
+	async resolveNoteConflict(
+		localNote: LocalNote,
+		serverNote: ServerNote,
+	): Promise<ConflictResolutionItem> {
+		let resolution: "server_wins" | "local_wins";
+
+		switch (this.strategy) {
+			case "server_wins":
+				resolution = "server_wins";
+				break;
+			case "local_wins":
+				resolution = "local_wins";
+				break;
+			case "newer_wins":
+				resolution = isServerNewer(
+					new Date(serverNote.updatedAt),
+					localNote.updatedAt,
+				)
+					? "server_wins"
+					: "local_wins";
+				break;
+		}
+
+		if (resolution === "server_wins") {
+			const localData = serverNoteToLocal(serverNote);
+			await localNoteRepository.upsertFromServer(localData);
+		}
+
+		return { id: localNote.id, resolution };
+	}
+
+	/**
+	 * Resolve note field value conflict using configured strategy
+	 */
+	async resolveNoteFieldValueConflict(
+		localFieldValue: LocalNoteFieldValue,
+		serverFieldValue: ServerNoteFieldValue,
+	): Promise<ConflictResolutionItem> {
+		let resolution: "server_wins" | "local_wins";
+
+		switch (this.strategy) {
+			case "server_wins":
+				resolution = "server_wins";
+				break;
+			case "local_wins":
+				resolution = "local_wins";
+				break;
+			case "newer_wins":
+				resolution = isServerNewer(
+					new Date(serverFieldValue.updatedAt),
+					localFieldValue.updatedAt,
+				)
+					? "server_wins"
+					: "local_wins";
+				break;
+		}
+
+		if (resolution === "server_wins") {
+			const localData = serverNoteFieldValueToLocal(serverFieldValue);
+			await localNoteFieldValueRepository.upsertFromServer(localData);
+		}
+
+		return { id: localFieldValue.id, resolution };
+	}
+
+	/**
 	 * Resolve all conflicts from a push result
 	 * Uses pull result to get server data for conflicting items
 	 */
@@ -210,6 +449,10 @@ export class ConflictResolver {
 		const result: ConflictResolutionResult = {
 			decks: [],
 			cards: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
 		};
 
 		// Resolve deck conflicts
@@ -250,6 +493,92 @@ export class ConflictResolver {
 				result.cards.push({ id: cardId, resolution: "server_wins" });
 			}
 			// If server doesn't have it but local does, keep local (will push again)
+		}
+
+		// Resolve note type conflicts
+		for (const noteTypeId of pushResult.conflicts.noteTypes) {
+			const localNoteType = await localNoteTypeRepository.findById(noteTypeId);
+			const serverNoteType = pullResult.noteTypes.find(
+				(nt) => nt.id === noteTypeId,
+			);
+
+			if (localNoteType && serverNoteType) {
+				const resolution = await this.resolveNoteTypeConflict(
+					localNoteType,
+					serverNoteType,
+				);
+				result.noteTypes.push(resolution);
+			} else if (serverNoteType) {
+				const localData = serverNoteTypeToLocal(serverNoteType);
+				await localNoteTypeRepository.upsertFromServer(localData);
+				result.noteTypes.push({ id: noteTypeId, resolution: "server_wins" });
+			}
+		}
+
+		// Resolve note field type conflicts
+		for (const fieldTypeId of pushResult.conflicts.noteFieldTypes) {
+			const localFieldType =
+				await localNoteFieldTypeRepository.findById(fieldTypeId);
+			const serverFieldType = pullResult.noteFieldTypes.find(
+				(ft) => ft.id === fieldTypeId,
+			);
+
+			if (localFieldType && serverFieldType) {
+				const resolution = await this.resolveNoteFieldTypeConflict(
+					localFieldType,
+					serverFieldType,
+				);
+				result.noteFieldTypes.push(resolution);
+			} else if (serverFieldType) {
+				const localData = serverNoteFieldTypeToLocal(serverFieldType);
+				await localNoteFieldTypeRepository.upsertFromServer(localData);
+				result.noteFieldTypes.push({
+					id: fieldTypeId,
+					resolution: "server_wins",
+				});
+			}
+		}
+
+		// Resolve note conflicts
+		for (const noteId of pushResult.conflicts.notes) {
+			const localNote = await localNoteRepository.findById(noteId);
+			const serverNote = pullResult.notes.find((n) => n.id === noteId);
+
+			if (localNote && serverNote) {
+				const resolution = await this.resolveNoteConflict(
+					localNote,
+					serverNote,
+				);
+				result.notes.push(resolution);
+			} else if (serverNote) {
+				const localData = serverNoteToLocal(serverNote);
+				await localNoteRepository.upsertFromServer(localData);
+				result.notes.push({ id: noteId, resolution: "server_wins" });
+			}
+		}
+
+		// Resolve note field value conflicts
+		for (const fieldValueId of pushResult.conflicts.noteFieldValues) {
+			const localFieldValue =
+				await localNoteFieldValueRepository.findById(fieldValueId);
+			const serverFieldValue = pullResult.noteFieldValues.find(
+				(fv) => fv.id === fieldValueId,
+			);
+
+			if (localFieldValue && serverFieldValue) {
+				const resolution = await this.resolveNoteFieldValueConflict(
+					localFieldValue,
+					serverFieldValue,
+				);
+				result.noteFieldValues.push(resolution);
+			} else if (serverFieldValue) {
+				const localData = serverNoteFieldValueToLocal(serverFieldValue);
+				await localNoteFieldValueRepository.upsertFromServer(localData);
+				result.noteFieldValues.push({
+					id: fieldValueId,
+					resolution: "server_wins",
+				});
+			}
 		}
 
 		return result;

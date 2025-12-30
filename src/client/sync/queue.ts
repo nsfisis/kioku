@@ -2,11 +2,19 @@ import {
 	db,
 	type LocalCard,
 	type LocalDeck,
+	type LocalNote,
+	type LocalNoteFieldType,
+	type LocalNoteFieldValue,
+	type LocalNoteType,
 	type LocalReviewLog,
 } from "../db/index";
 import {
 	localCardRepository,
 	localDeckRepository,
+	localNoteFieldTypeRepository,
+	localNoteFieldValueRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
 	localReviewLogRepository,
 } from "../db/repositories";
 
@@ -28,6 +36,10 @@ export interface PendingChanges {
 	decks: LocalDeck[];
 	cards: LocalCard[];
 	reviewLogs: LocalReviewLog[];
+	noteTypes: LocalNoteType[];
+	noteFieldTypes: LocalNoteFieldType[];
+	notes: LocalNote[];
+	noteFieldValues: LocalNoteFieldValue[];
 }
 
 /**
@@ -131,13 +143,33 @@ export class SyncQueue {
 	 * Get all pending (unsynced) changes
 	 */
 	async getPendingChanges(): Promise<PendingChanges> {
-		const [decks, cards, reviewLogs] = await Promise.all([
+		const [
+			decks,
+			cards,
+			reviewLogs,
+			noteTypes,
+			noteFieldTypes,
+			notes,
+			noteFieldValues,
+		] = await Promise.all([
 			localDeckRepository.findUnsynced(),
 			localCardRepository.findUnsynced(),
 			localReviewLogRepository.findUnsynced(),
+			localNoteTypeRepository.findUnsynced(),
+			localNoteFieldTypeRepository.findUnsynced(),
+			localNoteRepository.findUnsynced(),
+			localNoteFieldValueRepository.findUnsynced(),
 		]);
 
-		return { decks, cards, reviewLogs };
+		return {
+			decks,
+			cards,
+			reviewLogs,
+			noteTypes,
+			noteFieldTypes,
+			notes,
+			noteFieldValues,
+		};
 	}
 
 	/**
@@ -146,7 +178,13 @@ export class SyncQueue {
 	async getPendingCount(): Promise<number> {
 		const changes = await this.getPendingChanges();
 		return (
-			changes.decks.length + changes.cards.length + changes.reviewLogs.length
+			changes.decks.length +
+			changes.cards.length +
+			changes.reviewLogs.length +
+			changes.noteTypes.length +
+			changes.noteFieldTypes.length +
+			changes.notes.length +
+			changes.noteFieldValues.length
 		);
 	}
 
@@ -214,10 +252,22 @@ export class SyncQueue {
 		decks: { id: string; syncVersion: number }[];
 		cards: { id: string; syncVersion: number }[];
 		reviewLogs: { id: string; syncVersion: number }[];
+		noteTypes: { id: string; syncVersion: number }[];
+		noteFieldTypes: { id: string; syncVersion: number }[];
+		notes: { id: string; syncVersion: number }[];
+		noteFieldValues: { id: string; syncVersion: number }[];
 	}): Promise<void> {
 		await db.transaction(
 			"rw",
-			[db.decks, db.cards, db.reviewLogs],
+			[
+				db.decks,
+				db.cards,
+				db.reviewLogs,
+				db.noteTypes,
+				db.noteFieldTypes,
+				db.notes,
+				db.noteFieldValues,
+			],
 			async () => {
 				for (const deck of results.decks) {
 					await localDeckRepository.markSynced(deck.id, deck.syncVersion);
@@ -229,6 +279,27 @@ export class SyncQueue {
 					await localReviewLogRepository.markSynced(
 						reviewLog.id,
 						reviewLog.syncVersion,
+					);
+				}
+				for (const noteType of results.noteTypes) {
+					await localNoteTypeRepository.markSynced(
+						noteType.id,
+						noteType.syncVersion,
+					);
+				}
+				for (const fieldType of results.noteFieldTypes) {
+					await localNoteFieldTypeRepository.markSynced(
+						fieldType.id,
+						fieldType.syncVersion,
+					);
+				}
+				for (const note of results.notes) {
+					await localNoteRepository.markSynced(note.id, note.syncVersion);
+				}
+				for (const fieldValue of results.noteFieldValues) {
+					await localNoteFieldValueRepository.markSynced(
+						fieldValue.id,
+						fieldValue.syncVersion,
 					);
 				}
 			},
@@ -243,13 +314,38 @@ export class SyncQueue {
 		decks: LocalDeck[];
 		cards: LocalCard[];
 		reviewLogs: LocalReviewLog[];
+		noteTypes: LocalNoteType[];
+		noteFieldTypes: LocalNoteFieldType[];
+		notes: LocalNote[];
+		noteFieldValues: LocalNoteFieldValue[];
 	}): Promise<void> {
 		await db.transaction(
 			"rw",
-			[db.decks, db.cards, db.reviewLogs],
+			[
+				db.decks,
+				db.cards,
+				db.reviewLogs,
+				db.noteTypes,
+				db.noteFieldTypes,
+				db.notes,
+				db.noteFieldValues,
+			],
 			async () => {
+				// Apply in dependency order: NoteTypes first, then dependent entities
+				for (const noteType of data.noteTypes) {
+					await localNoteTypeRepository.upsertFromServer(noteType);
+				}
+				for (const fieldType of data.noteFieldTypes) {
+					await localNoteFieldTypeRepository.upsertFromServer(fieldType);
+				}
 				for (const deck of data.decks) {
 					await localDeckRepository.upsertFromServer(deck);
+				}
+				for (const note of data.notes) {
+					await localNoteRepository.upsertFromServer(note);
+				}
+				for (const fieldValue of data.noteFieldValues) {
+					await localNoteFieldValueRepository.upsertFromServer(fieldValue);
 				}
 				for (const card of data.cards) {
 					await localCardRepository.upsertFromServer(card);
