@@ -7,7 +7,6 @@ A spaced repetition learning application (Anki clone) with PWA offline support a
 - Spaced Repetition: FSRS algorithm for optimal learning scheduling
 - Offline Support: Full PWA with IndexedDB local storage
 - Cloud Sync: Automatic sync when online with conflict resolution
-- Anki Import: Import existing .apkg decks from Anki
 
 ## Development Setup
 

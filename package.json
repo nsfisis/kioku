@@ -21,8 +21,7 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"user:add": "node dist/server/scripts/add-user.js",
-		"anki:import": "node dist/server/scripts/import-anki.js"
+		"user:add": "node dist/server/scripts/add-user.js"
 	},
 	"keywords": [],
 	"author": "nsfisis",

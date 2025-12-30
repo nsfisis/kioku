@@ -30,8 +30,3 @@ A list of features available in Kioku.
 - Sync indicator: See your sync status at a glance
 - Manual sync: Force sync with a button tap
 - Offline indicator: Know when you're working offline
-
-## Anki Import
-
-- Import existing Anki decks (`.apkg` / `.colpkg` files)
-- Seamlessly migrate your flashcards to Kioku

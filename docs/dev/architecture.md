@@ -251,4 +251,3 @@ GET  /api/sync/pull   - Pull server changes
 ## References
 
 - [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
-- [Anki APKG Format](https://eikowagenknecht.de/posts/understanding-the-anki-apkg-format/)
