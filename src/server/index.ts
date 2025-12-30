@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { createCorsMiddleware, errorHandler } from "./middleware/index.js";
-import { auth, cards, decks, study, sync } from "./routes/index.js";
+import { auth, cards, decks, noteTypes, study, sync } from "./routes/index.js";
 
 const app = new Hono();
 
@@ -22,6 +22,7 @@ const routes = app
 	.route("/api/decks", decks)
 	.route("/api/decks/:deckId/cards", cards)
 	.route("/api/decks/:deckId/study", study)
+	.route("/api/note-types", noteTypes)
 	.route("/api/sync", sync);
 
 export type AppType = typeof routes;

@@ -169,13 +169,13 @@ Create these as default note types for each user:
 ### Phase 3: Server API Routes
 
 **Tasks:**
-- [ ] Add NoteType routes
+- [x] Add NoteType routes
   - `GET /api/note-types` - List user's note types
   - `POST /api/note-types` - Create note type
   - `GET /api/note-types/:id` - Get note type with fields
   - `PUT /api/note-types/:id` - Update note type (name, front_template, back_template, is_reversible)
   - `DELETE /api/note-types/:id` - Soft delete
-- [ ] Add NoteFieldType routes (nested under note-types)
+- [x] Add NoteFieldType routes (nested under note-types)
   - `POST /api/note-types/:id/fields` - Add field
   - `PUT /api/note-types/:id/fields/:fieldId` - Update field
   - `DELETE /api/note-types/:id/fields/:fieldId` - Remove field
