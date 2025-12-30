@@ -231,13 +231,13 @@ Create these as default note types for each user:
 ### Phase 6: Frontend - Note Type Management
 
 **Tasks:**
-- [ ] Create NoteType list page (`/note-types`)
+- [x] Create NoteType list page (`/note-types`)
 - [ ] Create NoteType editor component
   - Edit name
   - Manage fields (add/remove/reorder)
   - Edit front/back templates (mustache syntax)
   - Toggle `is_reversible` option
-- [ ] Add navigation to note type management
+- [x] Add navigation to note type management
 
 **Files to create:**
 - `src/client/pages/NoteTypesPage.tsx`

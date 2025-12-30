@@ -1,4 +1,5 @@
 import {
+	faArrowLeft,
 	faBoxOpen,
 	faLayerGroup,
 	faPen,
@@ -10,38 +11,42 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ApiClientError, apiClient } from "../api";
-import { CreateDeckModal } from "../components/CreateDeckModal";
-import { DeleteDeckModal } from "../components/DeleteDeckModal";
-import { EditDeckModal } from "../components/EditDeckModal";
-import { SyncButton } from "../components/SyncButton";
-import { SyncStatusIndicator } from "../components/SyncStatusIndicator";
-import { useAuth } from "../stores";
+import { CreateNoteTypeModal } from "../components/CreateNoteTypeModal";
+import { DeleteNoteTypeModal } from "../components/DeleteNoteTypeModal";
+import { EditNoteTypeModal } from "../components/EditNoteTypeModal";
 
-interface Deck {
+interface NoteType {
 	id: string;
 	name: string;
-	description: string | null;
-	newCardsPerDay: number;
+	frontTemplate: string;
+	backTemplate: string;
+	isReversible: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export function HomePage() {
-	const { logout } = useAuth();
-	const [decks, setDecks] = useState<Deck[]>([]);
+export function NoteTypesPage() {
+	const [noteTypes, setNoteTypes] = useState<NoteType[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-	const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
-	const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
+	const [editingNoteType, setEditingNoteType] = useState<NoteType | null>(null);
+	const [deletingNoteType, setDeletingNoteType] = useState<NoteType | null>(
+		null,
+	);
 
-	const fetchDecks = useCallback(async () => {
+	const fetchNoteTypes = useCallback(async () => {
 		setIsLoading(true);
 		setError(null);
 
 		try {
-			const res = await apiClient.rpc.api.decks.$get(undefined, {
-				headers: apiClient.getAuthHeader(),
+			const authHeader = apiClient.getAuthHeader();
+			if (!authHeader) {
+				throw new ApiClientError("Not authenticated", 401);
+			}
+
+			const res = await fetch("/api/note-types", {
+				headers: authHeader,
 			});
 
 			if (!res.ok) {
@@ -54,12 +59,12 @@ export function HomePage() {
 			}
 
 			const data = await res.json();
-			setDecks(data.decks);
+			setNoteTypes(data.noteTypes);
 		} catch (err) {
 			if (err instanceof ApiClientError) {
 				setError(err.message);
 			} else {
-				setError("Failed to load decks. Please try again.");
+				setError("Failed to load note types. Please try again.");
 			}
 		} finally {
 			setIsLoading(false);
@@ -67,39 +72,29 @@ export function HomePage() {
 	}, []);
 
 	useEffect(() => {
-		fetchDecks();
-	}, [fetchDecks]);
+		fetchNoteTypes();
+	}, [fetchNoteTypes]);
 
 	return (
 		<div className="min-h-screen bg-cream">
 			{/* Header */}
 			<header className="bg-white border-b border-border/50 sticky top-0 z-10">
 				<div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-					<h1 className="font-display text-2xl font-semibold text-ink">
-						Kioku
-					</h1>
 					<div className="flex items-center gap-3">
-						<SyncStatusIndicator />
-						<SyncButton />
 						<Link
-							href="/note-types"
-							className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-							title="Manage Note Types"
+							href="/"
+							className="p-2 -ml-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
 						>
 							<FontAwesomeIcon
-								icon={faLayerGroup}
+								icon={faArrowLeft}
 								className="w-4 h-4"
 								aria-hidden="true"
 							/>
-							<span className="sr-only">Manage Note Types</span>
+							<span className="sr-only">Back to Home</span>
 						</Link>
-						<button
-							type="button"
-							onClick={logout}
-							className="text-sm text-muted hover:text-slate transition-colors px-3 py-1.5 rounded-lg hover:bg-ivory"
-						>
-							Logout
-						</button>
+						<h1 className="font-display text-2xl font-semibold text-ink">
+							Note Types
+						</h1>
 					</div>
 				</div>
 			</header>
@@ -108,9 +103,9 @@ export function HomePage() {
 			<main className="max-w-4xl mx-auto px-4 py-8">
 				{/* Section Header */}
 				<div className="flex items-center justify-between mb-6">
-					<h2 className="font-display text-xl font-medium text-slate">
-						Your Decks
-					</h2>
+					<p className="text-muted text-sm">
+						Note types define how your cards are structured
+					</p>
 					<button
 						type="button"
 						onClick={() => setIsCreateModalOpen(true)}
@@ -121,7 +116,7 @@ export function HomePage() {
 							className="w-5 h-5"
 							aria-hidden="true"
 						/>
-						New Deck
+						New Note Type
 					</button>
 				</div>
 
@@ -145,7 +140,7 @@ export function HomePage() {
 						<span className="text-error">{error}</span>
 						<button
 							type="button"
-							onClick={fetchDecks}
+							onClick={fetchNoteTypes}
 							className="text-error hover:text-error/80 font-medium text-sm"
 						>
 							Retry
@@ -154,7 +149,7 @@ export function HomePage() {
 				)}
 
 				{/* Empty State */}
-				{!isLoading && !error && decks.length === 0 && (
+				{!isLoading && !error && noteTypes.length === 0 && (
 					<div className="text-center py-16 animate-fade-in">
 						<div className="w-16 h-16 mx-auto mb-4 bg-ivory rounded-2xl flex items-center justify-center">
 							<FontAwesomeIcon
@@ -164,10 +159,10 @@ export function HomePage() {
 							/>
 						</div>
 						<h3 className="font-display text-lg font-medium text-slate mb-2">
-							No decks yet
+							No note types yet
 						</h3>
 						<p className="text-muted text-sm mb-6">
-							Create your first deck to start learning
+							Create a note type to define how your cards are structured
 						</p>
 						<button
 							type="button"
@@ -179,42 +174,52 @@ export function HomePage() {
 								className="w-5 h-5"
 								aria-hidden="true"
 							/>
-							Create Your First Deck
+							Create Your First Note Type
 						</button>
 					</div>
 				)}
 
-				{/* Deck List */}
-				{!isLoading && !error && decks.length > 0 && (
+				{/* Note Type List */}
+				{!isLoading && !error && noteTypes.length > 0 && (
 					<div className="space-y-3 animate-fade-in">
-						{decks.map((deck, index) => (
+						{noteTypes.map((noteType, index) => (
 							<div
-								key={deck.id}
+								key={noteType.id}
 								className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200 group"
 								style={{ animationDelay: `${index * 50}ms` }}
 							>
 								<div className="flex items-start justify-between gap-4">
 									<div className="flex-1 min-w-0">
-										<Link
-											href={`/decks/${deck.id}`}
-											className="block group-hover:text-primary transition-colors"
-										>
+										<div className="flex items-center gap-2 mb-1">
+											<FontAwesomeIcon
+												icon={faLayerGroup}
+												className="w-4 h-4 text-muted"
+												aria-hidden="true"
+											/>
 											<h3 className="font-display text-lg font-medium text-slate truncate">
-												{deck.name}
+												{noteType.name}
 											</h3>
-										</Link>
-										{deck.description && (
-											<p className="text-muted text-sm mt-1 line-clamp-2">
-												{deck.description}
-											</p>
-										)}
+										</div>
+										<div className="flex flex-wrap gap-2 mt-2">
+											<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
+												Front: {noteType.frontTemplate}
+											</span>
+											<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
+												Back: {noteType.backTemplate}
+											</span>
+											{noteType.isReversible && (
+												<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+													Reversible
+												</span>
+											)}
+										</div>
 									</div>
 									<div className="flex items-center gap-2 shrink-0">
 										<button
 											type="button"
-											onClick={() => setEditingDeck(deck)}
+											onClick={() => setEditingNoteType(noteType)}
 											className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-											title="Edit deck"
+											title="Edit note type"
 										>
 											<FontAwesomeIcon
 												icon={faPen}
@@ -224,9 +229,9 @@ export function HomePage() {
 										</button>
 										<button
 											type="button"
-											onClick={() => setDeletingDeck(deck)}
+											onClick={() => setDeletingNoteType(noteType)}
 											className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
-											title="Delete deck"
+											title="Delete note type"
 										>
 											<FontAwesomeIcon
 												icon={faTrash}
@@ -243,24 +248,24 @@ export function HomePage() {
 			</main>
 
 			{/* Modals */}
-			<CreateDeckModal
+			<CreateNoteTypeModal
 				isOpen={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
-				onDeckCreated={fetchDecks}
+				onNoteTypeCreated={fetchNoteTypes}
 			/>
 
-			<EditDeckModal
-				isOpen={editingDeck !== null}
-				deck={editingDeck}
-				onClose={() => setEditingDeck(null)}
-				onDeckUpdated={fetchDecks}
+			<EditNoteTypeModal
+				isOpen={editingNoteType !== null}
+				noteType={editingNoteType}
+				onClose={() => setEditingNoteType(null)}
+				onNoteTypeUpdated={fetchNoteTypes}
 			/>
 
-			<DeleteDeckModal
-				isOpen={deletingDeck !== null}
-				deck={deletingDeck}
-				onClose={() => setDeletingDeck(null)}
-				onDeckDeleted={fetchDecks}
+			<DeleteNoteTypeModal
+				isOpen={deletingNoteType !== null}
+				noteType={deletingNoteType}
+				onClose={() => setDeletingNoteType(null)}
+				onNoteTypeDeleted={fetchNoteTypes}
 			/>
 		</div>
 	);

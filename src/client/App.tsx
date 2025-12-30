@@ -4,6 +4,7 @@ import {
 	DeckDetailPage,
 	HomePage,
 	LoginPage,
+	NoteTypesPage,
 	NotFoundPage,
 	StudyPage,
 } from "./pages";
@@ -26,6 +27,11 @@ export function App() {
 				<Route path="/decks/:deckId/study">
 					<ProtectedRoute>
 						<StudyPage />
+					</ProtectedRoute>
+				</Route>
+				<Route path="/note-types">
+					<ProtectedRoute>
+						<NoteTypesPage />
 					</ProtectedRoute>
 				</Route>
 				<Route path="/login" component={LoginPage} />
