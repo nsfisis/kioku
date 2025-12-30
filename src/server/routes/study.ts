@@ -51,7 +51,11 @@ export function createStudyRouter(deps: StudyDependencies) {
 			}
 
 			const now = new Date();
-			const dueCards = await cardRepo.findDueCards(deckId, now, 100);
+			const dueCards = await cardRepo.findDueCardsWithNoteData(
+				deckId,
+				now,
+				100,
+			);
 
 			return c.json({ cards: dueCards }, 200);
 		})

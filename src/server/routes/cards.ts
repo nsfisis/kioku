@@ -75,7 +75,7 @@ export function createCardsRouter(deps: CardDependencies) {
 				throw Errors.notFound("Deck not found", "DECK_NOT_FOUND");
 			}
 
-			const card = await cardRepo.findById(cardId, deckId);
+			const card = await cardRepo.findByIdWithNoteData(cardId, deckId);
 			if (!card) {
 				throw Errors.notFound("Card not found", "CARD_NOT_FOUND");
 			}

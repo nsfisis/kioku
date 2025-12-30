@@ -6,8 +6,11 @@ import { errorHandler } from "../middleware/index.js";
 import type {
 	Card,
 	CardRepository,
+	CardWithNoteData,
 	Deck,
 	DeckRepository,
+	Note,
+	NoteFieldValue,
 	ReviewLog,
 	ReviewLogRepository,
 } from "../repositories/index.js";
@@ -24,6 +27,7 @@ function createMockCardRepo(): CardRepository {
 		softDelete: vi.fn(),
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
+		findDueCardsWithNoteData: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
@@ -114,9 +118,47 @@ function createMockReviewLog(overrides: Partial<ReviewLog> = {}): ReviewLog {
 	};
 }
 
+function createMockCardWithNoteData(
+	overrides: Partial<CardWithNoteData> = {},
+): CardWithNoteData {
+	return {
+		...createMockCard(overrides),
+		note: overrides.note ?? null,
+		fieldValues: overrides.fieldValues ?? [],
+	};
+}
+
+function createMockNote(overrides: Partial<Note> = {}): Note {
+	return {
+		id: "note-uuid-123",
+		deckId: "deck-uuid-123",
+		noteTypeId: "note-type-uuid-123",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		deletedAt: null,
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
+function createMockNoteFieldValue(
+	overrides: Partial<NoteFieldValue> = {},
+): NoteFieldValue {
+	return {
+		id: "field-value-uuid-123",
+		noteId: "note-uuid-123",
+		noteFieldTypeId: "field-type-uuid-123",
+		value: "Test value",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
 interface StudyResponse {
 	card?: Card;
-	cards?: Card[];
+	cards?: CardWithNoteData[];
 	error?: {
 		code: string;
 		message: string;
@@ -153,7 +195,7 @@ describe("GET /api/decks/:deckId/study", () => {
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findDueCards).mockResolvedValue([]);
+		vi.mocked(mockCardRepo.findDueCardsWithNoteData).mockResolvedValue([]);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
 			method: "GET",
@@ -167,22 +209,36 @@ describe("GET /api/decks/:deckId/study", () => {
 			DECK_ID,
 			"user-uuid-123",
 		);
-		expect(mockCardRepo.findDueCards).toHaveBeenCalledWith(
+		expect(mockCardRepo.findDueCardsWithNoteData).toHaveBeenCalledWith(
 			DECK_ID,
 			expect.any(Date),
 			100,
 		);
 	});
 
-	it("returns due cards", async () => {
+	it("returns due cards with note data", async () => {
 		const mockCards = [
-			createMockCard({ id: "card-1", front: "Q1", back: "A1" }),
-			createMockCard({ id: "card-2", front: "Q2", back: "A2" }),
+			createMockCardWithNoteData({
+				id: "card-1",
+				front: "Q1",
+				back: "A1",
+				note: null,
+				fieldValues: [],
+			}),
+			createMockCardWithNoteData({
+				id: "card-2",
+				front: "Q2",
+				back: "A2",
+				note: null,
+				fieldValues: [],
+			}),
 		];
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findDueCards).mockResolvedValue(mockCards);
+		vi.mocked(mockCardRepo.findDueCardsWithNoteData).mockResolvedValue(
+			mockCards,
+		);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
 			method: "GET",
@@ -192,6 +248,43 @@ describe("GET /api/decks/:deckId/study", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as StudyResponse;
 		expect(body.cards).toHaveLength(2);
+	});
+
+	it("returns due cards with note and field values when available", async () => {
+		const mockNote = createMockNote({ id: "note-1" });
+		const mockFieldValues = [
+			createMockNoteFieldValue({ noteId: "note-1", value: "Front" }),
+			createMockNoteFieldValue({
+				id: "fv-2",
+				noteId: "note-1",
+				value: "Back",
+			}),
+		];
+		const mockCards = [
+			createMockCardWithNoteData({
+				id: "card-1",
+				noteId: "note-1",
+				note: mockNote,
+				fieldValues: mockFieldValues,
+			}),
+		];
+		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
+			createMockDeck({ id: DECK_ID }),
+		);
+		vi.mocked(mockCardRepo.findDueCardsWithNoteData).mockResolvedValue(
+			mockCards,
+		);
+
+		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${authToken}` },
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as StudyResponse;
+		expect(body.cards).toHaveLength(1);
+		expect(body.cards?.[0]?.note?.id).toBe("note-1");
+		expect(body.cards?.[0]?.fieldValues).toHaveLength(2);
 	});
 
 	it("returns 404 for non-existent deck", async () => {

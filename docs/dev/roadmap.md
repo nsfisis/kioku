@@ -180,15 +180,15 @@ Create these as default note types for each user:
   - `PUT /api/note-types/:id/fields/:fieldId` - Update field
   - `DELETE /api/note-types/:id/fields/:fieldId` - Remove field
   - `PUT /api/note-types/:id/fields/reorder` - Reorder fields
-- [ ] Add Note routes
+- [x] Add Note routes
   - `GET /api/decks/:deckId/notes` - List notes in deck
   - `POST /api/decks/:deckId/notes` - Create note (auto-generates cards)
   - `GET /api/decks/:deckId/notes/:noteId` - Get note with field values
   - `PUT /api/decks/:deckId/notes/:noteId` - Update note field values
   - `DELETE /api/decks/:deckId/notes/:noteId` - Delete note and its cards
-- [ ] Modify Card routes
+- [x] Modify Card routes
   - Update GET to include note data when available
-- [ ] Modify Study routes
+- [x] Modify Study routes
   - Fetch note/field data for card display
 
 **Files to create/modify:**
@@ -299,6 +299,7 @@ Create these as default note types for each user:
 - [ ] Remove deprecated `front`/`back` columns from Card (after migration)
 - [ ] Update all tests
 - [ ] Update API documentation
+- [ ] Update architecture.md
 - [ ] Performance testing with multiple cards per note
 
 ## Migration Strategy

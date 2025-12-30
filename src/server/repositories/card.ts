@@ -178,6 +178,47 @@ export const cardRepository: CardRepository = {
 		return result;
 	},
 
+	async findDueCardsWithNoteData(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardWithNoteData[]> {
+		const dueCards = await this.findDueCards(deckId, now, limit);
+
+		const cardsWithNoteData: CardWithNoteData[] = [];
+
+		for (const card of dueCards) {
+			if (!card.noteId) {
+				cardsWithNoteData.push({
+					...card,
+					note: null,
+					fieldValues: [],
+				});
+				continue;
+			}
+
+			const noteResult = await db
+				.select()
+				.from(notes)
+				.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
+
+			const note = noteResult[0] ?? null;
+
+			const fieldValuesResult = await db
+				.select()
+				.from(noteFieldValues)
+				.where(eq(noteFieldValues.noteId, card.noteId));
+
+			cardsWithNoteData.push({
+				...card,
+				note,
+				fieldValues: fieldValuesResult,
+			});
+		}
+
+		return cardsWithNoteData;
+	},
+
 	async updateFSRSFields(
 		id: string,
 		deckId: string,

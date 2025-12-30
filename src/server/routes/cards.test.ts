@@ -6,8 +6,11 @@ import { errorHandler } from "../middleware/index.js";
 import type {
 	Card,
 	CardRepository,
+	CardWithNoteData,
 	Deck,
 	DeckRepository,
+	Note,
+	NoteFieldValue,
 } from "../repositories/index.js";
 import { createCardsRouter } from "./cards.js";
 
@@ -22,6 +25,7 @@ function createMockCardRepo(): CardRepository {
 		softDelete: vi.fn(),
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
+		findDueCardsWithNoteData: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
@@ -91,12 +95,50 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 }
 
 interface CardResponse {
-	card?: Card;
+	card?: Card | CardWithNoteData;
 	cards?: Card[];
 	success?: boolean;
 	error?: {
 		code: string;
 		message: string;
+	};
+}
+
+function createMockCardWithNoteData(
+	overrides: Partial<CardWithNoteData> = {},
+): CardWithNoteData {
+	return {
+		...createMockCard(overrides),
+		note: overrides.note ?? null,
+		fieldValues: overrides.fieldValues ?? [],
+	};
+}
+
+function createMockNote(overrides: Partial<Note> = {}): Note {
+	return {
+		id: "note-uuid-123",
+		deckId: "deck-uuid-123",
+		noteTypeId: "note-type-uuid-123",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		deletedAt: null,
+		syncVersion: 0,
+		...overrides,
+	};
+}
+
+function createMockNoteFieldValue(
+	overrides: Partial<NoteFieldValue> = {},
+): NoteFieldValue {
+	return {
+		id: "field-value-uuid-123",
+		noteId: "note-uuid-123",
+		noteFieldTypeId: "field-type-uuid-123",
+		value: "Test value",
+		createdAt: new Date("2024-01-01"),
+		updatedAt: new Date("2024-01-01"),
+		syncVersion: 0,
+		...overrides,
 	};
 }
 
@@ -361,12 +403,19 @@ describe("GET /api/decks/:deckId/cards/:cardId", () => {
 		authToken = await createTestToken("user-uuid-123");
 	});
 
-	it("returns card by id", async () => {
-		const mockCard = createMockCard({ id: CARD_ID, deckId: DECK_ID });
+	it("returns card by id with note data", async () => {
+		const mockCardWithNote = createMockCardWithNoteData({
+			id: CARD_ID,
+			deckId: DECK_ID,
+			note: null,
+			fieldValues: [],
+		});
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findById).mockResolvedValue(mockCard);
+		vi.mocked(mockCardRepo.findByIdWithNoteData).mockResolvedValue(
+			mockCardWithNote,
+		);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/cards/${CARD_ID}`, {
 			method: "GET",
@@ -376,7 +425,47 @@ describe("GET /api/decks/:deckId/cards/:cardId", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as CardResponse;
 		expect(body.card?.id).toBe(CARD_ID);
-		expect(mockCardRepo.findById).toHaveBeenCalledWith(CARD_ID, DECK_ID);
+		expect(mockCardRepo.findByIdWithNoteData).toHaveBeenCalledWith(
+			CARD_ID,
+			DECK_ID,
+		);
+	});
+
+	it("returns card with note and field values when available", async () => {
+		const mockNote = createMockNote({ id: "note-1" });
+		const mockFieldValues = [
+			createMockNoteFieldValue({ noteId: "note-1", value: "Front content" }),
+			createMockNoteFieldValue({
+				id: "fv-2",
+				noteId: "note-1",
+				value: "Back content",
+			}),
+		];
+		const mockCardWithNote = createMockCardWithNoteData({
+			id: CARD_ID,
+			deckId: DECK_ID,
+			noteId: "note-1",
+			note: mockNote,
+			fieldValues: mockFieldValues,
+		});
+		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
+			createMockDeck({ id: DECK_ID }),
+		);
+		vi.mocked(mockCardRepo.findByIdWithNoteData).mockResolvedValue(
+			mockCardWithNote,
+		);
+
+		const res = await app.request(`/api/decks/${DECK_ID}/cards/${CARD_ID}`, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${authToken}` },
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as CardResponse;
+		const card = body.card as CardWithNoteData;
+		expect(card?.id).toBe(CARD_ID);
+		expect(card?.note?.id).toBe("note-1");
+		expect(card?.fieldValues).toHaveLength(2);
 	});
 
 	it("returns 404 for non-existent deck", async () => {
@@ -396,7 +485,7 @@ describe("GET /api/decks/:deckId/cards/:cardId", () => {
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findById).mockResolvedValue(undefined);
+		vi.mocked(mockCardRepo.findByIdWithNoteData).mockResolvedValue(undefined);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/cards/${CARD_ID}`, {
 			method: "GET",
