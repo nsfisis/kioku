@@ -43,6 +43,6 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 ### Phase 6: Testing and Cleanup
 
-- [ ] Add unit tests for CRDT operations
-- [ ] Add integration tests for concurrent edit scenarios
+- [x] Add unit tests for CRDT operations
+- [x] Add integration tests for concurrent edit scenarios
 - [ ] Remove legacy LWW code after validation
