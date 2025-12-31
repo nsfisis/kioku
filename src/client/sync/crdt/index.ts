@@ -47,6 +47,40 @@ export {
 	saveIncremental,
 	updateDocument,
 } from "./document-manager";
+
+// CRDT-aware repository wrappers
+export {
+	type CrdtDocumentResult,
+	type CrdtMergeResult,
+	type CrdtRepository,
+	crdtCardRepository,
+	crdtDeckRepository,
+	crdtNoteFieldTypeRepository,
+	crdtNoteFieldValueRepository,
+	crdtNoteRepository,
+	crdtNoteTypeRepository,
+	crdtRepositories,
+	crdtReviewLogRepository,
+	entitiesToCrdtDocuments,
+	getCrdtRepository,
+	getRepositoryForDocumentId,
+	mergeAndConvert,
+} from "./repositories";
+
+// Sync state management
+export {
+	base64ToBinary,
+	binaryToBase64,
+	type CrdtSyncMetadata,
+	type CrdtSyncPayload,
+	type CrdtSyncStateEntry,
+	CrdtSyncStateManager,
+	crdtSyncDb,
+	crdtSyncStateManager,
+	entriesToSyncPayload,
+	syncPayloadToEntries,
+} from "./sync-state";
+
 // Type definitions
 export {
 	type CrdtCardDocument,

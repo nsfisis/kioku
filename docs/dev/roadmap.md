@@ -18,8 +18,8 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 ### Phase 2: Create CRDT Repository Layer
 
-- [ ] Create `src/client/sync/crdt/repositories.ts` - CRDT-aware repository wrappers
-- [ ] Create `src/client/sync/crdt/sync-state.ts` - Sync state serialization
+- [x] Create `src/client/sync/crdt/repositories.ts` - CRDT-aware repository wrappers
+- [x] Create `src/client/sync/crdt/sync-state.ts` - Sync state serialization
 
 ### Phase 3: Modify Sync Protocol
 
