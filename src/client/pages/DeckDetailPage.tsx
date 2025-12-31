@@ -2,17 +2,19 @@ import {
 	faChevronLeft,
 	faCirclePlay,
 	faFile,
+	faLayerGroup,
 	faPen,
 	faPlus,
 	faSpinner,
 	faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { CreateNoteModal } from "../components/CreateNoteModal";
 import { DeleteCardModal } from "../components/DeleteCardModal";
+import { DeleteNoteModal } from "../components/DeleteNoteModal";
 import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
 
@@ -30,6 +32,11 @@ interface Card {
 	createdAt: string;
 	updatedAt: string;
 }
+
+/** Combined type for display: either a note group or a legacy card */
+type CardDisplayItem =
+	| { type: "note"; noteId: string; cards: Card[] }
+	| { type: "legacy"; card: Card };
 
 interface Deck {
 	id: string;
@@ -51,6 +58,215 @@ const CardStateColors: Record<number, string> = {
 	3: "bg-error/10 text-error",
 };
 
+/** Component for displaying a group of cards from the same note */
+function NoteGroupCard({
+	noteId,
+	cards,
+	index,
+	onEditNote,
+	onDeleteNote,
+}: {
+	noteId: string;
+	cards: Card[];
+	index: number;
+	onEditNote: () => void;
+	onDeleteNote: () => void;
+}) {
+	// Use the first card's front/back as preview (normal card takes precedence)
+	const previewCard = cards.find((c) => !c.isReversed) ?? cards[0];
+	if (!previewCard) return null;
+
+	return (
+		<div
+			data-testid="note-group"
+			data-note-id={noteId}
+			className="bg-white rounded-xl border border-border/50 shadow-card hover:shadow-md transition-all duration-200 overflow-hidden"
+			style={{ animationDelay: `${index * 30}ms` }}
+		>
+			{/* Note Header */}
+			<div className="flex items-center justify-between px-5 py-3 border-b border-border/30 bg-ivory/30">
+				<div className="flex items-center gap-2">
+					<FontAwesomeIcon
+						icon={faLayerGroup}
+						className="w-4 h-4 text-muted"
+						aria-hidden="true"
+					/>
+					<span className="text-sm font-medium text-slate">
+						Note ({cards.length} card{cards.length !== 1 ? "s" : ""})
+					</span>
+				</div>
+				<div className="flex items-center gap-1">
+					<button
+						type="button"
+						onClick={onEditNote}
+						className="p-2 text-muted hover:text-slate hover:bg-white rounded-lg transition-colors"
+						title="Edit note"
+					>
+						<FontAwesomeIcon
+							icon={faPen}
+							className="w-4 h-4"
+							aria-hidden="true"
+						/>
+					</button>
+					<button
+						type="button"
+						onClick={onDeleteNote}
+						className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+						title="Delete note"
+					>
+						<FontAwesomeIcon
+							icon={faTrash}
+							className="w-4 h-4"
+							aria-hidden="true"
+						/>
+					</button>
+				</div>
+			</div>
+
+			{/* Note Content Preview */}
+			<div className="p-5">
+				<div className="grid grid-cols-2 gap-4 mb-4">
+					<div>
+						<span className="text-xs font-medium text-muted uppercase tracking-wide">
+							Front
+						</span>
+						<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
+							{previewCard.front}
+						</p>
+					</div>
+					<div>
+						<span className="text-xs font-medium text-muted uppercase tracking-wide">
+							Back
+						</span>
+						<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
+							{previewCard.back}
+						</p>
+					</div>
+				</div>
+
+				{/* Cards within this note */}
+				<div className="space-y-2">
+					{cards.map((card) => (
+						<div
+							key={card.id}
+							data-testid="note-card"
+							className="flex items-center gap-3 text-xs p-2 bg-ivory/50 rounded-lg"
+						>
+							<span
+								className={`px-2 py-0.5 rounded-full font-medium ${CardStateColors[card.state] || "bg-muted/10 text-muted"}`}
+							>
+								{CardStateLabels[card.state] || "Unknown"}
+							</span>
+							{card.isReversed ? (
+								<span className="px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+									Reversed
+								</span>
+							) : (
+								<span className="px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+									Normal
+								</span>
+							)}
+							<span className="text-muted">{card.reps} reviews</span>
+							{card.lapses > 0 && (
+								<span className="text-muted">{card.lapses} lapses</span>
+							)}
+						</div>
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/** Component for displaying a legacy card (without note association) */
+function LegacyCardItem({
+	card,
+	index,
+	onEdit,
+	onDelete,
+}: {
+	card: Card;
+	index: number;
+	onEdit: () => void;
+	onDelete: () => void;
+}) {
+	return (
+		<div
+			data-testid="legacy-card"
+			className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200"
+			style={{ animationDelay: `${index * 30}ms` }}
+		>
+			<div className="flex items-start justify-between gap-4">
+				<div className="flex-1 min-w-0">
+					{/* Front/Back Preview */}
+					<div className="grid grid-cols-2 gap-4 mb-3">
+						<div>
+							<span className="text-xs font-medium text-muted uppercase tracking-wide">
+								Front
+							</span>
+							<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
+								{card.front}
+							</p>
+						</div>
+						<div>
+							<span className="text-xs font-medium text-muted uppercase tracking-wide">
+								Back
+							</span>
+							<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
+								{card.back}
+							</p>
+						</div>
+					</div>
+
+					{/* Card Stats */}
+					<div className="flex items-center gap-3 text-xs">
+						<span
+							className={`px-2 py-0.5 rounded-full font-medium ${CardStateColors[card.state] || "bg-muted/10 text-muted"}`}
+						>
+							{CardStateLabels[card.state] || "Unknown"}
+						</span>
+						<span className="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+							Legacy
+						</span>
+						<span className="text-muted">{card.reps} reviews</span>
+						{card.lapses > 0 && (
+							<span className="text-muted">{card.lapses} lapses</span>
+						)}
+					</div>
+				</div>
+
+				{/* Actions */}
+				<div className="flex items-center gap-1 shrink-0">
+					<button
+						type="button"
+						onClick={onEdit}
+						className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
+						title="Edit card"
+					>
+						<FontAwesomeIcon
+							icon={faPen}
+							className="w-4 h-4"
+							aria-hidden="true"
+						/>
+					</button>
+					<button
+						type="button"
+						onClick={onDelete}
+						className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+						title="Delete card"
+					>
+						<FontAwesomeIcon
+							icon={faTrash}
+							className="w-4 h-4"
+							aria-hidden="true"
+						/>
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function DeckDetailPage() {
 	const { deckId } = useParams<{ deckId: string }>();
 	const [deck, setDeck] = useState<Deck | null>(null);
@@ -61,6 +277,61 @@ export function DeckDetailPage() {
 	const [editingCard, setEditingCard] = useState<Card | null>(null);
 	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
+	const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+	// Group cards by note for display
+	const displayItems = useMemo((): CardDisplayItem[] => {
+		const noteGroups = new Map<string, Card[]>();
+		const legacyCards: Card[] = [];
+
+		for (const card of cards) {
+			if (card.noteId) {
+				const existing = noteGroups.get(card.noteId);
+				if (existing) {
+					existing.push(card);
+				} else {
+					noteGroups.set(card.noteId, [card]);
+				}
+			} else {
+				legacyCards.push(card);
+			}
+		}
+
+		const items: CardDisplayItem[] = [];
+
+		// Add note groups first, sorted by earliest card creation
+		const sortedNoteGroups = Array.from(noteGroups.entries()).sort(
+			([, cardsA], [, cardsB]) => {
+				const minA = Math.min(
+					...cardsA.map((c) => new Date(c.createdAt).getTime()),
+				);
+				const minB = Math.min(
+					...cardsB.map((c) => new Date(c.createdAt).getTime()),
+				);
+				return minB - minA; // Newest first
+			},
+		);
+
+		for (const [noteId, noteCards] of sortedNoteGroups) {
+			// Sort cards within group: normal first, then reversed
+			noteCards.sort((a, b) => {
+				if (a.isReversed === b.isReversed) return 0;
+				return a.isReversed ? 1 : -1;
+			});
+			items.push({ type: "note", noteId, cards: noteCards });
+		}
+
+		// Add legacy cards, newest first
+		legacyCards.sort(
+			(a, b) =>
+				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+		);
+		for (const card of legacyCards) {
+			items.push({ type: "legacy", card });
+		}
+
+		return items;
+	}, [cards]);
 
 	const fetchDeck = useCallback(async () => {
 		if (!deckId) return;
@@ -277,96 +548,29 @@ export function DeckDetailPage() {
 							</div>
 						)}
 
-						{/* Card List */}
+						{/* Card List - Grouped by Note */}
 						{cards.length > 0 && (
-							<div className="space-y-3">
-								{cards.map((card, index) => (
-									<div
-										key={card.id}
-										className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200"
-										style={{ animationDelay: `${index * 30}ms` }}
-									>
-										<div className="flex items-start justify-between gap-4">
-											<div className="flex-1 min-w-0">
-												{/* Front/Back Preview */}
-												<div className="grid grid-cols-2 gap-4 mb-3">
-													<div>
-														<span className="text-xs font-medium text-muted uppercase tracking-wide">
-															Front
-														</span>
-														<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
-															{card.front}
-														</p>
-													</div>
-													<div>
-														<span className="text-xs font-medium text-muted uppercase tracking-wide">
-															Back
-														</span>
-														<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
-															{card.back}
-														</p>
-													</div>
-												</div>
-
-												{/* Card Stats */}
-												<div className="flex items-center gap-3 text-xs">
-													<span
-														className={`px-2 py-0.5 rounded-full font-medium ${CardStateColors[card.state] || "bg-muted/10 text-muted"}`}
-													>
-														{CardStateLabels[card.state] || "Unknown"}
-													</span>
-													{card.isReversed && (
-														<span className="px-2 py-0.5 rounded-full font-medium bg-slate/10 text-slate">
-															Reversed
-														</span>
-													)}
-													<span className="text-muted">
-														{card.reps} reviews
-													</span>
-													{card.lapses > 0 && (
-														<span className="text-muted">
-															{card.lapses} lapses
-														</span>
-													)}
-												</div>
-											</div>
-
-											{/* Actions */}
-											<div className="flex items-center gap-1 shrink-0">
-												<button
-													type="button"
-													onClick={() => {
-														if (card.noteId) {
-															setEditingNoteId(card.noteId);
-														} else {
-															setEditingCard(card);
-														}
-													}}
-													className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-													title={card.noteId ? "Edit note" : "Edit card"}
-												>
-													<FontAwesomeIcon
-														icon={faPen}
-														className="w-4 h-4"
-														aria-hidden="true"
-													/>
-												</button>
-												<button
-													type="button"
-													onClick={() => setDeletingCard(card)}
-													className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
-													title="Delete card"
-												>
-													<FontAwesomeIcon
-														icon={faTrash}
-														className="w-4 h-4"
-														aria-hidden="true"
-													/>
-												</button>
-											</div>
-										</div>
-									</div>
-								))}
+							<div className="space-y-4">
+								{displayItems.map((item, index) =>
+									item.type === "note" ? (
+										<NoteGroupCard
+											key={item.noteId}
+											noteId={item.noteId}
+											cards={item.cards}
+											index={index}
+											onEditNote={() => setEditingNoteId(item.noteId)}
+											onDeleteNote={() => setDeletingNoteId(item.noteId)}
+										/>
+									) : (
+										<LegacyCardItem
+											key={item.card.id}
+											card={item.card}
+											index={index}
+											onEdit={() => setEditingCard(item.card)}
+											onDelete={() => setDeletingCard(item.card)}
+										/>
+									),
+								)}
 							</div>
 						)}
 					</div>
@@ -410,6 +614,16 @@ export function DeckDetailPage() {
 					card={deletingCard}
 					onClose={() => setDeletingCard(null)}
 					onCardDeleted={fetchCards}
+				/>
+			)}
+
+			{deckId && (
+				<DeleteNoteModal
+					isOpen={deletingNoteId !== null}
+					deckId={deckId}
+					noteId={deletingNoteId}
+					onClose={() => setDeletingNoteId(null)}
+					onNoteDeleted={fetchCards}
 				/>
 			)}
 		</div>

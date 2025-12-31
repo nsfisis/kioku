@@ -254,7 +254,7 @@ Create these as default note types for each user:
 - [ ] Update EditCardModal → EditNoteModal
   - Load note and field values
   - Update all generated cards on save
-- [ ] Update DeckDetailPage
+- [x] Update DeckDetailPage
   - Group cards by note
   - Show note-level actions (edit note, delete note)
   - Display whether card is normal or reversed

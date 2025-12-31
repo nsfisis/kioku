@@ -51,10 +51,13 @@ const mockDeck = {
 	updatedAt: "2024-01-01T00:00:00Z",
 };
 
-const mockCards = [
+// Legacy cards (no noteId) for backward compatibility testing
+const mockLegacyCards = [
 	{
 		id: "card-1",
 		deckId: "deck-1",
+		noteId: null,
+		isReversed: null,
 		front: "Hello",
 		back: "こんにちは",
 		state: 0,
@@ -74,6 +77,8 @@ const mockCards = [
 	{
 		id: "card-2",
 		deckId: "deck-1",
+		noteId: null,
+		isReversed: null,
 		front: "Goodbye",
 		back: "さようなら",
 		state: 2,
@@ -91,6 +96,58 @@ const mockCards = [
 		syncVersion: 0,
 	},
 ];
+
+// Note-based cards (with noteId)
+const mockNoteBasedCards = [
+	{
+		id: "card-3",
+		deckId: "deck-1",
+		noteId: "note-1",
+		isReversed: false,
+		front: "Apple",
+		back: "りんご",
+		state: 0,
+		due: "2024-01-01T00:00:00Z",
+		stability: 0,
+		difficulty: 0,
+		elapsedDays: 0,
+		scheduledDays: 0,
+		reps: 0,
+		lapses: 0,
+		lastReview: null,
+		createdAt: "2024-01-02T00:00:00Z",
+		updatedAt: "2024-01-02T00:00:00Z",
+		deletedAt: null,
+		syncVersion: 0,
+	},
+	{
+		id: "card-4",
+		deckId: "deck-1",
+		noteId: "note-1",
+		isReversed: true,
+		front: "りんご",
+		back: "Apple",
+		state: 0,
+		due: "2024-01-01T00:00:00Z",
+		stability: 0,
+		difficulty: 0,
+		elapsedDays: 0,
+		scheduledDays: 0,
+		reps: 2,
+		lapses: 0,
+		lastReview: null,
+		createdAt: "2024-01-02T00:00:00Z",
+		updatedAt: "2024-01-02T00:00:00Z",
+		deletedAt: null,
+		syncVersion: 0,
+	},
+];
+
+// Mixed cards (both legacy and note-based)
+const mockMixedCards = [...mockLegacyCards, ...mockNoteBasedCards];
+
+// Alias for backward compatibility in existing tests
+const mockCards = mockLegacyCards;
 
 function renderWithProviders(path = "/decks/deck-1") {
 	const { hook } = memoryLocation({ path, static: true });
@@ -581,6 +638,254 @@ describe("DeckDetailPage", () => {
 					"Failed to delete card",
 				);
 			});
+		});
+	});
+
+	describe("Card Grouping by Note", () => {
+		it("groups cards by noteId and displays as note groups", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				// Should show note group container
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			// Should display both cards within the note group
+			const noteCards = screen.getAllByTestId("note-card");
+			expect(noteCards.length).toBe(2);
+		});
+
+		it("displays legacy cards separately from note groups", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockMixedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				// Should show both note groups and legacy cards
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			const legacyCards = screen.getAllByTestId("legacy-card");
+			expect(legacyCards.length).toBe(2); // 2 legacy cards
+
+			// Should show "Legacy" badge for legacy cards
+			const legacyBadges = screen.getAllByText("Legacy");
+			expect(legacyBadges.length).toBe(2);
+		});
+
+		it("shows Normal and Reversed badges for note-based cards", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByText("Normal")).toBeDefined();
+			});
+
+			expect(screen.getByText("Reversed")).toBeDefined();
+		});
+
+		it("shows note card count in note group header", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				// Should show "Note (2 cards)" since there are 2 cards from the same note
+				expect(screen.getByText("Note (2 cards)")).toBeDefined();
+			});
+		});
+
+		it("shows edit note button for note groups", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			const editNoteButton = screen.getByRole("button", { name: "Edit note" });
+			expect(editNoteButton).toBeDefined();
+		});
+
+		it("shows delete note button for note groups", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			const deleteNoteButton = screen.getByRole("button", {
+				name: "Delete note",
+			});
+			expect(deleteNoteButton).toBeDefined();
+		});
+
+		it("opens delete note modal when delete button is clicked", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			const deleteNoteButton = screen.getByRole("button", {
+				name: "Delete note",
+			});
+			await user.click(deleteNoteButton);
+
+			expect(screen.getByRole("dialog")).toBeDefined();
+			expect(
+				screen.getByRole("heading", { name: "Delete Note" }),
+			).toBeDefined();
+		});
+
+		it("deletes note and refreshes list when confirmed", async () => {
+			const user = userEvent.setup();
+
+			mockFetch
+				// Initial load
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				})
+				// Delete request
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ success: true }),
+				})
+				// Refresh cards after deletion
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: [] }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			const deleteNoteButton = screen.getByRole("button", {
+				name: "Delete note",
+			});
+			await user.click(deleteNoteButton);
+
+			// Confirm deletion in modal
+			const dialog = screen.getByRole("dialog");
+			const modalButtons = dialog.querySelectorAll("button");
+			const confirmDeleteButton = Array.from(modalButtons).find((btn) =>
+				btn.textContent?.includes("Delete"),
+			);
+			if (confirmDeleteButton) {
+				await user.click(confirmDeleteButton);
+			}
+
+			// Wait for modal to close
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).toBeNull();
+			});
+
+			// Verify DELETE request was made to notes endpoint
+			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/notes/note-1", {
+				method: "DELETE",
+				headers: { Authorization: "Bearer access-token" },
+			});
+
+			// Should show empty state after deletion
+			await waitFor(() => {
+				expect(screen.getByText("No cards yet")).toBeDefined();
+			});
+		});
+
+		it("displays note preview from normal card content", async () => {
+			mockFetch
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ deck: mockDeck }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ cards: mockNoteBasedCards }),
+				});
+
+			renderWithProviders();
+
+			await waitFor(() => {
+				expect(screen.getByTestId("note-group")).toBeDefined();
+			});
+
+			// The normal card's front/back should be displayed as preview
+			expect(screen.getByText("Apple")).toBeDefined();
+			expect(screen.getByText("りんご")).toBeDefined();
 		});
 	});
 });
