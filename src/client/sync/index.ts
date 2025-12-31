@@ -1,5 +1,4 @@
 export {
-	type ConflictResolutionItem,
 	type ConflictResolutionResult,
 	ConflictResolver,
 	conflictResolver,

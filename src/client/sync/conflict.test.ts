@@ -173,7 +173,7 @@ describe("ConflictResolver", () => {
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveDeckConflict(localDeck, serverDeck);
 
-			expect(result.resolution).toBe("server_wins");
+			expect(result).toBe(localDeck.id);
 
 			const updatedDeck = await localDeckRepository.findById(localDeck.id);
 			expect(updatedDeck?.name).toBe("Server Name");
@@ -225,7 +225,7 @@ describe("ConflictResolver", () => {
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveCardConflict(localCard, serverCard);
 
-			expect(result.resolution).toBe("server_wins");
+			expect(result).toBe(localCard.id);
 
 			const updatedCard = await localCardRepository.findById(localCard.id);
 			expect(updatedCard?.front).toBe("Server Question");
@@ -300,8 +300,8 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(2);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
-			expect(result.decks[1]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(deck1.id);
+			expect(result.decks[1]).toBe(deck2.id);
 
 			const updatedDeck1 = await localDeckRepository.findById(deck1.id);
 			const updatedDeck2 = await localDeckRepository.findById(deck2.id);
@@ -369,7 +369,7 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.cards).toHaveLength(1);
-			expect(result.cards[0]?.resolution).toBe("server_wins");
+			expect(result.cards[0]).toBe(card.id);
 
 			const updatedCard = await localCardRepository.findById(card.id);
 			expect(updatedCard?.front).toBe("Server Question");
@@ -413,7 +413,7 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe("non-existent-deck");
 
 			const insertedDeck =
 				await localDeckRepository.findById("non-existent-deck");
@@ -500,7 +500,7 @@ describe("ConflictResolver", () => {
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(deck.id);
 
 			const updatedDeck = await localDeckRepository.findById(deck.id);
 			expect(updatedDeck?.name).toBe("Server Name");
@@ -575,7 +575,7 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(localDeck.id);
 
 			// Verify the CRDT sync state was updated
 			const storedBinary = await crdtSyncStateManager.getDocumentBinary(
@@ -637,7 +637,7 @@ describe("ConflictResolver", () => {
 
 			// Should still resolve using fallback
 			expect(result.decks).toHaveLength(1);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(localDeck.id);
 
 			// Server data should be applied
 			const updatedDeck = await localDeckRepository.findById(localDeck.id);
@@ -687,7 +687,7 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(localDeck.id);
 
 			const updatedDeck = await localDeckRepository.findById(localDeck.id);
 			expect(updatedDeck?.name).toBe("Server Name");
@@ -750,7 +750,7 @@ describe("ConflictResolver", () => {
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
-			expect(result.decks[0]?.resolution).toBe("server_wins");
+			expect(result.decks[0]).toBe(localDeck.id);
 
 			// Verify CRDT document was stored
 			const storedBinary = await crdtSyncStateManager.getDocumentBinary(

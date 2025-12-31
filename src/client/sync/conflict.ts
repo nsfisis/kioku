@@ -37,23 +37,16 @@ import type {
 import type { SyncPushResult } from "./push";
 
 /**
- * Conflict resolution result for a single item
- */
-export interface ConflictResolutionItem {
-	id: string;
-	resolution: "server_wins";
-}
-
-/**
  * Result of conflict resolution process
+ * Each array contains the IDs of resolved items
  */
 export interface ConflictResolutionResult {
-	decks: ConflictResolutionItem[];
-	cards: ConflictResolutionItem[];
-	noteTypes: ConflictResolutionItem[];
-	noteFieldTypes: ConflictResolutionItem[];
-	notes: ConflictResolutionItem[];
-	noteFieldValues: ConflictResolutionItem[];
+	decks: string[];
+	cards: string[];
+	noteTypes: string[];
+	noteFieldTypes: string[];
+	notes: string[];
+	noteFieldValues: string[];
 }
 
 /**
@@ -230,7 +223,7 @@ export class ConflictResolver {
 		localDeck: LocalDeck,
 		serverDeck: ServerDeck,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeDeckWithCrdt(
@@ -250,7 +243,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverDeck.syncVersion,
 				);
-				return { id: localDeck.id, resolution: "server_wins" };
+				return localDeck.id;
 			}
 		}
 
@@ -258,7 +251,7 @@ export class ConflictResolver {
 		const localData = serverDeckToLocal(serverDeck);
 		await localDeckRepository.upsertFromServer(localData);
 
-		return { id: localDeck.id, resolution: "server_wins" };
+		return localDeck.id;
 	}
 
 	/**
@@ -307,7 +300,7 @@ export class ConflictResolver {
 		localCard: LocalCard,
 		serverCard: ServerCard,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeCardWithCrdt(
@@ -326,7 +319,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverCard.syncVersion,
 				);
-				return { id: localCard.id, resolution: "server_wins" };
+				return localCard.id;
 			}
 		}
 
@@ -334,7 +327,7 @@ export class ConflictResolver {
 		const localData = serverCardToLocal(serverCard);
 		await localCardRepository.upsertFromServer(localData);
 
-		return { id: localCard.id, resolution: "server_wins" };
+		return localCard.id;
 	}
 
 	/**
@@ -378,7 +371,7 @@ export class ConflictResolver {
 		localNoteType: LocalNoteType,
 		serverNoteType: ServerNoteType,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteTypeWithCrdt(
@@ -397,7 +390,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverNoteType.syncVersion,
 				);
-				return { id: localNoteType.id, resolution: "server_wins" };
+				return localNoteType.id;
 			}
 		}
 
@@ -405,7 +398,7 @@ export class ConflictResolver {
 		const localData = serverNoteTypeToLocal(serverNoteType);
 		await localNoteTypeRepository.upsertFromServer(localData);
 
-		return { id: localNoteType.id, resolution: "server_wins" };
+		return localNoteType.id;
 	}
 
 	/**
@@ -449,7 +442,7 @@ export class ConflictResolver {
 		localFieldType: LocalNoteFieldType,
 		serverFieldType: ServerNoteFieldType,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteFieldTypeWithCrdt(
@@ -468,7 +461,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverFieldType.syncVersion,
 				);
-				return { id: localFieldType.id, resolution: "server_wins" };
+				return localFieldType.id;
 			}
 		}
 
@@ -476,7 +469,7 @@ export class ConflictResolver {
 		const localData = serverNoteFieldTypeToLocal(serverFieldType);
 		await localNoteFieldTypeRepository.upsertFromServer(localData);
 
-		return { id: localFieldType.id, resolution: "server_wins" };
+		return localFieldType.id;
 	}
 
 	/**
@@ -523,7 +516,7 @@ export class ConflictResolver {
 		localNote: LocalNote,
 		serverNote: ServerNote,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteWithCrdt(
@@ -542,7 +535,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverNote.syncVersion,
 				);
-				return { id: localNote.id, resolution: "server_wins" };
+				return localNote.id;
 			}
 		}
 
@@ -550,7 +543,7 @@ export class ConflictResolver {
 		const localData = serverNoteToLocal(serverNote);
 		await localNoteRepository.upsertFromServer(localData);
 
-		return { id: localNote.id, resolution: "server_wins" };
+		return localNote.id;
 	}
 
 	/**
@@ -594,7 +587,7 @@ export class ConflictResolver {
 		localFieldValue: LocalNoteFieldValue,
 		serverFieldValue: ServerNoteFieldValue,
 		serverCrdtBinary?: Uint8Array,
-	): Promise<ConflictResolutionItem> {
+	): Promise<string> {
 		// Try CRDT merge first if we have CRDT data
 		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteFieldValueWithCrdt(
@@ -613,7 +606,7 @@ export class ConflictResolver {
 					mergeResult.binary,
 					serverFieldValue.syncVersion,
 				);
-				return { id: localFieldValue.id, resolution: "server_wins" };
+				return localFieldValue.id;
 			}
 		}
 
@@ -621,7 +614,7 @@ export class ConflictResolver {
 		const localData = serverNoteFieldValueToLocal(serverFieldValue);
 		await localNoteFieldValueRepository.upsertFromServer(localData);
 
-		return { id: localFieldValue.id, resolution: "server_wins" };
+		return localFieldValue.id;
 	}
 
 	/**
@@ -721,7 +714,7 @@ export class ConflictResolver {
 				// Local doesn't exist, apply server data
 				const localData = serverDeckToLocal(serverDeck);
 				await localDeckRepository.upsertFromServer(localData);
-				result.decks.push({ id: deckId, resolution: "server_wins" });
+				result.decks.push(deckId);
 			}
 			// If server doesn't have it but local does, keep local (will push again)
 		}
@@ -743,7 +736,7 @@ export class ConflictResolver {
 				// Local doesn't exist, apply server data
 				const localData = serverCardToLocal(serverCard);
 				await localCardRepository.upsertFromServer(localData);
-				result.cards.push({ id: cardId, resolution: "server_wins" });
+				result.cards.push(cardId);
 			}
 			// If server doesn't have it but local does, keep local (will push again)
 		}
@@ -766,7 +759,7 @@ export class ConflictResolver {
 			} else if (serverNoteType) {
 				const localData = serverNoteTypeToLocal(serverNoteType);
 				await localNoteTypeRepository.upsertFromServer(localData);
-				result.noteTypes.push({ id: noteTypeId, resolution: "server_wins" });
+				result.noteTypes.push(noteTypeId);
 			}
 		}
 
@@ -789,10 +782,7 @@ export class ConflictResolver {
 			} else if (serverFieldType) {
 				const localData = serverNoteFieldTypeToLocal(serverFieldType);
 				await localNoteFieldTypeRepository.upsertFromServer(localData);
-				result.noteFieldTypes.push({
-					id: fieldTypeId,
-					resolution: "server_wins",
-				});
+				result.noteFieldTypes.push(fieldTypeId);
 			}
 		}
 
@@ -812,7 +802,7 @@ export class ConflictResolver {
 			} else if (serverNote) {
 				const localData = serverNoteToLocal(serverNote);
 				await localNoteRepository.upsertFromServer(localData);
-				result.notes.push({ id: noteId, resolution: "server_wins" });
+				result.notes.push(noteId);
 			}
 		}
 
@@ -835,10 +825,7 @@ export class ConflictResolver {
 			} else if (serverFieldValue) {
 				const localData = serverNoteFieldValueToLocal(serverFieldValue);
 				await localNoteFieldValueRepository.upsertFromServer(localData);
-				result.noteFieldValues.push({
-					id: fieldValueId,
-					resolution: "server_wins",
-				});
+				result.noteFieldValues.push(fieldValueId);
 			}
 		}
 
