@@ -101,6 +101,8 @@ describe("pullResultToLocalData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 				state: CardState.Review,
@@ -130,8 +132,8 @@ describe("pullResultToLocalData", () => {
 		expect(result.cards[0]).toEqual({
 			id: "card-1",
 			deckId: "deck-1",
-			noteId: null,
-			isReversed: null,
+			noteId: "test-note-id",
+			isReversed: false,
 			front: "Question",
 			back: "Answer",
 			state: CardState.Review,
@@ -156,6 +158,8 @@ describe("pullResultToLocalData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "New Card",
 				back: "Answer",
 				state: CardState.New,
@@ -568,8 +572,8 @@ describe("PullService", () => {
 					{
 						id: "server-card-1",
 						deckId: deck.id,
-						noteId: null,
-						isReversed: null,
+						noteId: "test-note-id",
+						isReversed: false,
 						front: "Server Question",
 						back: "Server Answer",
 						state: CardState.New,
@@ -715,8 +719,8 @@ describe("PullService", () => {
 					{
 						id: "card-1",
 						deckId: "deck-1",
-						noteId: null,
-						isReversed: null,
+						noteId: "test-note-id",
+						isReversed: false,
 						front: "Q",
 						back: "A",
 						state: CardState.New,

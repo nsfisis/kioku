@@ -47,20 +47,15 @@ export const cardRepository: CardRepository = {
 			return undefined;
 		}
 
-		if (!card.noteId) {
-			return {
-				...card,
-				note: null,
-				fieldValues: [],
-			};
-		}
-
 		const noteResult = await db
 			.select()
 			.from(notes)
 			.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
 
-		const note = noteResult[0] ?? null;
+		const note = noteResult[0];
+		if (!note) {
+			return undefined;
+		}
 
 		const fieldValuesResult = await db
 			.select()
@@ -85,6 +80,8 @@ export const cardRepository: CardRepository = {
 	async create(
 		deckId: string,
 		data: {
+			noteId: string;
+			isReversed: boolean;
 			front: string;
 			back: string;
 		},
@@ -93,6 +90,8 @@ export const cardRepository: CardRepository = {
 			.insert(cards)
 			.values({
 				deckId,
+				noteId: data.noteId,
+				isReversed: data.isReversed,
 				front: data.front,
 				back: data.back,
 				state: CardState.New,
@@ -200,21 +199,16 @@ export const cardRepository: CardRepository = {
 		const cardsWithNoteData: CardWithNoteData[] = [];
 
 		for (const card of dueCards) {
-			if (!card.noteId) {
-				cardsWithNoteData.push({
-					...card,
-					note: null,
-					fieldValues: [],
-				});
-				continue;
-			}
-
 			const noteResult = await db
 				.select()
 				.from(notes)
 				.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
 
-			const note = noteResult[0] ?? null;
+			const note = noteResult[0];
+			if (!note) {
+				// Note was deleted, skip this card
+				continue;
+			}
 
 			const fieldValuesResult = await db
 				.select()
@@ -241,16 +235,6 @@ export const cardRepository: CardRepository = {
 		const cardsForStudy: CardForStudy[] = [];
 
 		for (const card of dueCards) {
-			// Legacy card (no note association)
-			if (!card.noteId) {
-				cardsForStudy.push({
-					...card,
-					noteType: null,
-					fieldValuesMap: {},
-				});
-				continue;
-			}
-
 			// Fetch note to get noteTypeId
 			const noteResult = await db
 				.select()
@@ -259,12 +243,7 @@ export const cardRepository: CardRepository = {
 
 			const note = noteResult[0];
 			if (!note) {
-				// Note was deleted, treat as legacy card
-				cardsForStudy.push({
-					...card,
-					noteType: null,
-					fieldValuesMap: {},
-				});
+				// Note was deleted, skip this card
 				continue;
 			}
 
@@ -281,12 +260,7 @@ export const cardRepository: CardRepository = {
 
 			const noteType = noteTypeResult[0];
 			if (!noteType) {
-				// Note type was deleted, treat as legacy card
-				cardsForStudy.push({
-					...card,
-					noteType: null,
-					fieldValuesMap: {},
-				});
+				// Note type was deleted, skip this card
 				continue;
 			}
 

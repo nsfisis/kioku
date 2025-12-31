@@ -13,8 +13,8 @@ import { renderCard } from "../utils/templateRenderer";
 interface Card {
 	id: string;
 	deckId: string;
-	noteId: string | null;
-	isReversed: boolean | null;
+	noteId: string;
+	isReversed: boolean;
 	front: string;
 	back: string;
 	state: number;
@@ -23,11 +23,11 @@ interface Card {
 	difficulty: number;
 	reps: number;
 	lapses: number;
-	/** Note type templates for rendering (null for legacy cards) */
+	/** Note type templates for rendering */
 	noteType: {
 		frontTemplate: string;
 		backTemplate: string;
-	} | null;
+	};
 	/** Field values as a name-value map for template rendering */
 	fieldValuesMap: Record<string, string>;
 }

@@ -80,8 +80,8 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 	return {
 		id: "card-uuid-123",
 		deckId: "deck-uuid-123",
-		noteId: null,
-		isReversed: null,
+		noteId: "note-uuid-123",
+		isReversed: false,
 		front: "Question",
 		back: "Answer",
 		state: CardState.New,
@@ -122,7 +122,10 @@ function createMockCardForStudy(
 ): CardForStudy {
 	return {
 		...createMockCard(overrides),
-		noteType: overrides.noteType ?? null,
+		noteType: overrides.noteType ?? {
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+		},
 		fieldValuesMap: overrides.fieldValuesMap ?? {},
 	};
 }
@@ -187,20 +190,18 @@ describe("GET /api/decks/:deckId/study", () => {
 		);
 	});
 
-	it("returns due cards (legacy cards without note)", async () => {
+	it("returns due cards", async () => {
 		const mockCards = [
 			createMockCardForStudy({
 				id: "card-1",
 				front: "Q1",
 				back: "A1",
-				noteType: null,
 				fieldValuesMap: {},
 			}),
 			createMockCardForStudy({
 				id: "card-2",
 				front: "Q2",
 				back: "A2",
-				noteType: null,
 				fieldValuesMap: {},
 			}),
 		];
@@ -217,7 +218,7 @@ describe("GET /api/decks/:deckId/study", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as StudyResponse;
 		expect(body.cards).toHaveLength(2);
-		expect(body.cards?.[0]?.noteType).toBeNull();
+		expect(body.cards?.[0]?.noteType).toBeDefined();
 	});
 
 	it("returns due cards with note type and field values when available", async () => {

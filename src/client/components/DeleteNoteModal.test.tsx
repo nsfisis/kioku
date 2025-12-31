@@ -175,7 +175,7 @@ describe("DeleteNoteModal", () => {
 		const user = userEvent.setup();
 
 		// Create a promise that we can control
-		let resolveDelete: (value: unknown) => void;
+		let resolveDelete: ((value: unknown) => void) | undefined;
 		const deletePromise = new Promise((resolve) => {
 			resolveDelete = resolve;
 		});
@@ -190,19 +190,17 @@ describe("DeleteNoteModal", () => {
 		expect(screen.getByText("Deleting...")).toBeDefined();
 
 		// Resolve the delete request to cleanup
-		if (resolveDelete) {
-			resolveDelete({
-				ok: true,
-				json: async () => ({ success: true }),
-			});
-		}
+		resolveDelete?.({
+			ok: true,
+			json: async () => ({ success: true }),
+		});
 	});
 
 	it("disables buttons while deleting", async () => {
 		const user = userEvent.setup();
 
 		// Create a promise that we can control
-		let resolveDelete: (value: unknown) => void;
+		let resolveDelete: ((value: unknown) => void) | undefined;
 		const deletePromise = new Promise((resolve) => {
 			resolveDelete = resolve;
 		});
@@ -224,11 +222,9 @@ describe("DeleteNoteModal", () => {
 		);
 
 		// Resolve the delete request to cleanup
-		if (resolveDelete) {
-			resolveDelete({
-				ok: true,
-				json: async () => ({ success: true }),
-			});
-		}
+		resolveDelete?.({
+			ok: true,
+			json: async () => ({ success: true }),
+		});
 	});
 });

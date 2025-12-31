@@ -176,8 +176,6 @@ export const localCardRepository = {
 		data: Omit<
 			LocalCard,
 			| "id"
-			| "noteId"
-			| "isReversed"
 			| "state"
 			| "due"
 			| "stability"
@@ -192,14 +190,11 @@ export const localCardRepository = {
 			| "deletedAt"
 			| "syncVersion"
 			| "_synced"
-		> &
-			Partial<Pick<LocalCard, "noteId" | "isReversed">>,
+		>,
 	): Promise<LocalCard> {
 		const now = new Date();
 		const card: LocalCard = {
 			id: uuidv4(),
-			noteId: null,
-			isReversed: null,
 			...data,
 			state: CardState.New,
 			due: now,

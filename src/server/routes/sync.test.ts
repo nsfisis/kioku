@@ -186,8 +186,8 @@ describe("POST /api/sync/push", () => {
 		const cardData = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
-			noteId: null,
-			isReversed: null,
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: false,
 			front: "Question",
 			back: "Answer",
 			state: 0,
@@ -435,8 +435,8 @@ describe("POST /api/sync/push", () => {
 		const cardData = {
 			id: "550e8400-e29b-41d4-a716-446655440005",
 			deckId: "550e8400-e29b-41d4-a716-446655440004",
-			noteId: null,
-			isReversed: null,
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: false,
 			front: "Q",
 			back: "A",
 			state: 0,
@@ -823,8 +823,8 @@ describe("GET /api/sync/pull", () => {
 		const mockCard: Card = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
-			noteId: null,
-			isReversed: null,
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: false,
 			front: "Question",
 			back: "Answer",
 			state: 2,
@@ -928,8 +928,8 @@ describe("GET /api/sync/pull", () => {
 		const mockCard: Card = {
 			id: "550e8400-e29b-41d4-a716-446655440001",
 			deckId: "550e8400-e29b-41d4-a716-446655440000",
-			noteId: null,
-			isReversed: null,
+			noteId: "550e8400-e29b-41d4-a716-446655440020",
+			isReversed: false,
 			front: "Q",
 			back: "A",
 			state: 0,

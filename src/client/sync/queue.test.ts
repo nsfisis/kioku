@@ -85,6 +85,8 @@ describe("SyncQueue", () => {
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 			});
@@ -103,6 +105,8 @@ describe("SyncQueue", () => {
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 			});
@@ -145,11 +149,15 @@ describe("SyncQueue", () => {
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id-1",
+				isReversed: false,
 				front: "Q1",
 				back: "A1",
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id-2",
+				isReversed: false,
 				front: "Q2",
 				back: "A2",
 			});
@@ -323,6 +331,8 @@ describe("SyncQueue", () => {
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -351,6 +361,8 @@ describe("SyncQueue", () => {
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -440,8 +452,8 @@ describe("SyncQueue", () => {
 			const serverCard = {
 				id: "server-card-1",
 				deckId: deck.id,
-				noteId: null,
-				isReversed: null,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Server Question",
 				back: "Server Answer",
 				state: CardState.New,
@@ -484,6 +496,8 @@ describe("SyncQueue", () => {
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});

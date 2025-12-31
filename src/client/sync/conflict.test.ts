@@ -271,6 +271,8 @@ describe("ConflictResolver", () => {
 
 			const localCard = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Local Question",
 				back: "Local Answer",
 			});
@@ -278,6 +280,8 @@ describe("ConflictResolver", () => {
 			const serverCard = {
 				id: localCard.id,
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Server Question",
 				back: "Server Answer",
 				state: CardState.Review,
@@ -316,6 +320,8 @@ describe("ConflictResolver", () => {
 
 			const localCard = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Local Question",
 				back: "Local Answer",
 			});
@@ -323,6 +329,8 @@ describe("ConflictResolver", () => {
 			const serverCard = {
 				id: localCard.id,
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Server Question",
 				back: "Server Answer",
 				state: CardState.New,
@@ -435,6 +443,8 @@ describe("ConflictResolver", () => {
 
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Local Question",
 				back: "Local Answer",
 			});
@@ -456,6 +466,8 @@ describe("ConflictResolver", () => {
 					{
 						id: card.id,
 						deckId: deck.id,
+						noteId: "test-note-id",
+						isReversed: false,
 						front: "Server Question",
 						back: "Server Answer",
 						state: CardState.New,

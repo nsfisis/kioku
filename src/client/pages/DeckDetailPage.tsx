@@ -21,8 +21,8 @@ import { EditNoteModal } from "../components/EditNoteModal";
 interface Card {
 	id: string;
 	deckId: string;
-	noteId: string | null;
-	isReversed: boolean | null;
+	noteId: string;
+	isReversed: boolean;
 	front: string;
 	back: string;
 	state: number;
@@ -33,10 +33,8 @@ interface Card {
 	updatedAt: string;
 }
 
-/** Combined type for display: either a note group or a legacy card */
-type CardDisplayItem =
-	| { type: "note"; noteId: string; cards: Card[] }
-	| { type: "legacy"; card: Card };
+/** Combined type for display: note group */
+type CardDisplayItem = { type: "note"; noteId: string; cards: Card[] };
 
 interface Deck {
 	id: string;
@@ -178,95 +176,6 @@ function NoteGroupCard({
 	);
 }
 
-/** Component for displaying a legacy card (without note association) */
-function LegacyCardItem({
-	card,
-	index,
-	onEdit,
-	onDelete,
-}: {
-	card: Card;
-	index: number;
-	onEdit: () => void;
-	onDelete: () => void;
-}) {
-	return (
-		<div
-			data-testid="legacy-card"
-			className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200"
-			style={{ animationDelay: `${index * 30}ms` }}
-		>
-			<div className="flex items-start justify-between gap-4">
-				<div className="flex-1 min-w-0">
-					{/* Front/Back Preview */}
-					<div className="grid grid-cols-2 gap-4 mb-3">
-						<div>
-							<span className="text-xs font-medium text-muted uppercase tracking-wide">
-								Front
-							</span>
-							<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
-								{card.front}
-							</p>
-						</div>
-						<div>
-							<span className="text-xs font-medium text-muted uppercase tracking-wide">
-								Back
-							</span>
-							<p className="mt-1 text-slate text-sm line-clamp-2 whitespace-pre-wrap break-words">
-								{card.back}
-							</p>
-						</div>
-					</div>
-
-					{/* Card Stats */}
-					<div className="flex items-center gap-3 text-xs">
-						<span
-							className={`px-2 py-0.5 rounded-full font-medium ${CardStateColors[card.state] || "bg-muted/10 text-muted"}`}
-						>
-							{CardStateLabels[card.state] || "Unknown"}
-						</span>
-						<span className="px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
-							Legacy
-						</span>
-						<span className="text-muted">{card.reps} reviews</span>
-						{card.lapses > 0 && (
-							<span className="text-muted">{card.lapses} lapses</span>
-						)}
-					</div>
-				</div>
-
-				{/* Actions */}
-				<div className="flex items-center gap-1 shrink-0">
-					<button
-						type="button"
-						onClick={onEdit}
-						className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-						title="Edit card"
-					>
-						<FontAwesomeIcon
-							icon={faPen}
-							className="w-4 h-4"
-							aria-hidden="true"
-						/>
-					</button>
-					<button
-						type="button"
-						onClick={onDelete}
-						className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
-						title="Delete card"
-					>
-						<FontAwesomeIcon
-							icon={faTrash}
-							className="w-4 h-4"
-							aria-hidden="true"
-						/>
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
-
 export function DeckDetailPage() {
 	const { deckId } = useParams<{ deckId: string }>();
 	const [deck, setDeck] = useState<Deck | null>(null);
@@ -282,24 +191,17 @@ export function DeckDetailPage() {
 	// Group cards by note for display
 	const displayItems = useMemo((): CardDisplayItem[] => {
 		const noteGroups = new Map<string, Card[]>();
-		const legacyCards: Card[] = [];
 
 		for (const card of cards) {
-			if (card.noteId) {
-				const existing = noteGroups.get(card.noteId);
-				if (existing) {
-					existing.push(card);
-				} else {
-					noteGroups.set(card.noteId, [card]);
-				}
+			const existing = noteGroups.get(card.noteId);
+			if (existing) {
+				existing.push(card);
 			} else {
-				legacyCards.push(card);
+				noteGroups.set(card.noteId, [card]);
 			}
 		}
 
-		const items: CardDisplayItem[] = [];
-
-		// Add note groups first, sorted by earliest card creation
+		// Sort note groups by earliest card creation (newest first)
 		const sortedNoteGroups = Array.from(noteGroups.entries()).sort(
 			([, cardsA], [, cardsB]) => {
 				const minA = Math.min(
@@ -312,6 +214,7 @@ export function DeckDetailPage() {
 			},
 		);
 
+		const items: CardDisplayItem[] = [];
 		for (const [noteId, noteCards] of sortedNoteGroups) {
 			// Sort cards within group: normal first, then reversed
 			noteCards.sort((a, b) => {
@@ -319,15 +222,6 @@ export function DeckDetailPage() {
 				return a.isReversed ? 1 : -1;
 			});
 			items.push({ type: "note", noteId, cards: noteCards });
-		}
-
-		// Add legacy cards, newest first
-		legacyCards.sort(
-			(a, b) =>
-				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-		);
-		for (const card of legacyCards) {
-			items.push({ type: "legacy", card });
 		}
 
 		return items;
@@ -551,26 +445,16 @@ export function DeckDetailPage() {
 						{/* Card List - Grouped by Note */}
 						{cards.length > 0 && (
 							<div className="space-y-4">
-								{displayItems.map((item, index) =>
-									item.type === "note" ? (
-										<NoteGroupCard
-											key={item.noteId}
-											noteId={item.noteId}
-											cards={item.cards}
-											index={index}
-											onEditNote={() => setEditingNoteId(item.noteId)}
-											onDeleteNote={() => setDeletingNoteId(item.noteId)}
-										/>
-									) : (
-										<LegacyCardItem
-											key={item.card.id}
-											card={item.card}
-											index={index}
-											onEdit={() => setEditingCard(item.card)}
-											onDelete={() => setDeletingCard(item.card)}
-										/>
-									),
-								)}
+								{displayItems.map((item, index) => (
+									<NoteGroupCard
+										key={item.noteId}
+										noteId={item.noteId}
+										cards={item.cards}
+										index={index}
+										onEditNote={() => setEditingNoteId(item.noteId)}
+										onDeleteNote={() => setDeletingNoteId(item.noteId)}
+									/>
+								))}
 							</div>
 						)}
 					</div>

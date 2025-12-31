@@ -132,8 +132,8 @@ describe("KiokuDatabase", () => {
 		const testCard: LocalCard = {
 			id: "card-1",
 			deckId: "deck-1",
-			noteId: null,
-			isReversed: null,
+			noteId: "test-note-id",
+			isReversed: false,
 			front: "Question",
 			back: "Answer",
 			state: CardState.New,

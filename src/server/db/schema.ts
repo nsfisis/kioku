@@ -153,8 +153,10 @@ export const cards = pgTable("cards", {
 	deckId: uuid("deck_id")
 		.notNull()
 		.references(() => decks.id),
-	noteId: uuid("note_id").references(() => notes.id),
-	isReversed: boolean("is_reversed"),
+	noteId: uuid("note_id")
+		.notNull()
+		.references(() => notes.id),
+	isReversed: boolean("is_reversed").notNull(),
 	front: text("front").notNull(),
 	back: text("back").notNull(),
 

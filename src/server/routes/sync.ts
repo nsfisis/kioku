@@ -26,8 +26,8 @@ const syncDeckSchema = z.object({
 const syncCardSchema = z.object({
 	id: z.uuid(),
 	deckId: z.uuid(),
-	noteId: z.uuid().nullable(),
-	isReversed: z.boolean().nullable(),
+	noteId: z.uuid(),
+	isReversed: z.boolean(),
 	front: z.string().min(1),
 	back: z.string().min(1),
 	state: z.number().int().min(0).max(3),

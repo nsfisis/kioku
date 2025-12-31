@@ -131,8 +131,8 @@ describe("pendingChangesToPushData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
-				noteId: null,
-				isReversed: null,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 				state: CardState.Review,
@@ -163,8 +163,8 @@ describe("pendingChangesToPushData", () => {
 		expect(result.cards[0]).toEqual({
 			id: "card-1",
 			deckId: "deck-1",
-			noteId: null,
-			isReversed: null,
+			noteId: "test-note-id",
+			isReversed: false,
 			front: "Question",
 			back: "Answer",
 			state: CardState.Review,
@@ -187,8 +187,8 @@ describe("pendingChangesToPushData", () => {
 			{
 				id: "card-1",
 				deckId: "deck-1",
-				noteId: null,
-				isReversed: null,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "New Card",
 				back: "Answer",
 				state: CardState.New,
@@ -566,6 +566,8 @@ describe("PushService", () => {
 
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 			});
@@ -611,6 +613,8 @@ describe("PushService", () => {
 
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -740,6 +744,8 @@ describe("PushService", () => {
 
 			const card = await localCardRepository.create({
 				deckId: deck.id,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});

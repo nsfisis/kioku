@@ -122,8 +122,8 @@ export interface LocalNoteFieldValue {
 export interface LocalCard {
 	id: string;
 	deckId: string;
-	noteId: string | null;
-	isReversed: boolean | null;
+	noteId: string;
+	isReversed: boolean;
 	front: string;
 	back: string;
 
@@ -241,6 +241,18 @@ export class KiokuDatabase extends Dexie {
 						}
 					});
 			});
+
+		// Version 3: noteId and isReversed are now required (NOT NULL)
+		// No migration needed as production has no legacy data without notes
+		this.version(3).stores({
+			decks: "id, userId, updatedAt",
+			cards: "id, deckId, noteId, updatedAt, due, state",
+			reviewLogs: "id, cardId, userId, reviewedAt",
+			noteTypes: "id, userId, updatedAt",
+			noteFieldTypes: "id, noteTypeId, updatedAt",
+			notes: "id, deckId, noteTypeId, updatedAt",
+			noteFieldValues: "id, noteId, noteFieldTypeId, updatedAt",
+		});
 	}
 }
 

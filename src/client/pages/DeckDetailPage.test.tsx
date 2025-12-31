@@ -51,13 +51,13 @@ const mockDeck = {
 	updatedAt: "2024-01-01T00:00:00Z",
 };
 
-// Legacy cards (no noteId) for backward compatibility testing
-const mockLegacyCards = [
+// Basic note-based cards (each with its own note)
+const mockBasicCards = [
 	{
 		id: "card-1",
 		deckId: "deck-1",
-		noteId: null,
-		isReversed: null,
+		noteId: "note-1",
+		isReversed: false,
 		front: "Hello",
 		back: "こんにちは",
 		state: 0,
@@ -77,8 +77,8 @@ const mockLegacyCards = [
 	{
 		id: "card-2",
 		deckId: "deck-1",
-		noteId: null,
-		isReversed: null,
+		noteId: "note-2",
+		isReversed: false,
 		front: "Goodbye",
 		back: "さようなら",
 		state: 2,
@@ -143,11 +143,8 @@ const mockNoteBasedCards = [
 	},
 ];
 
-// Mixed cards (both legacy and note-based)
-const mockMixedCards = [...mockLegacyCards, ...mockNoteBasedCards];
-
-// Alias for backward compatibility in existing tests
-const mockCards = mockLegacyCards;
+// Alias for existing tests
+const mockCards = mockBasicCards;
 
 function renderWithProviders(path = "/decks/deck-1") {
 	const { hook } = memoryLocation({ path, static: true });
@@ -430,8 +427,8 @@ describe("DeckDetailPage", () => {
 		expect(screen.queryByText("Common Japanese words")).toBeNull();
 	});
 
-	describe("Delete Card", () => {
-		it("shows Delete button for each card", async () => {
+	describe("Delete Note", () => {
+		it("shows Delete button for each note", async () => {
 			mockFetch
 				.mockResolvedValueOnce({
 					ok: true,
@@ -449,7 +446,7 @@ describe("DeckDetailPage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", {
-				name: "Delete card",
+				name: "Delete note",
 			});
 			expect(deleteButtons.length).toBe(2);
 		});
@@ -474,7 +471,7 @@ describe("DeckDetailPage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", {
-				name: "Delete card",
+				name: "Delete note",
 			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
@@ -483,7 +480,7 @@ describe("DeckDetailPage", () => {
 
 			expect(screen.getByRole("dialog")).toBeDefined();
 			expect(
-				screen.getByRole("heading", { name: "Delete Card" }),
+				screen.getByRole("heading", { name: "Delete Note" }),
 			).toBeDefined();
 		});
 
@@ -507,7 +504,7 @@ describe("DeckDetailPage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", {
-				name: "Delete card",
+				name: "Delete note",
 			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
@@ -521,7 +518,7 @@ describe("DeckDetailPage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("deletes card and refreshes list on confirmation", async () => {
+		it("deletes note and refreshes list on confirmation", async () => {
 			const user = userEvent.setup();
 
 			mockFetch
@@ -537,7 +534,7 @@ describe("DeckDetailPage", () => {
 				// Delete request
 				.mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({}),
+					json: async () => ({ success: true }),
 				})
 				// Refresh cards after deletion
 				.mockResolvedValueOnce({
@@ -552,7 +549,7 @@ describe("DeckDetailPage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", {
-				name: "Delete card",
+				name: "Delete note",
 			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
@@ -575,8 +572,8 @@ describe("DeckDetailPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			// Verify DELETE request was made
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/cards/card-1", {
+			// Verify DELETE request was made to notes endpoint
+			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/notes/note-1", {
 				method: "DELETE",
 				headers: { Authorization: "Bearer access-token" },
 			});
@@ -604,7 +601,7 @@ describe("DeckDetailPage", () => {
 				.mockResolvedValueOnce({
 					ok: false,
 					status: 500,
-					json: async () => ({ error: "Failed to delete card" }),
+					json: async () => ({ error: "Failed to delete note" }),
 				});
 
 			renderWithProviders();
@@ -614,7 +611,7 @@ describe("DeckDetailPage", () => {
 			});
 
 			const deleteButtons = screen.getAllByRole("button", {
-				name: "Delete card",
+				name: "Delete note",
 			});
 			const firstDeleteButton = deleteButtons[0];
 			if (firstDeleteButton) {
@@ -635,7 +632,7 @@ describe("DeckDetailPage", () => {
 			// Error should be displayed in the modal
 			await waitFor(() => {
 				expect(screen.getByRole("alert").textContent).toContain(
-					"Failed to delete card",
+					"Failed to delete note",
 				);
 			});
 		});
@@ -663,32 +660,6 @@ describe("DeckDetailPage", () => {
 			// Should display both cards within the note group
 			const noteCards = screen.getAllByTestId("note-card");
 			expect(noteCards.length).toBe(2);
-		});
-
-		it("displays legacy cards separately from note groups", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockMixedCards }),
-				});
-
-			renderWithProviders();
-
-			await waitFor(() => {
-				// Should show both note groups and legacy cards
-				expect(screen.getByTestId("note-group")).toBeDefined();
-			});
-
-			const legacyCards = screen.getAllByTestId("legacy-card");
-			expect(legacyCards.length).toBe(2); // 2 legacy cards
-
-			// Should show "Legacy" badge for legacy cards
-			const legacyBadges = screen.getAllByText("Legacy");
-			expect(legacyBadges.length).toBe(2);
 		});
 
 		it("shows Normal and Reversed badges for note-based cards", async () => {

@@ -74,8 +74,8 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 	return {
 		id: "card-uuid-123",
 		deckId: "deck-uuid-123",
-		noteId: null,
-		isReversed: null,
+		noteId: "note-uuid-123",
+		isReversed: false,
 		front: "Question",
 		back: "Answer",
 		state: CardState.New,
@@ -110,7 +110,7 @@ function createMockCardWithNoteData(
 ): CardWithNoteData {
 	return {
 		...createMockCard(overrides),
-		note: overrides.note ?? null,
+		note: overrides.note ?? createMockNote(),
 		fieldValues: overrides.fieldValues ?? [],
 	};
 }
@@ -408,7 +408,6 @@ describe("GET /api/decks/:deckId/cards/:cardId", () => {
 		const mockCardWithNote = createMockCardWithNoteData({
 			id: CARD_ID,
 			deckId: DECK_ID,
-			note: null,
 			fieldValues: [],
 		});
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(

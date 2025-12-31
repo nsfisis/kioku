@@ -81,8 +81,8 @@ export interface DeckRepository {
 export interface Card {
 	id: string;
 	deckId: string;
-	noteId: string | null;
-	isReversed: boolean | null;
+	noteId: string;
+	isReversed: boolean;
 	front: string;
 	back: string;
 
@@ -104,22 +104,20 @@ export interface Card {
 }
 
 export interface CardWithNoteData extends Card {
-	note: Note | null;
+	note: Note;
 	fieldValues: NoteFieldValue[];
 }
 
 /**
  * Card data prepared for study, including all necessary template rendering info.
- * For note-based cards, includes templates and field values as a name-value map.
- * For legacy cards, note and templates are null.
  */
 export interface CardForStudy extends Card {
-	/** Note type templates for rendering (null for legacy cards) */
+	/** Note type templates for rendering */
 	noteType: {
 		frontTemplate: string;
 		backTemplate: string;
-	} | null;
-	/** Field values as a name-value map for template rendering (empty for legacy cards) */
+	};
+	/** Field values as a name-value map for template rendering */
 	fieldValuesMap: Record<string, string>;
 }
 

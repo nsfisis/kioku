@@ -12,8 +12,8 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
 	return {
 		id: "card-uuid-123",
 		deckId: "deck-uuid-123",
-		noteId: null,
-		isReversed: null,
+		noteId: "note-uuid-123",
+		isReversed: false,
 		front: "Front text",
 		back: "Back text",
 		state: 0,
@@ -89,15 +89,14 @@ function createMockCardWithNoteData(
 function createMockCardForStudy(
 	overrides: Partial<CardForStudy> = {},
 ): CardForStudy {
-	const card = createMockCard({
-		noteId: overrides.noteType ? "note-uuid-123" : null,
-		isReversed: overrides.noteType ? false : null,
-		...overrides,
-	});
+	const card = createMockCard(overrides);
 	return {
 		...card,
-		noteType: overrides.noteType ?? null,
-		fieldValuesMap: overrides.fieldValuesMap ?? {},
+		noteType: overrides.noteType ?? {
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+		},
+		fieldValuesMap: overrides.fieldValuesMap ?? { Front: "Q", Back: "A" },
 	};
 }
 
@@ -125,8 +124,8 @@ describe("CardRepository mock factory", () => {
 
 			expect(card.id).toBe("card-uuid-123");
 			expect(card.deckId).toBe("deck-uuid-123");
-			expect(card.noteId).toBeNull();
-			expect(card.isReversed).toBeNull();
+			expect(card.noteId).toBe("note-uuid-123");
+			expect(card.isReversed).toBe(false);
 			expect(card.front).toBe("Front text");
 			expect(card.back).toBe("Back text");
 			expect(card.state).toBe(0);
@@ -205,17 +204,13 @@ describe("CardRepository mock factory", () => {
 			expect(cardWithNote.fieldValues[0]?.value).toBe("日本語");
 		});
 
-		it("can represent legacy card with null note", () => {
-			// For legacy cards without notes, we explicitly construct the type
-			const legacyCard: CardWithNoteData = {
-				...createMockCard({ noteId: null, isReversed: null }),
-				note: null,
-				fieldValues: [],
-			};
+		it("card always has note association", () => {
+			// All cards now require note association
+			const cardWithNote = createMockCardWithNoteData();
 
-			expect(legacyCard.noteId).toBeNull();
-			expect(legacyCard.note).toBeNull();
-			expect(legacyCard.fieldValues).toHaveLength(0);
+			expect(cardWithNote.noteId).toBe("note-uuid-123");
+			expect(cardWithNote.note).not.toBeNull();
+			expect(cardWithNote.fieldValues).toHaveLength(2);
 		});
 	});
 
@@ -392,41 +387,39 @@ describe("Card interface contracts", () => {
 		expect(cardForStudy.fieldValuesMap.Front).toBe("Question");
 	});
 
-	it("CardForStudy can represent legacy card with null noteType", () => {
-		const legacyCard = createMockCardForStudy({
-			front: "Legacy Question",
-			back: "Legacy Answer",
+	it("CardForStudy has required note data", () => {
+		const cardForStudy = createMockCardForStudy({
+			front: "Question",
+			back: "Answer",
 		});
 
-		expect(legacyCard.noteId).toBeNull();
-		expect(legacyCard.noteType).toBeNull();
-		expect(legacyCard.fieldValuesMap).toEqual({});
-		expect(legacyCard.front).toBe("Legacy Question");
-		expect(legacyCard.back).toBe("Legacy Answer");
+		expect(cardForStudy.noteId).toBe("note-uuid-123");
+		expect(cardForStudy.noteType).not.toBeNull();
+		expect(cardForStudy.noteType.frontTemplate).toBe("{{Front}}");
+		expect(cardForStudy.fieldValuesMap).toEqual({ Front: "Q", Back: "A" });
 	});
 });
 
 describe("Card and Note relationship", () => {
-	it("legacy card has null noteId and isReversed", () => {
+	it("card has required noteId and isReversed", () => {
 		const card = createMockCard();
-
-		expect(card.noteId).toBeNull();
-		expect(card.isReversed).toBeNull();
-	});
-
-	it("note-based card has noteId and isReversed set", () => {
-		const card = createMockCard({
-			noteId: "note-uuid-123",
-			isReversed: false,
-		});
 
 		expect(card.noteId).toBe("note-uuid-123");
 		expect(card.isReversed).toBe(false);
 	});
 
+	it("card with explicit note data", () => {
+		const card = createMockCard({
+			noteId: "different-note-id",
+			isReversed: false,
+		});
+
+		expect(card.noteId).toBe("different-note-id");
+		expect(card.isReversed).toBe(false);
+	});
+
 	it("reversed card has isReversed true", () => {
 		const card = createMockCard({
-			noteId: "note-uuid-123",
 			isReversed: true,
 		});
 

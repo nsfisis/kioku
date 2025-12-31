@@ -45,8 +45,8 @@ export interface SyncDeckData {
 export interface SyncCardData {
 	id: string;
 	deckId: string;
-	noteId: string | null;
-	isReversed: boolean | null;
+	noteId: string;
+	isReversed: boolean;
 	front: string;
 	back: string;
 	state: number;

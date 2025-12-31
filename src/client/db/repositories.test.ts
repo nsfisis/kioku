@@ -240,6 +240,8 @@ describe("localCardRepository", () => {
 		it("should create a card with FSRS defaults", async () => {
 			const card = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Question",
 				back: "Answer",
 			});
@@ -260,8 +262,8 @@ describe("localCardRepository", () => {
 
 	describe("findByDeckId", () => {
 		it("should return all cards for a deck", async () => {
-			await localCardRepository.create({ deckId, front: "Q1", back: "A1" });
-			await localCardRepository.create({ deckId, front: "Q2", back: "A2" });
+			await localCardRepository.create({ deckId, noteId: "test-note-id", isReversed: false, front: "Q1", back: "A1" });
+			await localCardRepository.create({ deckId, noteId: "test-note-id-2", isReversed: false, front: "Q2", back: "A2" });
 
 			const cards = await localCardRepository.findByDeckId(deckId);
 			expect(cards).toHaveLength(2);
@@ -270,6 +272,8 @@ describe("localCardRepository", () => {
 		it("should exclude soft-deleted cards", async () => {
 			const card = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -287,6 +291,8 @@ describe("localCardRepository", () => {
 
 			const card1 = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Due",
 				back: "A",
 			});
@@ -294,6 +300,8 @@ describe("localCardRepository", () => {
 
 			const card2 = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id-2",
+				isReversed: false,
 				front: "Not Due",
 				back: "B",
 			});
@@ -308,6 +316,8 @@ describe("localCardRepository", () => {
 			for (let i = 0; i < 5; i++) {
 				await localCardRepository.create({
 					deckId,
+					noteId: `test-note-id-${i}`,
+					isReversed: false,
 					front: `Q${i}`,
 					back: `A${i}`,
 				});
@@ -322,12 +332,16 @@ describe("localCardRepository", () => {
 		it("should return only new cards", async () => {
 			await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "New",
 				back: "A",
 			});
 
 			const reviewedCard = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id-2",
+				isReversed: false,
 				front: "Reviewed",
 				back: "B",
 			});
@@ -343,6 +357,8 @@ describe("localCardRepository", () => {
 		it("should update card content", async () => {
 			const card = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Original",
 				back: "Original",
 			});
@@ -362,6 +378,8 @@ describe("localCardRepository", () => {
 		it("should update FSRS scheduling data", async () => {
 			const card = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -391,6 +409,8 @@ describe("localCardRepository", () => {
 		it("should soft delete a card", async () => {
 			const card = await localCardRepository.create({
 				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
 				front: "Q",
 				back: "A",
 			});
@@ -423,6 +443,8 @@ describe("localReviewLogRepository", () => {
 
 		const card = await localCardRepository.create({
 			deckId,
+			noteId: "test-note-id",
+			isReversed: false,
 			front: "Q",
 			back: "A",
 		});

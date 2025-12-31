@@ -91,8 +91,8 @@ function serverCardToLocal(card: ServerCard): LocalCard {
 	return {
 		id: card.id,
 		deckId: card.deckId,
-		noteId: card.noteId ?? null,
-		isReversed: card.isReversed ?? null,
+		noteId: card.noteId,
+		isReversed: card.isReversed,
 		front: card.front,
 		back: card.back,
 		state: card.state as LocalCard["state"],
