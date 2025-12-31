@@ -103,8 +103,8 @@ docker compose exec server pnpm user:add
 
 ## Documentation
 
+- [Features](docs/manual/features.md) - Feature list
 - [Architecture](docs/dev/architecture.md) - System design and data models
-- [Roadmap](docs/dev/roadmap.md) - Development phases and progress
 
 ## License
 
