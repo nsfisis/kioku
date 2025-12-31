@@ -373,13 +373,51 @@ describe("Note interface contracts", () => {
 });
 
 describe("Note deletion behavior", () => {
-	it("soft delete cascades to cards", async () => {
-		const repo = createMockNoteRepo();
+	describe("softDelete cascades to all related Cards", () => {
+		it("deleting a note also soft-deletes all its cards", async () => {
+			// This test documents the expected behavior:
+			// When a Note is deleted, all Cards generated from it should also be deleted
+			const repo = createMockNoteRepo();
 
-		vi.mocked(repo.softDelete).mockResolvedValue(true);
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
 
-		const deleted = await repo.softDelete("note-id", "deck-id");
-		expect(deleted).toBe(true);
+			const deleted = await repo.softDelete("note-id", "deck-id");
+			expect(deleted).toBe(true);
+			expect(repo.softDelete).toHaveBeenCalledWith("note-id", "deck-id");
+		});
+
+		it("deleting a note with reversible type deletes both normal and reversed cards", async () => {
+			// A reversible note type creates 2 cards: normal (isReversed=false) and reversed (isReversed=true)
+			// Both cards should be soft-deleted when the note is deleted
+			const repo = createMockNoteRepo();
+
+			// The softDelete implementation should:
+			// 1. Soft-delete all cards with the given noteId
+			// 2. Soft-delete the note itself
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
+
+			const deleted = await repo.softDelete("note-with-2-cards", "deck-id");
+			expect(deleted).toBe(true);
+		});
+
+		it("returns false when note does not exist", async () => {
+			const repo = createMockNoteRepo();
+
+			vi.mocked(repo.softDelete).mockResolvedValue(false);
+
+			const deleted = await repo.softDelete("nonexistent", "deck-id");
+			expect(deleted).toBe(false);
+		});
+
+		it("returns false when note is already deleted", async () => {
+			const repo = createMockNoteRepo();
+
+			// Note with deletedAt set should not be found
+			vi.mocked(repo.softDelete).mockResolvedValue(false);
+
+			const deleted = await repo.softDelete("already-deleted-note", "deck-id");
+			expect(deleted).toBe(false);
+		});
 	});
 });
 

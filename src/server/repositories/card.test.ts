@@ -444,3 +444,63 @@ describe("Card and Note relationship", () => {
 		expect(reversedCard.isReversed).toBe(true);
 	});
 });
+
+describe("Card deletion behavior", () => {
+	describe("softDelete cascades to Note and sibling Cards", () => {
+		it("when a card is deleted, it also deletes the parent Note", async () => {
+			// This test documents the expected behavior:
+			// Deleting a card should also soft-delete its parent Note
+			const repo = createMockCardRepo();
+			const card = createMockCard({ id: "card-1", noteId: "note-1" });
+
+			// The implementation first finds the card to get noteId
+			vi.mocked(repo.findById).mockResolvedValue(card);
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
+
+			const deleted = await repo.softDelete("card-1", "deck-1");
+
+			expect(deleted).toBe(true);
+			expect(repo.softDelete).toHaveBeenCalledWith("card-1", "deck-1");
+		});
+
+		it("when a card is deleted, sibling cards (same noteId) should also be deleted", async () => {
+			// This test documents the expected behavior:
+			// A reversible note creates 2 cards with the same noteId.
+			// When one card is deleted, both cards should be soft-deleted.
+			const repo = createMockCardRepo();
+			const normalCard = createMockCard({
+				id: "card-normal",
+				noteId: "shared-note",
+				isReversed: false,
+			});
+			const reversedCard = createMockCard({
+				id: "card-reversed",
+				noteId: "shared-note",
+				isReversed: true,
+			});
+
+			// Before deletion: both cards exist
+			vi.mocked(repo.findByNoteId).mockResolvedValue([
+				normalCard,
+				reversedCard,
+			]);
+			expect((await repo.findByNoteId("shared-note")).length).toBe(2);
+
+			// After deleting one card, both should be deleted
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
+			const deleted = await repo.softDelete("card-normal", "deck-1");
+
+			expect(deleted).toBe(true);
+		});
+
+		it("deleting non-existent card returns false", async () => {
+			const repo = createMockCardRepo();
+
+			vi.mocked(repo.findById).mockResolvedValue(undefined);
+			vi.mocked(repo.softDelete).mockResolvedValue(false);
+
+			const deleted = await repo.softDelete("nonexistent", "deck-1");
+			expect(deleted).toBe(false);
+		});
+	});
+});

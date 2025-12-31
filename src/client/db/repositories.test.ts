@@ -262,8 +262,20 @@ describe("localCardRepository", () => {
 
 	describe("findByDeckId", () => {
 		it("should return all cards for a deck", async () => {
-			await localCardRepository.create({ deckId, noteId: "test-note-id", isReversed: false, front: "Q1", back: "A1" });
-			await localCardRepository.create({ deckId, noteId: "test-note-id-2", isReversed: false, front: "Q2", back: "A2" });
+			await localCardRepository.create({
+				deckId,
+				noteId: "test-note-id",
+				isReversed: false,
+				front: "Q1",
+				back: "A1",
+			});
+			await localCardRepository.create({
+				deckId,
+				noteId: "test-note-id-2",
+				isReversed: false,
+				front: "Q2",
+				back: "A2",
+			});
 
 			const cards = await localCardRepository.findByDeckId(deckId);
 			expect(cards).toHaveLength(2);

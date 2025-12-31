@@ -137,22 +137,35 @@ export const cardRepository: CardRepository = {
 	},
 
 	async softDelete(id: string, deckId: string): Promise<boolean> {
-		const result = await db
+		// First, find the card to get its noteId
+		const card = await this.findById(id, deckId);
+		if (!card) {
+			return false;
+		}
+
+		const now = new Date();
+
+		// Soft delete all cards belonging to the same note (including this one and sibling cards)
+		await db
 			.update(cards)
 			.set({
-				deletedAt: new Date(),
-				updatedAt: new Date(),
+				deletedAt: now,
+				updatedAt: now,
 				syncVersion: sql`${cards.syncVersion} + 1`,
 			})
-			.where(
-				and(
-					eq(cards.id, id),
-					eq(cards.deckId, deckId),
-					isNull(cards.deletedAt),
-				),
-			)
-			.returning({ id: cards.id });
-		return result.length > 0;
+			.where(and(eq(cards.noteId, card.noteId), isNull(cards.deletedAt)));
+
+		// Soft delete the parent note
+		await db
+			.update(notes)
+			.set({
+				deletedAt: now,
+				updatedAt: now,
+				syncVersion: sql`${notes.syncVersion} + 1`,
+			})
+			.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
+
+		return true;
 	},
 
 	async softDeleteByNoteId(noteId: string): Promise<boolean> {

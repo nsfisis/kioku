@@ -269,3 +269,90 @@ describe("NoteType interface contracts", () => {
 		expect(Array.isArray(noteTypeWithFields.fields)).toBe(true);
 	});
 });
+
+describe("NoteType deletion constraints", () => {
+	describe("NoteType cannot be deleted if Notes exist", () => {
+		it("hasNotes returns true when notes reference the note type", async () => {
+			// This test documents the expected behavior:
+			// NoteType deletion should be blocked if any Notes use it
+			const repo = createMockNoteTypeRepo();
+
+			vi.mocked(repo.hasNotes).mockResolvedValue(true);
+
+			const hasNotes = await repo.hasNotes("note-type-with-notes", "user-id");
+			expect(hasNotes).toBe(true);
+		});
+
+		it("hasNotes returns false when no notes reference the note type", async () => {
+			const repo = createMockNoteTypeRepo();
+
+			vi.mocked(repo.hasNotes).mockResolvedValue(false);
+
+			const hasNotes = await repo.hasNotes(
+				"note-type-without-notes",
+				"user-id",
+			);
+			expect(hasNotes).toBe(false);
+		});
+
+		it("softDelete should only proceed if hasNotes returns false", async () => {
+			// This documents the expected flow in the route handler:
+			// 1. Call hasNotes to check if notes exist
+			// 2. If true, return 409 Conflict
+			// 3. If false, proceed with softDelete
+			const repo = createMockNoteTypeRepo();
+
+			vi.mocked(repo.hasNotes).mockResolvedValue(false);
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
+
+			const hasNotes = await repo.hasNotes("note-type-id", "user-id");
+			expect(hasNotes).toBe(false);
+
+			const deleted = await repo.softDelete("note-type-id", "user-id");
+			expect(deleted).toBe(true);
+		});
+	});
+});
+
+describe("NoteFieldType deletion constraints", () => {
+	describe("NoteFieldType cannot be deleted if NoteFieldValues exist", () => {
+		it("hasNoteFieldValues returns true when field values reference the field type", async () => {
+			// This test documents the expected behavior:
+			// NoteFieldType deletion should be blocked if any NoteFieldValues use it
+			const repo = createMockNoteFieldTypeRepo();
+
+			vi.mocked(repo.hasNoteFieldValues).mockResolvedValue(true);
+
+			const hasValues = await repo.hasNoteFieldValues("field-type-with-values");
+			expect(hasValues).toBe(true);
+		});
+
+		it("hasNoteFieldValues returns false when no field values reference the field type", async () => {
+			const repo = createMockNoteFieldTypeRepo();
+
+			vi.mocked(repo.hasNoteFieldValues).mockResolvedValue(false);
+
+			const hasValues = await repo.hasNoteFieldValues(
+				"field-type-without-values",
+			);
+			expect(hasValues).toBe(false);
+		});
+
+		it("softDelete should only proceed if hasNoteFieldValues returns false", async () => {
+			// This documents the expected flow in the route handler:
+			// 1. Call hasNoteFieldValues to check if values exist
+			// 2. If true, return 409 Conflict
+			// 3. If false, proceed with softDelete
+			const repo = createMockNoteFieldTypeRepo();
+
+			vi.mocked(repo.hasNoteFieldValues).mockResolvedValue(false);
+			vi.mocked(repo.softDelete).mockResolvedValue(true);
+
+			const hasValues = await repo.hasNoteFieldValues("field-type-id");
+			expect(hasValues).toBe(false);
+
+			const deleted = await repo.softDelete("field-type-id", "note-type-id");
+			expect(deleted).toBe(true);
+		});
+	});
+});

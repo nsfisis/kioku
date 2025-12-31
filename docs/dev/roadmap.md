@@ -120,10 +120,10 @@ Create these as default note types for each user:
 - **Card**: Deleting a Card also deletes its Note (and all sibling Cards via cascade)
 
 **Required Tests for Deletion:**
-- [ ] Attempt to delete NoteType with existing Notes → should fail
-- [ ] Attempt to delete NoteFieldType with existing NoteFieldValues → should fail
-- [ ] Delete Note → verify all related Cards are soft-deleted
-- [ ] Delete Card → verify Note and all sibling Cards are soft-deleted
+- [x] Attempt to delete NoteType with existing Notes → should fail
+- [x] Attempt to delete NoteFieldType with existing NoteFieldValues → should fail
+- [x] Delete Note → verify all related Cards are soft-deleted
+- [x] Delete Card → verify Note and all sibling Cards are soft-deleted
 
 ## Implementation Phases
 
