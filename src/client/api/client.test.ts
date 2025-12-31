@@ -85,8 +85,10 @@ describe("ApiClient", () => {
 				{
 					status: 401,
 					body: {
-						error: "Invalid username or password",
-						code: "INVALID_CREDENTIALS",
+						error: {
+							message: "Invalid username or password",
+							code: "INVALID_CREDENTIALS",
+						},
 					},
 				},
 			]);

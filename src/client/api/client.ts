@@ -66,9 +66,10 @@ export class ApiClient {
 		if (!response.ok) {
 			const errorBody = (await response.json().catch(() => ({}))) as ApiError;
 			throw new ApiClientError(
-				errorBody.error || `Request failed with status ${response.status}`,
+				errorBody.error?.message ||
+					`Request failed with status ${response.status}`,
 				response.status,
-				errorBody.code,
+				errorBody.error?.code,
 			);
 		}
 

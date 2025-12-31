@@ -10,8 +10,10 @@ export interface AuthResponse {
 }
 
 export interface ApiError {
-	error: string;
-	code?: string;
+	error: {
+		message: string;
+		code: string;
+	};
 }
 
 export interface Tokens {
