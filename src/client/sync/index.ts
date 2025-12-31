@@ -2,7 +2,6 @@ export {
 	type ConflictResolutionItem,
 	type ConflictResolutionResult,
 	ConflictResolver,
-	type ConflictResolverOptions,
 	conflictResolver,
 	createConflictResolver,
 } from "./conflict";

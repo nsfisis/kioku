@@ -150,7 +150,7 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("resolveDeckConflict", () => {
-		it("should use server data with server_wins strategy", async () => {
+		it("should use server data when no CRDT data available", async () => {
 			const localDeck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Name",
@@ -170,7 +170,7 @@ describe("ConflictResolver", () => {
 				syncVersion: 5,
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveDeckConflict(localDeck, serverDeck);
 
 			expect(result.resolution).toBe("server_wins");
@@ -181,39 +181,10 @@ describe("ConflictResolver", () => {
 			expect(updatedDeck?.newCardsPerDay).toBe(20);
 			expect(updatedDeck?._synced).toBe(true);
 		});
-
-		it("should keep local data with local_wins strategy", async () => {
-			const localDeck = await localDeckRepository.create({
-				userId: "user-1",
-				name: "Local Name",
-				description: "Local description",
-				newCardsPerDay: 10,
-			});
-
-			const serverDeck = {
-				id: localDeck.id,
-				userId: "user-1",
-				name: "Server Name",
-				description: "Server description",
-				newCardsPerDay: 20,
-				createdAt: new Date("2024-01-01"),
-				updatedAt: new Date("2024-01-03"),
-				deletedAt: null,
-				syncVersion: 5,
-			};
-
-			const resolver = new ConflictResolver({ strategy: "local_wins" });
-			const result = await resolver.resolveDeckConflict(localDeck, serverDeck);
-
-			expect(result.resolution).toBe("local_wins");
-
-			const updatedDeck = await localDeckRepository.findById(localDeck.id);
-			expect(updatedDeck?.name).toBe("Local Name");
-		});
 	});
 
 	describe("resolveCardConflict", () => {
-		it("should use server data with server_wins strategy", async () => {
+		it("should use server data when no CRDT data available", async () => {
 			const deck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Test Deck",
@@ -251,7 +222,7 @@ describe("ConflictResolver", () => {
 				syncVersion: 3,
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveCardConflict(localCard, serverCard);
 
 			expect(result.resolution).toBe("server_wins");
@@ -260,53 +231,6 @@ describe("ConflictResolver", () => {
 			expect(updatedCard?.front).toBe("Server Question");
 			expect(updatedCard?.back).toBe("Server Answer");
 			expect(updatedCard?._synced).toBe(true);
-		});
-
-		it("should keep local data with local_wins strategy", async () => {
-			const deck = await localDeckRepository.create({
-				userId: "user-1",
-				name: "Test Deck",
-				description: null,
-				newCardsPerDay: 20,
-			});
-
-			const localCard = await localCardRepository.create({
-				deckId: deck.id,
-				noteId: "test-note-id",
-				isReversed: false,
-				front: "Local Question",
-				back: "Local Answer",
-			});
-
-			const serverCard = {
-				id: localCard.id,
-				deckId: deck.id,
-				noteId: "test-note-id",
-				isReversed: false,
-				front: "Server Question",
-				back: "Server Answer",
-				state: CardState.New,
-				due: new Date(),
-				stability: 0,
-				difficulty: 0,
-				elapsedDays: 0,
-				scheduledDays: 0,
-				reps: 0,
-				lapses: 0,
-				lastReview: null,
-				createdAt: new Date(),
-				updatedAt: new Date(),
-				deletedAt: null,
-				syncVersion: 3,
-			};
-
-			const resolver = new ConflictResolver({ strategy: "local_wins" });
-			const result = await resolver.resolveCardConflict(localCard, serverCard);
-
-			expect(result.resolution).toBe("local_wins");
-
-			const updatedCard = await localCardRepository.findById(localCard.id);
-			expect(updatedCard?.front).toBe("Local Question");
 		});
 	});
 
@@ -372,7 +296,7 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(6),
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(2);
@@ -441,7 +365,7 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(3),
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.cards).toHaveLength(1);
@@ -485,7 +409,7 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(1),
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
@@ -522,7 +446,7 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(0),
 			};
 
-			const resolver = new ConflictResolver({ strategy: "server_wins" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			// No resolution since server doesn't have the item
@@ -533,7 +457,7 @@ describe("ConflictResolver", () => {
 			expect(localDeck?.name).toBe("Local Only Deck");
 		});
 
-		it("should default to crdt strategy", async () => {
+		it("should use CRDT strategy by default", async () => {
 			const deck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Name",
@@ -647,7 +571,7 @@ describe("ConflictResolver", () => {
 				],
 			};
 
-			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
@@ -708,7 +632,7 @@ describe("ConflictResolver", () => {
 				],
 			};
 
-			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			// Should still resolve using fallback
@@ -759,7 +683,7 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(5),
 			};
 
-			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);
@@ -822,7 +746,7 @@ describe("ConflictResolver", () => {
 				],
 			};
 
-			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.decks).toHaveLength(1);

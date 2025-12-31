@@ -112,7 +112,7 @@ describe("SyncManager", () => {
 			...createEmptyPullResult(0),
 		} satisfies SyncPullResult);
 
-		conflictResolver = new ConflictResolver({ strategy: "server_wins" });
+		conflictResolver = new ConflictResolver();
 	});
 
 	afterEach(async () => {

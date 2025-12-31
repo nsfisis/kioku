@@ -41,7 +41,7 @@ import type { SyncPushResult } from "./push";
  */
 export interface ConflictResolutionItem {
 	id: string;
-	resolution: "server_wins" | "local_wins";
+	resolution: "server_wins";
 }
 
 /**
@@ -54,19 +54,6 @@ export interface ConflictResolutionResult {
 	noteFieldTypes: ConflictResolutionItem[];
 	notes: ConflictResolutionItem[];
 	noteFieldValues: ConflictResolutionItem[];
-}
-
-/**
- * Options for conflict resolver
- */
-export interface ConflictResolverOptions {
-	/**
-	 * Strategy for resolving conflicts
-	 * - "crdt": Use Automerge CRDT merge for conflict-free resolution (default)
-	 * - "server_wins": Always use server data (fallback when no CRDT data)
-	 * - "local_wins": Always use local data
-	 */
-	strategy?: "crdt" | "server_wins" | "local_wins";
 }
 
 /**
@@ -203,17 +190,11 @@ function serverNoteFieldValueToLocal(
  * Handles conflicts reported by the server during push operations.
  * When a conflict occurs (server has newer data), this resolver:
  * 1. Identifies conflicting items from push result
- * 2. Uses Automerge CRDT merge for conflict-free resolution (default)
+ * 2. Uses Automerge CRDT merge for conflict-free resolution
  * 3. Falls back to server_wins when CRDT data is unavailable
  * 4. Updates local database accordingly
  */
 export class ConflictResolver {
-	private strategy: "crdt" | "server_wins" | "local_wins";
-
-	constructor(options: ConflictResolverOptions = {}) {
-		this.strategy = options.strategy ?? "crdt";
-	}
-
 	/**
 	 * Check if there are conflicts in push result
 	 */
@@ -243,15 +224,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve deck conflict using configured strategy
+	 * Resolve deck conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveDeckConflict(
 		localDeck: LocalDeck,
 		serverDeck: ServerDeck,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeDeckWithCrdt(
 				localDeck,
 				serverCrdtBinary,
@@ -273,18 +254,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverDeckToLocal(serverDeck);
+		await localDeckRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			// Update local with server data
-			const localData = serverDeckToLocal(serverDeck);
-			await localDeckRepository.upsertFromServer(localData);
-		}
-		// If local_wins, we keep local data and it will be pushed again next sync
-
-		return { id: localDeck.id, resolution };
+		return { id: localDeck.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -327,15 +301,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve card conflict using configured strategy
+	 * Resolve card conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveCardConflict(
 		localCard: LocalCard,
 		serverCard: ServerCard,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeCardWithCrdt(
 				localCard,
 				serverCrdtBinary,
@@ -356,18 +330,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverCardToLocal(serverCard);
+		await localCardRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			// Update local with server data
-			const localData = serverCardToLocal(serverCard);
-			await localCardRepository.upsertFromServer(localData);
-		}
-		// If local_wins, we keep local data and it will be pushed again next sync
-
-		return { id: localCard.id, resolution };
+		return { id: localCard.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -405,15 +372,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve note type conflict using configured strategy
+	 * Resolve note type conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveNoteTypeConflict(
 		localNoteType: LocalNoteType,
 		serverNoteType: ServerNoteType,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteTypeWithCrdt(
 				localNoteType,
 				serverCrdtBinary,
@@ -434,16 +401,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverNoteTypeToLocal(serverNoteType);
+		await localNoteTypeRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			const localData = serverNoteTypeToLocal(serverNoteType);
-			await localNoteTypeRepository.upsertFromServer(localData);
-		}
-
-		return { id: localNoteType.id, resolution };
+		return { id: localNoteType.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -481,15 +443,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve note field type conflict using configured strategy
+	 * Resolve note field type conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveNoteFieldTypeConflict(
 		localFieldType: LocalNoteFieldType,
 		serverFieldType: ServerNoteFieldType,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteFieldTypeWithCrdt(
 				localFieldType,
 				serverCrdtBinary,
@@ -510,16 +472,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverNoteFieldTypeToLocal(serverFieldType);
+		await localNoteFieldTypeRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			const localData = serverNoteFieldTypeToLocal(serverFieldType);
-			await localNoteFieldTypeRepository.upsertFromServer(localData);
-		}
-
-		return { id: localFieldType.id, resolution };
+		return { id: localFieldType.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -560,15 +517,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve note conflict using configured strategy
+	 * Resolve note conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveNoteConflict(
 		localNote: LocalNote,
 		serverNote: ServerNote,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteWithCrdt(
 				localNote,
 				serverCrdtBinary,
@@ -589,16 +546,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverNoteToLocal(serverNote);
+		await localNoteRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			const localData = serverNoteToLocal(serverNote);
-			await localNoteRepository.upsertFromServer(localData);
-		}
-
-		return { id: localNote.id, resolution };
+		return { id: localNote.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -636,15 +588,15 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve note field value conflict using configured strategy
+	 * Resolve note field value conflict using CRDT merge with server_wins fallback
 	 */
 	async resolveNoteFieldValueConflict(
 		localFieldValue: LocalNoteFieldValue,
 		serverFieldValue: ServerNoteFieldValue,
 		serverCrdtBinary?: Uint8Array,
 	): Promise<ConflictResolutionItem> {
-		// Try CRDT merge first if strategy is "crdt" and we have CRDT data
-		if (this.strategy === "crdt" && serverCrdtBinary) {
+		// Try CRDT merge first if we have CRDT data
+		if (serverCrdtBinary) {
 			const mergeResult = await this.mergeNoteFieldValueWithCrdt(
 				localFieldValue,
 				serverCrdtBinary,
@@ -665,16 +617,11 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback strategy when CRDT merge is not available
-		const resolution =
-			this.strategy === "local_wins" ? "local_wins" : "server_wins";
+		// Fallback to server_wins when CRDT merge is not available
+		const localData = serverNoteFieldValueToLocal(serverFieldValue);
+		await localNoteFieldValueRepository.upsertFromServer(localData);
 
-		if (resolution === "server_wins") {
-			const localData = serverNoteFieldValueToLocal(serverFieldValue);
-			await localNoteFieldValueRepository.upsertFromServer(localData);
-		}
-
-		return { id: localFieldValue.id, resolution };
+		return { id: localFieldValue.id, resolution: "server_wins" };
 	}
 
 	/**
@@ -900,18 +847,14 @@ export class ConflictResolver {
 }
 
 /**
- * Create a conflict resolver with the given options
+ * Create a conflict resolver
  */
-export function createConflictResolver(
-	options: ConflictResolverOptions = {},
-): ConflictResolver {
-	return new ConflictResolver(options);
+export function createConflictResolver(): ConflictResolver {
+	return new ConflictResolver();
 }
 
 /**
- * Default conflict resolver using CRDT (Automerge) strategy
+ * Default conflict resolver using CRDT (Automerge) merge
  * Falls back to server_wins when CRDT data is unavailable
  */
-export const conflictResolver = new ConflictResolver({
-	strategy: "crdt",
-});
+export const conflictResolver = new ConflictResolver();
