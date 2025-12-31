@@ -45,4 +45,4 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 - [x] Add unit tests for CRDT operations
 - [x] Add integration tests for concurrent edit scenarios
-- [ ] Remove legacy LWW code after validation
+- [x] Remove legacy LWW code after validation

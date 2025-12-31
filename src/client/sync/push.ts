@@ -381,7 +381,7 @@ export function pendingChangesToPushData(
  * 2. Convert to API format
  * 3. Send to server
  * 4. Mark items as synced on success
- * 5. Handle conflicts (server wins for LWW)
+ * 5. Handle conflicts using CRDT merge (fallback to server_wins)
  */
 export class PushService {
 	private syncQueue: SyncQueue;

@@ -65,17 +65,8 @@ export interface ConflictResolverOptions {
 	 * - "crdt": Use Automerge CRDT merge for conflict-free resolution (default)
 	 * - "server_wins": Always use server data (fallback when no CRDT data)
 	 * - "local_wins": Always use local data
-	 * - "newer_wins": Compare timestamps and use newer data (legacy LWW)
 	 */
-	strategy?: "crdt" | "server_wins" | "local_wins" | "newer_wins";
-}
-
-/**
- * Compare timestamps for LWW resolution (legacy fallback)
- * Returns true if server data is newer or equal
- */
-function isServerNewer(serverUpdatedAt: Date, localUpdatedAt: Date): boolean {
-	return serverUpdatedAt.getTime() >= localUpdatedAt.getTime();
+	strategy?: "crdt" | "server_wins" | "local_wins";
 }
 
 /**
@@ -213,11 +204,11 @@ function serverNoteFieldValueToLocal(
  * When a conflict occurs (server has newer data), this resolver:
  * 1. Identifies conflicting items from push result
  * 2. Uses Automerge CRDT merge for conflict-free resolution (default)
- * 3. Falls back to LWW strategies when CRDT data is unavailable
+ * 3. Falls back to server_wins when CRDT data is unavailable
  * 4. Updates local database accordingly
  */
 export class ConflictResolver {
-	private strategy: "crdt" | "server_wins" | "local_wins" | "newer_wins";
+	private strategy: "crdt" | "server_wins" | "local_wins";
 
 	constructor(options: ConflictResolverOptions = {}) {
 		this.strategy = options.strategy ?? "crdt";
@@ -282,26 +273,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverDeck.updatedAt),
-					localDeck.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			// Update local with server data
@@ -344,7 +318,10 @@ export class ConflictResolver {
 				hadLocalDocument: localBinary !== null,
 			};
 		} catch (error) {
-			console.warn("CRDT merge failed for deck, falling back to LWW:", error);
+			console.warn(
+				"CRDT merge failed for deck, falling back to server_wins:",
+				error,
+			);
 			return null;
 		}
 	}
@@ -379,26 +356,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverCard.updatedAt),
-					localCard.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			// Update local with server data
@@ -436,7 +396,10 @@ export class ConflictResolver {
 				hadLocalDocument: localBinary !== null,
 			};
 		} catch (error) {
-			console.warn("CRDT merge failed for card, falling back to LWW:", error);
+			console.warn(
+				"CRDT merge failed for card, falling back to server_wins:",
+				error,
+			);
 			return null;
 		}
 	}
@@ -471,26 +434,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverNoteType.updatedAt),
-					localNoteType.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			const localData = serverNoteTypeToLocal(serverNoteType);
@@ -527,7 +473,7 @@ export class ConflictResolver {
 			};
 		} catch (error) {
 			console.warn(
-				"CRDT merge failed for note type, falling back to LWW:",
+				"CRDT merge failed for note type, falling back to server_wins:",
 				error,
 			);
 			return null;
@@ -564,26 +510,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverFieldType.updatedAt),
-					localFieldType.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			const localData = serverNoteFieldTypeToLocal(serverFieldType);
@@ -623,7 +552,7 @@ export class ConflictResolver {
 			};
 		} catch (error) {
 			console.warn(
-				"CRDT merge failed for note field type, falling back to LWW:",
+				"CRDT merge failed for note field type, falling back to server_wins:",
 				error,
 			);
 			return null;
@@ -660,26 +589,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverNote.updatedAt),
-					localNote.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			const localData = serverNoteToLocal(serverNote);
@@ -715,7 +627,10 @@ export class ConflictResolver {
 				hadLocalDocument: localBinary !== null,
 			};
 		} catch (error) {
-			console.warn("CRDT merge failed for note, falling back to LWW:", error);
+			console.warn(
+				"CRDT merge failed for note, falling back to server_wins:",
+				error,
+			);
 			return null;
 		}
 	}
@@ -750,26 +665,9 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to LWW strategies
-		let resolution: "server_wins" | "local_wins";
-
-		switch (this.strategy) {
-			case "crdt":
-			case "server_wins":
-				resolution = "server_wins";
-				break;
-			case "local_wins":
-				resolution = "local_wins";
-				break;
-			case "newer_wins":
-				resolution = isServerNewer(
-					new Date(serverFieldValue.updatedAt),
-					localFieldValue.updatedAt,
-				)
-					? "server_wins"
-					: "local_wins";
-				break;
-		}
+		// Fallback strategy when CRDT merge is not available
+		const resolution =
+			this.strategy === "local_wins" ? "local_wins" : "server_wins";
 
 		if (resolution === "server_wins") {
 			const localData = serverNoteFieldValueToLocal(serverFieldValue);
@@ -809,7 +707,7 @@ export class ConflictResolver {
 			};
 		} catch (error) {
 			console.warn(
-				"CRDT merge failed for note field value, falling back to LWW:",
+				"CRDT merge failed for note field value, falling back to server_wins:",
 				error,
 			);
 			return null;

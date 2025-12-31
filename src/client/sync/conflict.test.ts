@@ -210,64 +210,6 @@ describe("ConflictResolver", () => {
 			const updatedDeck = await localDeckRepository.findById(localDeck.id);
 			expect(updatedDeck?.name).toBe("Local Name");
 		});
-
-		it("should use server data when server is newer with newer_wins strategy", async () => {
-			const localDeck = await localDeckRepository.create({
-				userId: "user-1",
-				name: "Local Name",
-				description: null,
-				newCardsPerDay: 10,
-			});
-
-			const serverDeck = {
-				id: localDeck.id,
-				userId: "user-1",
-				name: "Server Name",
-				description: null,
-				newCardsPerDay: 20,
-				createdAt: new Date("2024-01-01"),
-				updatedAt: new Date(Date.now() + 10000), // Server is newer
-				deletedAt: null,
-				syncVersion: 5,
-			};
-
-			const resolver = new ConflictResolver({ strategy: "newer_wins" });
-			const result = await resolver.resolveDeckConflict(localDeck, serverDeck);
-
-			expect(result.resolution).toBe("server_wins");
-
-			const updatedDeck = await localDeckRepository.findById(localDeck.id);
-			expect(updatedDeck?.name).toBe("Server Name");
-		});
-
-		it("should use local data when local is newer with newer_wins strategy", async () => {
-			const localDeck = await localDeckRepository.create({
-				userId: "user-1",
-				name: "Local Name",
-				description: null,
-				newCardsPerDay: 10,
-			});
-
-			const serverDeck = {
-				id: localDeck.id,
-				userId: "user-1",
-				name: "Server Name",
-				description: null,
-				newCardsPerDay: 20,
-				createdAt: new Date("2024-01-01"),
-				updatedAt: new Date("2024-01-01"), // Server is older
-				deletedAt: null,
-				syncVersion: 5,
-			};
-
-			const resolver = new ConflictResolver({ strategy: "newer_wins" });
-			const result = await resolver.resolveDeckConflict(localDeck, serverDeck);
-
-			expect(result.resolution).toBe("local_wins");
-
-			const updatedDeck = await localDeckRepository.findById(localDeck.id);
-			expect(updatedDeck?.name).toBe("Local Name");
-		});
 	});
 
 	describe("resolveCardConflict", () => {
