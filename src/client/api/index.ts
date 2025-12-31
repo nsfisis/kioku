@@ -3,7 +3,9 @@ export {
 	ApiClientError,
 	type ApiClientOptions,
 	apiClient,
+	type LoginResponse,
 	localStorageTokenStorage,
 	type TokenStorage,
+	type User,
 } from "./client";
-export type { ApiError, AuthResponse, Tokens, User } from "./types";
+export type { ApiError, Tokens } from "./types";

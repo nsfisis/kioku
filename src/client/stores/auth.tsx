@@ -7,8 +7,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { ApiClientError, apiClient } from "../api/client";
-import type { User } from "../api/types";
+import { ApiClientError, apiClient, type User } from "../api/client";
 
 export interface AuthState {
 	user: User | null;

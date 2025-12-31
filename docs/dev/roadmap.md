@@ -1,48 +1,39 @@
 # Kioku Development Roadmap
 
-## Issue #3: Introduce CRDT Library for Conflict Resolution
+## Use Hono RPC Type Inference for API Response Types
 
-Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRDT for better offline sync.
+Replace manually defined API response types with Hono's `InferResponseType` for automatic type derivation from server.
 
-**Decisions:**
-- Library: Automerge
-- Text conflicts: LWW Register (simple, predictable)
-- Migration: Clean migration (no backward compatibility)
+**Background:**
+- Hono's `hc` client can automatically infer response types from server definitions
+- Manual type definitions (`AuthResponse`, `User`) duplicate server types and can become out of sync
 
-### Phase 1: Add Automerge and Core Types
+**Scope:**
+- `AuthResponse` → Use `InferResponseType`
+- `User` → Derive from `AuthResponse["user"]`
+- `ApiError` → Keep (error responses are separate from success types)
+- `Tokens` → Keep (client-internal type)
 
-- [x] Install dependencies: `@automerge/automerge`, `@automerge/automerge-repo`, `@automerge/automerge-repo-storage-indexeddb`
-- [x] Create `src/client/sync/crdt/types.ts` - Automerge document type definitions
-- [x] Create `src/client/sync/crdt/document-manager.ts` - Automerge document lifecycle management
-- [x] Create `src/client/sync/crdt/index.ts` - Module exports
+### Phase 1: Update API Client Types
 
-### Phase 2: Create CRDT Repository Layer
+- [x] Modify `src/client/api/client.ts`:
+  - Import `InferResponseType` from `hono/client`
+  - Define `LoginResponse` type using `InferResponseType<typeof rpc.api.auth.login.$post>`
+  - Update `login` method to use inferred type
+- [x] Modify `src/client/api/types.ts`:
+  - Remove `AuthResponse` and `User` interfaces
+  - Keep `ApiError` and `Tokens`
+- [x] Modify `src/client/api/index.ts`:
+  - Export inferred types from `client.ts` instead of `types.ts`
 
-- [x] Create `src/client/sync/crdt/repositories.ts` - CRDT-aware repository wrappers
-- [x] Create `src/client/sync/crdt/sync-state.ts` - Sync state serialization
+### Phase 2: Update Consumers
 
-### Phase 3: Modify Sync Protocol
+- [x] Modify `src/client/stores/auth.tsx`:
+  - Import `User` type from new location (derived from login response)
+  - Update `AuthState` interface
 
-- [x] Modify `src/client/sync/push.ts` - Add crdtChanges to push payload
-- [x] Modify `src/client/sync/pull.ts` - Handle crdtChanges in pull response
-- [x] Modify `src/client/sync/conflict.ts` - Replace LWW with Automerge merge
-- [x] Modify `src/client/sync/manager.ts` - Integrate CRDT sync flow
+### Phase 3: Update Tests
 
-### Phase 4: Server-Side CRDT Support
-
-- [x] Install server dependency: `@automerge/automerge`
-- [x] Create `src/server/db/schema-crdt.ts` - CRDT document storage schema
-- [x] Create database migration for crdt_documents table
-- [x] Modify `src/server/routes/sync.ts` - Handle CRDT changes in API
-- [x] Modify `src/server/repositories/sync.ts` - Store/merge CRDT documents
-
-### Phase 5: Migration
-
-- [x] Create `src/client/sync/crdt/migration.ts` - One-time migration script
-- [x] Server data migration - Not needed (no existing production data)
-
-### Phase 6: Testing and Cleanup
-
-- [x] Add unit tests for CRDT operations
-- [x] Add integration tests for concurrent edit scenarios
-- [x] Remove legacy LWW code after validation
+- [x] Update `src/client/api/client.test.ts` if needed
+- [x] Update `src/client/stores/auth.test.tsx` if needed
+- [x] Verify all tests pass

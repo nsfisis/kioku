@@ -1,6 +1,12 @@
 import { defineConfig } from "drizzle-kit";
 
-const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT } = process.env;
+const {
+	POSTGRES_USER,
+	POSTGRES_PASSWORD,
+	POSTGRES_DB,
+	POSTGRES_HOST,
+	POSTGRES_PORT,
+} = process.env;
 
 export default defineConfig({
 	out: "./drizzle",

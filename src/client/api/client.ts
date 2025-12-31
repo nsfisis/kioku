@@ -1,6 +1,13 @@
-import { hc } from "hono/client";
+import { hc, type InferResponseType } from "hono/client";
 import type { AppType } from "../../server/index.js";
-import type { ApiError, AuthResponse, Tokens } from "./types";
+import type { ApiError, Tokens } from "./types";
+
+// Create a temporary client just for type inference
+const _rpc = hc<AppType>("");
+
+// Infer response types from server definitions
+export type LoginResponse = InferResponseType<typeof _rpc.api.auth.login.$post>;
+export type User = LoginResponse["user"];
 
 export class ApiClientError extends Error {
 	constructor(
@@ -120,12 +127,12 @@ export class ApiClient {
 		}
 	}
 
-	async login(username: string, password: string): Promise<AuthResponse> {
+	async login(username: string, password: string): Promise<LoginResponse> {
 		const res = await this.rpc.api.auth.login.$post({
 			json: { username, password },
 		});
 
-		const data = await this.handleResponse<AuthResponse>(res);
+		const data = await this.handleResponse<LoginResponse>(res);
 
 		this.tokenStorage.setTokens({
 			accessToken: data.accessToken,

@@ -13,8 +13,10 @@ import {
 import {
 	ApiClient,
 	ApiClientError,
+	type LoginResponse,
 	localStorageTokenStorage,
 	type TokenStorage,
+	type User,
 } from "./client";
 
 function createMockTokenStorage(): TokenStorage & {
@@ -207,5 +209,33 @@ describe("localStorageTokenStorage", () => {
 	it("returns null on invalid JSON", () => {
 		localStorage.setItem("kioku_tokens", "not-valid-json");
 		expect(localStorageTokenStorage.getTokens()).toBeNull();
+	});
+});
+
+describe("InferResponseType types", () => {
+	it("LoginResponse has expected properties", () => {
+		// This test verifies the inferred types have the correct structure
+		// The type assertions will fail at compile time if the types are wrong
+		const mockResponse: LoginResponse = {
+			accessToken: "access-token",
+			refreshToken: "refresh-token",
+			user: { id: "123", username: "testuser" },
+		};
+
+		expect(mockResponse.accessToken).toBe("access-token");
+		expect(mockResponse.refreshToken).toBe("refresh-token");
+		expect(mockResponse.user.id).toBe("123");
+		expect(mockResponse.user.username).toBe("testuser");
+	});
+
+	it("User type is correctly derived from LoginResponse", () => {
+		// Verify User type has expected structure
+		const user: User = {
+			id: "user-1",
+			username: "testuser",
+		};
+
+		expect(user.id).toBe("user-1");
+		expect(user.username).toBe("testuser");
 	});
 });
