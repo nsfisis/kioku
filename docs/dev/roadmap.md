@@ -282,8 +282,8 @@ Create these as default note types for each user:
 ### Phase 9: Cleanup & Documentation
 
 **Tasks:**
-- [ ] Make `note_id` and `is_reversed` NOT NULL (schema migration)
-- [ ] Update architecture.md with Note-based data model
+- [x] Make `note_id` and `is_reversed` NOT NULL (schema migration)
+- [x] Update architecture.md with Note-based data model
 - [ ] E2E tests for study flow with note-based cards
 - [ ] Performance testing with multiple cards per note
 

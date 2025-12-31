@@ -81,6 +81,43 @@ kioku/
 └── compose.yaml
 ```
 
+## Note-Card Architecture
+
+Kioku uses an Anki-compatible Note system for card content management:
+
+- **NoteType** defines the structure (fields and templates) for creating notes
+- **Note** holds the field values (e.g., "Front" and "Back" content)
+- **Card** is generated from a Note and holds FSRS scheduling state
+
+### Key Relationships
+
+```
+NoteType (1) ──< NoteFieldType (many)
+    │
+    └── defines structure for ──< Note (many)
+                                    │
+                                    ├──< NoteFieldValue (many) - actual content
+                                    │
+                                    └──< Card (1 or 2) - scheduling state
+```
+
+### Card Generation
+
+- **Basic note type** (`is_reversible: false`): Creates 1 card
+- **Basic (and reversed)** (`is_reversible: true`): Creates 2 cards
+  - Normal card: `front_template` → front, `back_template` → back
+  - Reversed card: `back_template` → front, `front_template` → back
+
+### Template Rendering
+
+Templates use mustache-like syntax: `{{FieldName}}` is replaced with the field value.
+
+Example: If a note has fields `Front: "Tokyo"` and `Back: "Capital of Japan"`:
+- Template `Q: {{Front}}` renders to `Q: Tokyo`
+- Template `A: {{Back}}` renders to `A: Capital of Japan`
+
+Card `front` and `back` fields store cached rendered content for performance.
+
 ## Data Models
 
 ### User
@@ -123,7 +160,78 @@ interface Deck {
 }
 ```
 
+### NoteType
+
+Defines the structure of notes (fields and card templates). Similar to Anki's Note Type.
+
+```typescript
+interface NoteType {
+  id: string;
+  user_id: string;
+  name: string;
+  front_template: string;     // Mustache template, e.g., "{{Front}}"
+  back_template: string;      // Mustache template, e.g., "{{Back}}"
+  is_reversible: boolean;     // If true, creates reversed card too
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+  sync_version: number;
+}
+```
+
+### NoteFieldType
+
+Defines a field within a note type (e.g., "Front", "Back").
+
+```typescript
+interface NoteFieldType {
+  id: string;
+  note_type_id: string;
+  name: string;               // e.g., "Front", "Back"
+  order: number;              // Display order
+  field_type: "text";         // Currently only "text" supported
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+  sync_version: number;
+}
+```
+
+### Note
+
+A container for field values. One Note can generate multiple Cards.
+
+```typescript
+interface Note {
+  id: string;
+  deck_id: string;
+  note_type_id: string;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+  sync_version: number;
+}
+```
+
+### NoteFieldValue
+
+Stores the actual content for each field of a note.
+
+```typescript
+interface NoteFieldValue {
+  id: string;
+  note_id: string;
+  note_field_type_id: string;
+  value: string;
+  created_at: Date;
+  updated_at: Date;
+  sync_version: number;
+}
+```
+
 ### Card (FSRS)
+
+Cards are generated from Notes. Each card has its own FSRS scheduling state.
 
 ```typescript
 enum CardState {
@@ -136,8 +244,10 @@ enum CardState {
 interface Card {
   id: string;
   deck_id: string;
-  front: string;              // Plain text
-  back: string;               // Plain text
+  note_id: string;            // Reference to parent Note
+  is_reversed: boolean;       // false=normal, true=reversed card
+  front: string;              // Cached rendered content from template
+  back: string;               // Cached rendered content from template
 
   // FSRS fields
   state: CardState;
@@ -200,6 +310,30 @@ POST   /api/decks         - Create deck
 GET    /api/decks/:id     - Get deck
 PUT    /api/decks/:id     - Update deck
 DELETE /api/decks/:id     - Delete deck (soft)
+```
+
+### Note Types
+
+```
+GET    /api/note-types                         - List user's note types
+POST   /api/note-types                         - Create note type
+GET    /api/note-types/:id                     - Get note type with fields
+PUT    /api/note-types/:id                     - Update note type
+DELETE /api/note-types/:id                     - Soft delete
+POST   /api/note-types/:id/fields              - Add field
+PUT    /api/note-types/:id/fields/:fieldId     - Update field
+DELETE /api/note-types/:id/fields/:fieldId     - Remove field
+PUT    /api/note-types/:id/fields/reorder      - Reorder fields
+```
+
+### Notes
+
+```
+GET    /api/decks/:deckId/notes           - List notes in deck
+POST   /api/decks/:deckId/notes           - Create note (auto-generates cards)
+GET    /api/decks/:deckId/notes/:noteId   - Get note with field values
+PUT    /api/decks/:deckId/notes/:noteId   - Update note field values
+DELETE /api/decks/:deckId/notes/:noteId   - Delete note and its cards
 ```
 
 ### Cards
