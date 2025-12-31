@@ -96,6 +96,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -133,6 +134,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 		});
 	});
 
@@ -155,6 +157,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -212,6 +215,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -260,6 +264,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -311,6 +316,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: ["550e8400-e29b-41d4-a716-446655440003"],
 				cards: [],
@@ -474,6 +480,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -527,6 +534,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -590,6 +598,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -639,6 +648,7 @@ describe("POST /api/sync/push", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			conflicts: {
 				decks: [],
 				cards: [],
@@ -666,6 +676,114 @@ describe("POST /api/sync/push", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as SyncPushResponse;
 		expect(body.decks).toHaveLength(1);
+	});
+
+	it("successfully pushes CRDT changes", async () => {
+		const crdtChange = {
+			documentId: "deck:550e8400-e29b-41d4-a716-446655440000",
+			entityType: "deck" as const,
+			entityId: "550e8400-e29b-41d4-a716-446655440000",
+			binary: "SGVsbG8gV29ybGQ=", // Base64 encoded test data
+		};
+
+		const mockResult: SyncPushResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			crdtChanges: [
+				{
+					entityType: "deck",
+					entityId: "550e8400-e29b-41d4-a716-446655440000",
+					syncVersion: 1,
+				},
+			],
+			conflicts: {
+				decks: [],
+				cards: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+			},
+		};
+		vi.mocked(mockSyncRepo.pushChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/push", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				crdtChanges: [crdtChange],
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { crdtChanges?: unknown[] };
+		expect(body.crdtChanges).toHaveLength(1);
+		expect(mockSyncRepo.pushChanges).toHaveBeenCalledWith(
+			userId,
+			expect.objectContaining({
+				crdtChanges: [crdtChange],
+			}),
+		);
+	});
+
+	it("validates CRDT changes have required fields", async () => {
+		const invalidCrdtChange = {
+			documentId: "deck:123",
+			entityType: "deck",
+			// missing entityId and binary
+		};
+
+		const res = await app.request("/api/sync/push", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				crdtChanges: [invalidCrdtChange],
+			}),
+		});
+
+		expect(res.status).toBe(400);
+	});
+
+	it("validates CRDT entity type is valid", async () => {
+		const invalidCrdtChange = {
+			documentId: "invalid:550e8400-e29b-41d4-a716-446655440000",
+			entityType: "invalidType",
+			entityId: "550e8400-e29b-41d4-a716-446655440000",
+			binary: "SGVsbG8gV29ybGQ=",
+		};
+
+		const res = await app.request("/api/sync/push", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				decks: [],
+				cards: [],
+				reviewLogs: [],
+				crdtChanges: [invalidCrdtChange],
+			}),
+		});
+
+		expect(res.status).toBe(400);
 	});
 });
 
@@ -727,6 +845,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -761,6 +880,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 5,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -801,6 +921,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 2,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -850,6 +971,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 3,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -892,6 +1014,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -968,6 +1091,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 3,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -1012,6 +1136,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -1064,6 +1189,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 1,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -1104,6 +1230,7 @@ describe("GET /api/sync/pull", () => {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
+			crdtChanges: [],
 			currentSyncVersion: 2,
 		};
 		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
@@ -1128,5 +1255,37 @@ describe("GET /api/sync/pull", () => {
 		});
 
 		expect(res.status).toBe(400);
+	});
+
+	it("returns CRDT changes in pull response", async () => {
+		const mockResult: SyncPullResult = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			crdtChanges: [
+				{
+					documentId: "deck:550e8400-e29b-41d4-a716-446655440000",
+					entityType: "deck",
+					entityId: "550e8400-e29b-41d4-a716-446655440000",
+					binary: "SGVsbG8gV29ybGQ=",
+				},
+			],
+			currentSyncVersion: 1,
+		};
+		vi.mocked(mockSyncRepo.pullChanges).mockResolvedValue(mockResult);
+
+		const res = await app.request("/api/sync/pull", {
+			headers: {
+				Authorization: `Bearer ${authToken}`,
+			},
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { crdtChanges?: unknown[] };
+		expect(body.crdtChanges).toHaveLength(1);
 	});
 });
