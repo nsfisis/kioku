@@ -14,10 +14,13 @@ import { ApiClientError, apiClient } from "../api";
 import { CreateNoteModal } from "../components/CreateNoteModal";
 import { DeleteCardModal } from "../components/DeleteCardModal";
 import { EditCardModal } from "../components/EditCardModal";
+import { EditNoteModal } from "../components/EditNoteModal";
 
 interface Card {
 	id: string;
 	deckId: string;
+	noteId: string | null;
+	isReversed: boolean | null;
 	front: string;
 	back: string;
 	state: number;
@@ -56,6 +59,7 @@ export function DeckDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingCard, setEditingCard] = useState<Card | null>(null);
+	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
 
 	const fetchDeck = useCallback(async () => {
@@ -311,6 +315,11 @@ export function DeckDetailPage() {
 													>
 														{CardStateLabels[card.state] || "Unknown"}
 													</span>
+													{card.isReversed && (
+														<span className="px-2 py-0.5 rounded-full font-medium bg-slate/10 text-slate">
+															Reversed
+														</span>
+													)}
 													<span className="text-muted">
 														{card.reps} reviews
 													</span>
@@ -326,9 +335,15 @@ export function DeckDetailPage() {
 											<div className="flex items-center gap-1 shrink-0">
 												<button
 													type="button"
-													onClick={() => setEditingCard(card)}
+													onClick={() => {
+														if (card.noteId) {
+															setEditingNoteId(card.noteId);
+														} else {
+															setEditingCard(card);
+														}
+													}}
 													className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-													title="Edit card"
+													title={card.noteId ? "Edit note" : "Edit card"}
 												>
 													<FontAwesomeIcon
 														icon={faPen}
@@ -375,6 +390,16 @@ export function DeckDetailPage() {
 					card={editingCard}
 					onClose={() => setEditingCard(null)}
 					onCardUpdated={fetchCards}
+				/>
+			)}
+
+			{deckId && (
+				<EditNoteModal
+					isOpen={editingNoteId !== null}
+					deckId={deckId}
+					noteId={editingNoteId}
+					onClose={() => setEditingNoteId(null)}
+					onNoteUpdated={fetchCards}
 				/>
 			)}
 
