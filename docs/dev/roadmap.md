@@ -13,8 +13,8 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 - [x] Install dependencies: `@automerge/automerge`, `@automerge/automerge-repo`, `@automerge/automerge-repo-storage-indexeddb`
 - [x] Create `src/client/sync/crdt/types.ts` - Automerge document type definitions
-- [ ] Create `src/client/sync/crdt/document-manager.ts` - Automerge document lifecycle management
-- [ ] Create `src/client/sync/crdt/index.ts` - Module exports
+- [x] Create `src/client/sync/crdt/document-manager.ts` - Automerge document lifecycle management
+- [x] Create `src/client/sync/crdt/index.ts` - Module exports
 
 ### Phase 2: Create CRDT Repository Layer
 
