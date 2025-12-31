@@ -1,39 +1,34 @@
 # Kioku Development Roadmap
 
-## Use Hono RPC Type Inference for API Response Types
+## Add ORDER BY to SELECT Queries
 
-Replace manually defined API response types with Hono's `InferResponseType` for automatic type derivation from server.
+複数行を返すSELECTクエリにORDER BYを追加し、実行結果の順序を決定的にする。
 
 **Background:**
-- Hono's `hc` client can automatically infer response types from server definitions
-- Manual type definitions (`AuthResponse`, `User`) duplicate server types and can become out of sync
+- PostgreSQLはORDER BYがない場合、行の返却順序を保証しない
+- UI表示やSync結果の一貫性のため、明示的なソート順が必要
 
-**Scope:**
-- `AuthResponse` → Use `InferResponseType`
-- `User` → Derive from `AuthResponse["user"]`
-- `ApiError` → Keep (error responses are separate from success types)
-- `Tokens` → Keep (client-internal type)
+### Phase 1: Core Repository Queries
 
-### Phase 1: Update API Client Types
+- [ ] `src/server/repositories/deck.ts`
+  - `findByUserId()`: `.orderBy(decks.createdAt)` 追加
+- [ ] `src/server/repositories/note.ts`
+  - `findByDeckId()`: `.orderBy(notes.createdAt)` 追加
+  - `findByIdWithFieldValues()` 内のfieldValues取得: `.orderBy(noteFieldValues.noteFieldTypeId)` 追加
+  - `update()` 内のallFieldValues取得: `.orderBy(noteFieldValues.noteFieldTypeId)` 追加
+- [ ] `src/server/repositories/noteType.ts`
+  - `findByUserId()`: `.orderBy(noteTypes.createdAt)` 追加
+- [ ] `src/server/repositories/card.ts`
+  - `findByDeckId()`: `.orderBy(cards.createdAt)` 追加
+  - `findByNoteId()`: `.orderBy(cards.isReversed)` 追加 (通常カードを先に)
 
-- [x] Modify `src/client/api/client.ts`:
-  - Import `InferResponseType` from `hono/client`
-  - Define `LoginResponse` type using `InferResponseType<typeof rpc.api.auth.login.$post>`
-  - Update `login` method to use inferred type
-- [x] Modify `src/client/api/types.ts`:
-  - Remove `AuthResponse` and `User` interfaces
-  - Keep `ApiError` and `Tokens`
-- [x] Modify `src/client/api/index.ts`:
-  - Export inferred types from `client.ts` instead of `types.ts`
+### Phase 2: Sync Repository Queries
 
-### Phase 2: Update Consumers
+- [ ] `src/server/repositories/sync.ts`
+  - pull系クエリ (cards, noteFieldTypes, notes, noteFieldValues): `.orderBy(*.id)` 追加
 
-- [x] Modify `src/client/stores/auth.tsx`:
-  - Import `User` type from new location (derived from login response)
-  - Update `AuthState` interface
+### Phase 3: Verification
 
-### Phase 3: Update Tests
-
-- [x] Update `src/client/api/client.test.ts` if needed
-- [x] Update `src/client/stores/auth.test.tsx` if needed
-- [x] Verify all tests pass
+- [ ] `pnpm typecheck` 実行
+- [ ] `pnpm lint` 実行
+- [ ] `pnpm test` 実行
