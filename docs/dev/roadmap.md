@@ -32,7 +32,7 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 - [x] Install server dependency: `@automerge/automerge`
 - [x] Create `src/server/db/schema-crdt.ts` - CRDT document storage schema
-- [ ] Create database migration for crdt_documents table
+- [x] Create database migration for crdt_documents table
 - [ ] Modify `src/server/routes/sync.ts` - Handle CRDT changes in API
 - [ ] Modify `src/server/repositories/sync.ts` - Store/merge CRDT documents
 

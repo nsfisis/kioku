@@ -15,10 +15,11 @@ import {
 	integer,
 	pgTable,
 	timestamp,
+	uniqueIndex,
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
-import { users } from "./schema.js";
+import { users } from "./schema";
 
 /**
  * Valid entity types for CRDT documents
@@ -70,7 +71,7 @@ export const crdtDocuments = pgTable(
 	},
 	(table) => [
 		// Unique constraint on (user_id, entity_type, entity_id)
-		index("crdt_documents_user_entity_idx").on(
+		uniqueIndex("crdt_documents_user_entity_idx").on(
 			table.userId,
 			table.entityType,
 			table.entityId,
