@@ -66,10 +66,10 @@ NoteFieldValue
 Card (modified)
 ├── id: UUID
 ├── deck_id: UUID (FK → decks)
-├── note_id: UUID (FK → notes) [NEW]
-├── is_reversed: boolean [NEW] (false=normal, true=reversed)
-├── front: text [DEPRECATED - kept for backward compat during migration]
-├── back: text [DEPRECATED - kept for backward compat during migration]
+├── note_id: UUID (FK → notes) [REQUIRED]
+├── is_reversed: boolean [REQUIRED] (false=normal, true=reversed)
+├── front: text [CACHED - rendered from template for performance]
+├── back: text [CACHED - rendered from template for performance]
 ├── (FSRS fields unchanged)
 ├── created_at: timestamp
 ├── updated_at: timestamp
@@ -251,7 +251,7 @@ Create these as default note types for each user:
   - Select note type
   - Dynamic field inputs based on note type
   - Preview generated cards
-- [ ] Update EditCardModal → EditNoteModal
+- [x] Update EditCardModal → EditNoteModal
   - Load note and field values
   - Update all generated cards on save
 - [x] Update DeckDetailPage
@@ -267,73 +267,38 @@ Create these as default note types for each user:
 ### Phase 8: Frontend - Study Page
 
 **Tasks:**
-- [ ] Create custom template renderer utility
-- [ ] Update StudyPage to render cards based on note data
+- [x] Create custom template renderer utility
+- [x] Update StudyPage to render cards based on note data
   - Fetch note field values
   - Use `isReversed` to determine which template to use for front/back
   - Render templates with custom renderer
   - Maintain front/back flip behavior
-- [ ] Handle both legacy cards (direct front/back) and new note-based cards
+- [x] Handle both legacy cards (direct front/back) and new note-based cards
 
 **Files to modify/create:**
 - `src/client/utils/templateRenderer.ts` (new)
 - `src/client/pages/StudyPage.tsx`
 
-### Phase 9: Data Migration
+### Phase 9: Cleanup & Documentation
 
 **Tasks:**
-- [ ] Create migration script for existing data
-  - Create "Basic" note type for each user
-  - For each existing card:
-    - Create a Note with Front/Back field values
-    - Update Card to reference the Note
-- [ ] Test migration with backup/restore capability
-- [ ] Add migration endpoint or CLI command
-
-**Files to create:**
-- `src/server/scripts/migrate-to-notes.ts`
-
-### Phase 10: Cleanup
-
-**Tasks:**
-- [ ] Remove deprecated `front`/`back` columns from Card (after migration)
-- [ ] Update all tests
-- [ ] Update API documentation
-- [ ] Update architecture.md
+- [ ] Make `note_id` and `is_reversed` NOT NULL (schema migration)
+- [ ] Update architecture.md with Note-based data model
+- [ ] E2E tests for study flow with note-based cards
 - [ ] Performance testing with multiple cards per note
 
-## Migration Strategy
+**Note:** Data migration is not needed since production has no legacy data.
 
-### Backward Compatibility
+## Design Notes
 
-During migration period:
-1. Card retains `front`/`back` fields (nullable)
-2. Card gains `noteId`/`isReversed` fields (nullable)
-3. Display logic checks: if `noteId` exists, use note data; else use legacy `front`/`back`
-4. New cards always created via Note
-5. After full migration, remove legacy fields
+### Card front/back Fields
 
-### Data Migration Steps
+Cards retain `front` and `back` text fields as **cached rendered content**. When a card is created from a note:
+1. Templates are rendered with field values
+2. Rendered content is stored in `front`/`back` for quick display
+3. When note content is updated, all related cards are re-rendered
 
-1. **Preparation**
-   - Backup database
-   - Create default note types for all users
-
-2. **Card Migration**
-   - For each user's cards:
-     - Group by deck
-     - Create Note with "Basic" type
-     - Set Front/Back field values from card
-     - Link card to note
-
-3. **Verification**
-   - Compare card counts
-   - Verify field values match
-   - Test study flow
-
-4. **Cleanup**
-   - Remove legacy columns
-   - Update indexes
+This approach avoids rendering templates on every card display while maintaining the Note as the source of truth.
 
 ## API Examples
 
@@ -402,5 +367,4 @@ Note: Templates (`front_template`, `back_template`) are fetched separately via N
 - [x] Integration tests for note CRUD
 - [x] Test card generation from different note types
 - [x] Test sync with note data
-- [ ] Test migration script
 - [ ] E2E tests for study flow with note-based cards
