@@ -1,7 +1,19 @@
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { CardState, cards, noteFieldValues, notes } from "../db/schema.js";
-import type { Card, CardRepository, CardWithNoteData } from "./types.js";
+import {
+	CardState,
+	cards,
+	noteFieldTypes,
+	noteFieldValues,
+	notes,
+	noteTypes,
+} from "../db/schema.js";
+import type {
+	Card,
+	CardForStudy,
+	CardRepository,
+	CardWithNoteData,
+} from "./types.js";
 
 export const cardRepository: CardRepository = {
 	async findByDeckId(deckId: string): Promise<Card[]> {
@@ -217,6 +229,97 @@ export const cardRepository: CardRepository = {
 		}
 
 		return cardsWithNoteData;
+	},
+
+	async findDueCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]> {
+		const dueCards = await this.findDueCards(deckId, now, limit);
+
+		const cardsForStudy: CardForStudy[] = [];
+
+		for (const card of dueCards) {
+			// Legacy card (no note association)
+			if (!card.noteId) {
+				cardsForStudy.push({
+					...card,
+					noteType: null,
+					fieldValuesMap: {},
+				});
+				continue;
+			}
+
+			// Fetch note to get noteTypeId
+			const noteResult = await db
+				.select()
+				.from(notes)
+				.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
+
+			const note = noteResult[0];
+			if (!note) {
+				// Note was deleted, treat as legacy card
+				cardsForStudy.push({
+					...card,
+					noteType: null,
+					fieldValuesMap: {},
+				});
+				continue;
+			}
+
+			// Fetch note type for templates
+			const noteTypeResult = await db
+				.select({
+					frontTemplate: noteTypes.frontTemplate,
+					backTemplate: noteTypes.backTemplate,
+				})
+				.from(noteTypes)
+				.where(
+					and(eq(noteTypes.id, note.noteTypeId), isNull(noteTypes.deletedAt)),
+				);
+
+			const noteType = noteTypeResult[0];
+			if (!noteType) {
+				// Note type was deleted, treat as legacy card
+				cardsForStudy.push({
+					...card,
+					noteType: null,
+					fieldValuesMap: {},
+				});
+				continue;
+			}
+
+			// Fetch field values with their field names
+			const fieldValuesWithNames = await db
+				.select({
+					fieldName: noteFieldTypes.name,
+					value: noteFieldValues.value,
+				})
+				.from(noteFieldValues)
+				.innerJoin(
+					noteFieldTypes,
+					eq(noteFieldValues.noteFieldTypeId, noteFieldTypes.id),
+				)
+				.where(eq(noteFieldValues.noteId, card.noteId));
+
+			// Convert to name-value map
+			const fieldValuesMap: Record<string, string> = {};
+			for (const fv of fieldValuesWithNames) {
+				fieldValuesMap[fv.fieldName] = fv.value;
+			}
+
+			cardsForStudy.push({
+				...card,
+				noteType: {
+					frontTemplate: noteType.frontTemplate,
+					backTemplate: noteType.backTemplate,
+				},
+				fieldValuesMap,
+			});
+		}
+
+		return cardsForStudy;
 	},
 
 	async updateFSRSFields(

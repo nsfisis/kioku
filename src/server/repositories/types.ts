@@ -108,6 +108,21 @@ export interface CardWithNoteData extends Card {
 	fieldValues: NoteFieldValue[];
 }
 
+/**
+ * Card data prepared for study, including all necessary template rendering info.
+ * For note-based cards, includes templates and field values as a name-value map.
+ * For legacy cards, note and templates are null.
+ */
+export interface CardForStudy extends Card {
+	/** Note type templates for rendering (null for legacy cards) */
+	noteType: {
+		frontTemplate: string;
+		backTemplate: string;
+	} | null;
+	/** Field values as a name-value map for template rendering (empty for legacy cards) */
+	fieldValuesMap: Record<string, string>;
+}
+
 export interface CardRepository {
 	findByDeckId(deckId: string): Promise<Card[]>;
 	findById(id: string, deckId: string): Promise<Card | undefined>;
@@ -139,6 +154,11 @@ export interface CardRepository {
 		now: Date,
 		limit: number,
 	): Promise<CardWithNoteData[]>;
+	findDueCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]>;
 	updateFSRSFields(
 		id: string,
 		deckId: string,

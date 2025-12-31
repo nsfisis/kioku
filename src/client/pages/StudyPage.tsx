@@ -5,13 +5,16 @@ import {
 	faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
+import { renderCard } from "../utils/templateRenderer";
 
 interface Card {
 	id: string;
 	deckId: string;
+	noteId: string | null;
+	isReversed: boolean | null;
 	front: string;
 	back: string;
 	state: number;
@@ -20,6 +23,13 @@ interface Card {
 	difficulty: number;
 	reps: number;
 	lapses: number;
+	/** Note type templates for rendering (null for legacy cards) */
+	noteType: {
+		frontTemplate: string;
+		backTemplate: string;
+	} | null;
+	/** Field values as a name-value map for template rendering */
+	fieldValuesMap: Record<string, string>;
 }
 
 interface Deck {
@@ -222,6 +232,30 @@ export function StudyPage() {
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [handleKeyDown]);
 
+	const currentCard = cards[currentIndex];
+	const isSessionComplete = currentIndex >= cards.length && cards.length > 0;
+	const hasNoCards = !isLoading && cards.length === 0;
+	const remainingCards = cards.length - currentIndex;
+
+	// Compute rendered card content for both legacy and note-based cards
+	const cardContent = useMemo(() => {
+		if (!currentCard) return null;
+
+		// Note-based card: use template rendering
+		if (currentCard.noteType && currentCard.fieldValuesMap) {
+			const rendered = renderCard({
+				frontTemplate: currentCard.noteType.frontTemplate,
+				backTemplate: currentCard.noteType.backTemplate,
+				fieldValues: currentCard.fieldValuesMap,
+				isReversed: currentCard.isReversed ?? false,
+			});
+			return { front: rendered.front, back: rendered.back };
+		}
+
+		// Legacy card: use front/back directly
+		return { front: currentCard.front, back: currentCard.back };
+	}, [currentCard]);
+
 	if (!deckId) {
 		return (
 			<div className="min-h-screen bg-cream flex items-center justify-center">
@@ -237,11 +271,6 @@ export function StudyPage() {
 			</div>
 		);
 	}
-
-	const currentCard = cards[currentIndex];
-	const isSessionComplete = currentIndex >= cards.length && cards.length > 0;
-	const hasNoCards = !isLoading && cards.length === 0;
-	const remainingCards = cards.length - currentIndex;
 
 	return (
 		<div className="min-h-screen bg-cream flex flex-col">
@@ -383,7 +412,7 @@ export function StudyPage() {
 						)}
 
 						{/* Active Study Card */}
-						{currentCard && !isSessionComplete && (
+						{currentCard && cardContent && !isSessionComplete && (
 							<div data-testid="study-card" className="flex-1 flex flex-col">
 								{/* Card */}
 								<button
@@ -406,7 +435,7 @@ export function StudyPage() {
 												data-testid="card-front"
 												className="text-xl md:text-2xl text-ink font-medium whitespace-pre-wrap break-words leading-relaxed"
 											>
-												{currentCard.front}
+												{cardContent.front}
 											</p>
 											<p className="mt-8 text-muted text-sm flex items-center gap-2">
 												<kbd className="px-2 py-0.5 bg-ivory rounded text-xs font-mono">
@@ -420,7 +449,7 @@ export function StudyPage() {
 											data-testid="card-back"
 											className="text-xl md:text-2xl text-ink font-medium whitespace-pre-wrap break-words leading-relaxed animate-fade-in"
 										>
-											{currentCard.back}
+											{cardContent.back}
 										</p>
 									)}
 								</button>

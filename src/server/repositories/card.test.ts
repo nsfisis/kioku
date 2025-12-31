@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
 	Card,
+	CardForStudy,
 	CardRepository,
 	CardWithNoteData,
 	Note,
@@ -85,6 +86,21 @@ function createMockCardWithNoteData(
 	};
 }
 
+function createMockCardForStudy(
+	overrides: Partial<CardForStudy> = {},
+): CardForStudy {
+	const card = createMockCard({
+		noteId: overrides.noteType ? "note-uuid-123" : null,
+		isReversed: overrides.noteType ? false : null,
+		...overrides,
+	});
+	return {
+		...card,
+		noteType: overrides.noteType ?? null,
+		fieldValuesMap: overrides.fieldValuesMap ?? {},
+	};
+}
+
 function createMockCardRepo(): CardRepository {
 	return {
 		findByDeckId: vi.fn(),
@@ -97,6 +113,7 @@ function createMockCardRepo(): CardRepository {
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		findDueCardsWithNoteData: vi.fn(),
+		findDueCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
@@ -353,6 +370,39 @@ describe("Card interface contracts", () => {
 		expect(cardWithNote).toHaveProperty("note");
 		expect(cardWithNote).toHaveProperty("fieldValues");
 		expect(Array.isArray(cardWithNote.fieldValues)).toBe(true);
+	});
+
+	it("CardForStudy extends Card with noteType and fieldValuesMap", () => {
+		const cardForStudy = createMockCardForStudy({
+			noteType: {
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+			},
+			fieldValuesMap: {
+				Front: "Question",
+				Back: "Answer",
+			},
+		});
+
+		expect(cardForStudy).toHaveProperty("id");
+		expect(cardForStudy).toHaveProperty("deckId");
+		expect(cardForStudy).toHaveProperty("noteType");
+		expect(cardForStudy).toHaveProperty("fieldValuesMap");
+		expect(cardForStudy.noteType?.frontTemplate).toBe("{{Front}}");
+		expect(cardForStudy.fieldValuesMap.Front).toBe("Question");
+	});
+
+	it("CardForStudy can represent legacy card with null noteType", () => {
+		const legacyCard = createMockCardForStudy({
+			front: "Legacy Question",
+			back: "Legacy Answer",
+		});
+
+		expect(legacyCard.noteId).toBeNull();
+		expect(legacyCard.noteType).toBeNull();
+		expect(legacyCard.fieldValuesMap).toEqual({});
+		expect(legacyCard.front).toBe("Legacy Question");
+		expect(legacyCard.back).toBe("Legacy Answer");
 	});
 });
 
