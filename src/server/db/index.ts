@@ -2,15 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
 import * as schemaCrdt from "./schema-crdt.js";
 
-const databaseUrl = process.env.DATABASE_URL;
+const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT } = process.env;
 
-if (!databaseUrl) {
-	throw new Error("DATABASE_URL environment variable is not set");
-}
-
-export const db = drizzle(databaseUrl, {
-	schema: { ...schema, ...schemaCrdt },
-});
+export const db = drizzle(
+	`postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,
+	{ schema: { ...schema, ...schemaCrdt } },
+);
 
 export * from "./schema.js";
 export * from "./schema-crdt.js";

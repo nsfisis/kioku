@@ -29,8 +29,6 @@ pnpm install
 
 # Copy environment variables
 cp .env.example .env
-# Edit .env for local development:
-#   DATABASE_URL=postgresql://kioku:kioku@localhost:5432/kioku
 
 # Start PostgreSQL
 docker compose up db -d
@@ -53,7 +51,8 @@ pnpm dev:client   # Frontend dev server (port 5173)
 | `POSTGRES_USER` | PostgreSQL username | `kioku` |
 | `POSTGRES_PASSWORD` | PostgreSQL password | `kioku` |
 | `POSTGRES_DB` | PostgreSQL database name | `kioku` |
-| `DATABASE_URL` | Full PostgreSQL connection string | `postgresql://kioku:kioku@localhost:5432/kioku` |
+| `POSTGRES_HOST` | PostgreSQL host | `kioku-db` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
 | `JWT_SECRET` | Secret key for JWT tokens (use a secure random string in production) | `your-secret-key` |
 
 ## Scripts

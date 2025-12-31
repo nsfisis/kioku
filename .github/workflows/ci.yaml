@@ -34,7 +34,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
-        run: DATABASE_URL="fake" pnpm test
+        run: POSTGRES_USER=test POSTGRES_PASSWORD=test POSTGRES_DB=test POSTGRES_HOST=localhost POSTGRES_PORT=5432 pnpm test
 
       - name: Build
         run: pnpm build
