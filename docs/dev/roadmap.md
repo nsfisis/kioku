@@ -24,7 +24,7 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 ### Phase 3: Modify Sync Protocol
 
 - [x] Modify `src/client/sync/push.ts` - Add crdtChanges to push payload
-- [ ] Modify `src/client/sync/pull.ts` - Handle crdtChanges in pull response
+- [x] Modify `src/client/sync/pull.ts` - Handle crdtChanges in pull response
 - [ ] Modify `src/client/sync/conflict.ts` - Replace LWW with Automerge merge
 - [ ] Modify `src/client/sync/manager.ts` - Integrate CRDT sync flow
 

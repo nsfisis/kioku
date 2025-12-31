@@ -13,6 +13,15 @@ import {
 	localNoteTypeRepository,
 } from "../db/repositories";
 import {
+	binaryToBase64,
+	CrdtEntityType,
+	crdtDeckRepository,
+	crdtNoteTypeRepository,
+	crdtSyncDb,
+	crdtSyncStateManager,
+} from "./crdt";
+import {
+	applyCrdtChanges,
 	PullService,
 	pullResultToLocalData,
 	type SyncPullResult,
@@ -1149,5 +1158,487 @@ describe("PullService", () => {
 
 			expect(pullService.getLastSyncVersion()).toBe(0);
 		});
+	});
+});
+
+describe("applyCrdtChanges", () => {
+	beforeEach(async () => {
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
+	});
+
+	afterEach(async () => {
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
+	});
+
+	it("should process CRDT payload for a new deck", async () => {
+		// Create a CRDT document from a deck
+		const deck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Test Deck",
+			description: "A test description",
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const crdtResult = crdtDeckRepository.toCrdtDocument(deck);
+
+		const payload = {
+			documentId: crdtResult.documentId,
+			entityType: CrdtEntityType.Deck,
+			entityId: deck.id,
+			binary: binaryToBase64(crdtResult.binary),
+		};
+
+		const result = await applyCrdtChanges([payload], 5);
+
+		expect(result.created).toBe(1);
+		expect(result.merged).toBe(0);
+		expect(result.entities.decks).toHaveLength(1);
+		expect(result.entities.decks[0]?.id).toBe("deck-1");
+		expect(result.entities.decks[0]?.name).toBe("Test Deck");
+		expect(result.entities.decks[0]?.description).toBe("A test description");
+	});
+
+	it("should merge CRDT payload with existing local document", async () => {
+		// Create an initial local CRDT document
+		const localDeck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Local Deck",
+			description: "Local description",
+			newCardsPerDay: 10,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-01T12:00:00Z"),
+			deletedAt: null,
+			syncVersion: 1,
+			_synced: true as const,
+		};
+		const localCrdtResult = crdtDeckRepository.toCrdtDocument(localDeck);
+
+		// Store the local CRDT binary
+		await crdtSyncStateManager.setDocumentBinary(
+			CrdtEntityType.Deck,
+			localDeck.id,
+			localCrdtResult.binary,
+			1,
+		);
+
+		// Create a remote CRDT document with updated data
+		const remoteDeck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Remote Deck",
+			description: "Remote description",
+			newCardsPerDay: 25,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"), // Later timestamp
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const remoteCrdtResult = crdtDeckRepository.toCrdtDocument(remoteDeck);
+
+		const payload = {
+			documentId: remoteCrdtResult.documentId,
+			entityType: CrdtEntityType.Deck,
+			entityId: remoteDeck.id,
+			binary: binaryToBase64(remoteCrdtResult.binary),
+		};
+
+		const result = await applyCrdtChanges([payload], 5);
+
+		expect(result.created).toBe(0);
+		expect(result.merged).toBe(1);
+		expect(result.entities.decks).toHaveLength(1);
+		// The merged result should reflect the remote changes
+		expect(result.entities.decks[0]?.id).toBe("deck-1");
+	});
+
+	it("should process multiple CRDT payloads", async () => {
+		const deck1 = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Deck 1",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const deck2 = {
+			id: "deck-2",
+			userId: "user-1",
+			name: "Deck 2",
+			description: "Second deck",
+			newCardsPerDay: 15,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+
+		const crdtResult1 = crdtDeckRepository.toCrdtDocument(deck1);
+		const crdtResult2 = crdtDeckRepository.toCrdtDocument(deck2);
+
+		const payloads = [
+			{
+				documentId: crdtResult1.documentId,
+				entityType: CrdtEntityType.Deck,
+				entityId: deck1.id,
+				binary: binaryToBase64(crdtResult1.binary),
+			},
+			{
+				documentId: crdtResult2.documentId,
+				entityType: CrdtEntityType.Deck,
+				entityId: deck2.id,
+				binary: binaryToBase64(crdtResult2.binary),
+			},
+		];
+
+		const result = await applyCrdtChanges(payloads, 5);
+
+		expect(result.created).toBe(2);
+		expect(result.merged).toBe(0);
+		expect(result.entities.decks).toHaveLength(2);
+	});
+
+	it("should process CRDT payloads for different entity types", async () => {
+		const deck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Test Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+
+		const noteType = {
+			id: "note-type-1",
+			userId: "user-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+
+		const deckCrdt = crdtDeckRepository.toCrdtDocument(deck);
+		const noteTypeCrdt = crdtNoteTypeRepository.toCrdtDocument(noteType);
+
+		const payloads = [
+			{
+				documentId: deckCrdt.documentId,
+				entityType: CrdtEntityType.Deck,
+				entityId: deck.id,
+				binary: binaryToBase64(deckCrdt.binary),
+			},
+			{
+				documentId: noteTypeCrdt.documentId,
+				entityType: CrdtEntityType.NoteType,
+				entityId: noteType.id,
+				binary: binaryToBase64(noteTypeCrdt.binary),
+			},
+		];
+
+		const result = await applyCrdtChanges(payloads, 5);
+
+		expect(result.created).toBe(2);
+		expect(result.entities.decks).toHaveLength(1);
+		expect(result.entities.noteTypes).toHaveLength(1);
+		expect(result.entities.decks[0]?.name).toBe("Test Deck");
+		expect(result.entities.noteTypes[0]?.name).toBe("Basic");
+	});
+
+	it("should store merged binary in sync state", async () => {
+		const deck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "Test Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const crdtResult = crdtDeckRepository.toCrdtDocument(deck);
+
+		const payload = {
+			documentId: crdtResult.documentId,
+			entityType: CrdtEntityType.Deck,
+			entityId: deck.id,
+			binary: binaryToBase64(crdtResult.binary),
+		};
+
+		await applyCrdtChanges([payload], 5);
+
+		// Verify the binary was stored in sync state
+		const storedBinary = await crdtSyncStateManager.getDocumentBinary(
+			CrdtEntityType.Deck,
+			deck.id,
+		);
+
+		expect(storedBinary).toBeDefined();
+		// Check that it's a typed array with length > 0
+		expect(storedBinary?.length).toBeGreaterThan(0);
+	});
+
+	it("should skip invalid document IDs", async () => {
+		const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const payload = {
+			documentId: "invalid-format",
+			entityType: CrdtEntityType.Deck,
+			entityId: "deck-1",
+			binary: "SGVsbG8=", // "Hello" in base64
+		};
+
+		const result = await applyCrdtChanges([payload], 5);
+
+		expect(result.created).toBe(0);
+		expect(result.merged).toBe(0);
+		expect(result.entities.decks).toHaveLength(0);
+		expect(consoleWarn).toHaveBeenCalledWith(
+			"Invalid document ID: invalid-format",
+		);
+
+		consoleWarn.mockRestore();
+	});
+
+	it("should return empty result for empty payloads", async () => {
+		const result = await applyCrdtChanges([], 5);
+
+		expect(result.created).toBe(0);
+		expect(result.merged).toBe(0);
+		expect(result.entities.decks).toHaveLength(0);
+		expect(result.entities.noteTypes).toHaveLength(0);
+		expect(result.entities.cards).toHaveLength(0);
+	});
+});
+
+describe("PullService with CRDT changes", () => {
+	let syncQueue: SyncQueue;
+
+	beforeEach(async () => {
+		await db.decks.clear();
+		await db.cards.clear();
+		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
+		localStorage.clear();
+		syncQueue = new SyncQueue();
+	});
+
+	afterEach(async () => {
+		await db.decks.clear();
+		await db.cards.clear();
+		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
+		localStorage.clear();
+	});
+
+	it("should process CRDT changes when present in pull response", async () => {
+		const deck = {
+			id: "deck-1",
+			userId: "user-1",
+			name: "CRDT Deck",
+			description: null,
+			newCardsPerDay: 20,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const crdtResult = crdtDeckRepository.toCrdtDocument(deck);
+
+		const pullFromServer = vi.fn().mockResolvedValue({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			crdtChanges: [
+				{
+					documentId: crdtResult.documentId,
+					entityType: CrdtEntityType.Deck,
+					entityId: deck.id,
+					binary: binaryToBase64(crdtResult.binary),
+				},
+			],
+			currentSyncVersion: 5,
+		});
+
+		const pullService = new PullService({
+			syncQueue,
+			pullFromServer,
+		});
+
+		await pullService.pull();
+
+		// Verify CRDT binary was stored
+		const storedBinary = await crdtSyncStateManager.getDocumentBinary(
+			CrdtEntityType.Deck,
+			deck.id,
+		);
+		expect(storedBinary).toBeDefined();
+	});
+
+	it("should handle pull response without CRDT changes", async () => {
+		const pullFromServer = vi.fn().mockResolvedValue({
+			decks: [
+				{
+					id: "deck-1",
+					userId: "user-1",
+					name: "Test Deck",
+					description: null,
+					newCardsPerDay: 20,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					deletedAt: null,
+					syncVersion: 1,
+				},
+			],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			// No crdtChanges field
+			currentSyncVersion: 1,
+		});
+
+		const pullService = new PullService({
+			syncQueue,
+			pullFromServer,
+		});
+
+		// Should not throw even without crdtChanges
+		const result = await pullService.pull();
+
+		expect(result.decks).toHaveLength(1);
+		expect(syncQueue.getLastSyncVersion()).toBe(1);
+	});
+
+	it("should handle empty CRDT changes array", async () => {
+		const pullFromServer = vi.fn().mockResolvedValue({
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			crdtChanges: [],
+			currentSyncVersion: 1,
+		});
+
+		const pullService = new PullService({
+			syncQueue,
+			pullFromServer,
+		});
+
+		const result = await pullService.pull();
+
+		expect(result.crdtChanges).toHaveLength(0);
+		expect(syncQueue.getLastSyncVersion()).toBe(1);
+	});
+
+	it("should process both regular data and CRDT changes", async () => {
+		// Create CRDT payload for a note type
+		const noteType = {
+			id: "note-type-1",
+			userId: "user-1",
+			name: "CRDT NoteType",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: true,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-02T15:30:00Z"),
+			deletedAt: null,
+			syncVersion: 5,
+			_synced: false as const,
+		};
+		const crdtResult = crdtNoteTypeRepository.toCrdtDocument(noteType);
+
+		const pullFromServer = vi.fn().mockResolvedValue({
+			decks: [
+				{
+					id: "deck-1",
+					userId: "user-1",
+					name: "Regular Deck",
+					description: null,
+					newCardsPerDay: 20,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					deletedAt: null,
+					syncVersion: 5,
+				},
+			],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+			crdtChanges: [
+				{
+					documentId: crdtResult.documentId,
+					entityType: CrdtEntityType.NoteType,
+					entityId: noteType.id,
+					binary: binaryToBase64(crdtResult.binary),
+				},
+			],
+			currentSyncVersion: 5,
+		});
+
+		const pullService = new PullService({
+			syncQueue,
+			pullFromServer,
+		});
+
+		await pullService.pull();
+
+		// Verify regular deck was applied
+		const storedDeck = await localDeckRepository.findById("deck-1");
+		expect(storedDeck).toBeDefined();
+		expect(storedDeck?.name).toBe("Regular Deck");
+
+		// Verify CRDT binary was stored for note type
+		const storedBinary = await crdtSyncStateManager.getDocumentBinary(
+			CrdtEntityType.NoteType,
+			noteType.id,
+		);
+		expect(storedBinary).toBeDefined();
 	});
 });
