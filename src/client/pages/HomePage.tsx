@@ -169,18 +169,6 @@ export function HomePage() {
 						<p className="text-muted text-sm mb-6">
 							Create your first deck to start learning
 						</p>
-						<button
-							type="button"
-							onClick={() => setIsCreateModalOpen(true)}
-							className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
-						>
-							<FontAwesomeIcon
-								icon={faPlus}
-								className="w-5 h-5"
-								aria-hidden="true"
-							/>
-							Create Your First Deck
-						</button>
 					</div>
 				)}
 
