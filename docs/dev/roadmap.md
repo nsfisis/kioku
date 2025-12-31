@@ -38,7 +38,7 @@ Replace the current Last-Write-Wins (LWW) conflict resolution with Automerge CRD
 
 ### Phase 5: Migration
 
-- [ ] Create `src/client/sync/crdt/migration.ts` - One-time migration script
+- [x] Create `src/client/sync/crdt/migration.ts` - One-time migration script
 - [ ] Create server migration script to convert existing data
 
 ### Phase 6: Testing and Cleanup

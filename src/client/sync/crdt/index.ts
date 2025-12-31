@@ -47,7 +47,18 @@ export {
 	saveIncremental,
 	updateDocument,
 } from "./document-manager";
-
+// Migration utilities
+export {
+	clearAllCrdtState,
+	getMigrationStatus,
+	isMigrationCompleted,
+	MIGRATION_VERSION,
+	type MigrationProgress,
+	type MigrationResult,
+	resetMigration,
+	runMigration,
+	runMigrationWithBatching,
+} from "./migration";
 // CRDT-aware repository wrappers
 export {
 	type CrdtDocumentResult,
@@ -66,7 +77,6 @@ export {
 	getRepositoryForDocumentId,
 	mergeAndConvert,
 } from "./repositories";
-
 // Sync state management
 export {
 	base64ToBinary,
@@ -80,7 +90,6 @@ export {
 	entriesToSyncPayload,
 	syncPayloadToEntries,
 } from "./sync-state";
-
 // Type definitions
 export {
 	type CrdtCardDocument,
