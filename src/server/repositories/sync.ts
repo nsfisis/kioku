@@ -896,7 +896,8 @@ export const syncRepository: SyncRepository = {
 			const cardResults = await db
 				.select()
 				.from(cards)
-				.where(gt(cards.syncVersion, lastSyncVersion));
+				.where(gt(cards.syncVersion, lastSyncVersion))
+				.orderBy(cards.id);
 
 			// Filter cards that belong to user's decks
 			pulledCards = cardResults.filter((c) => deckIdList.includes(c.deckId));
@@ -938,7 +939,8 @@ export const syncRepository: SyncRepository = {
 			const fieldTypeResults = await db
 				.select()
 				.from(noteFieldTypes)
-				.where(gt(noteFieldTypes.syncVersion, lastSyncVersion));
+				.where(gt(noteFieldTypes.syncVersion, lastSyncVersion))
+				.orderBy(noteFieldTypes.id);
 
 			pulledNoteFieldTypes = fieldTypeResults.filter((ft) =>
 				noteTypeIdList.includes(ft.noteTypeId),
@@ -951,7 +953,8 @@ export const syncRepository: SyncRepository = {
 			const noteResults = await db
 				.select()
 				.from(notes)
-				.where(gt(notes.syncVersion, lastSyncVersion));
+				.where(gt(notes.syncVersion, lastSyncVersion))
+				.orderBy(notes.id);
 
 			pulledNotes = noteResults.filter((n) => deckIdList.includes(n.deckId));
 		}
@@ -973,7 +976,8 @@ export const syncRepository: SyncRepository = {
 			const fieldValueResults = await db
 				.select()
 				.from(noteFieldValues)
-				.where(gt(noteFieldValues.syncVersion, lastSyncVersion));
+				.where(gt(noteFieldValues.syncVersion, lastSyncVersion))
+				.orderBy(noteFieldValues.id);
 
 			pulledNoteFieldValues = fieldValueResults.filter((fv) =>
 				allUserNoteIds.includes(fv.noteId),

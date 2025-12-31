@@ -504,3 +504,140 @@ describe("Card deletion behavior", () => {
 		});
 	});
 });
+
+describe("findByDeckId ordering", () => {
+	it("returns cards ordered by createdAt", async () => {
+		const repo = createMockCardRepo();
+
+		const oldCard = createMockCard({
+			id: "card-old",
+			createdAt: new Date("2024-01-01"),
+		});
+		const newCard = createMockCard({
+			id: "card-new",
+			createdAt: new Date("2024-06-01"),
+		});
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([oldCard, newCard]);
+
+		const results = await repo.findByDeckId("deck-123");
+
+		expect(results).toHaveLength(2);
+		expect(results[0]?.id).toBe("card-old");
+		expect(results[1]?.id).toBe("card-new");
+		expect(results[0]?.createdAt.getTime()).toBeLessThan(
+			results[1]?.createdAt.getTime() ?? 0,
+		);
+	});
+
+	it("returns empty array when deck has no cards", async () => {
+		const repo = createMockCardRepo();
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([]);
+
+		const results = await repo.findByDeckId("deck-with-no-cards");
+		expect(results).toHaveLength(0);
+	});
+
+	it("maintains consistent ordering across multiple calls", async () => {
+		const repo = createMockCardRepo();
+
+		const card1 = createMockCard({
+			id: "card-1",
+			createdAt: new Date("2024-01-01"),
+		});
+		const card2 = createMockCard({
+			id: "card-2",
+			createdAt: new Date("2024-02-01"),
+		});
+		const card3 = createMockCard({
+			id: "card-3",
+			createdAt: new Date("2024-03-01"),
+		});
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([card1, card2, card3]);
+
+		const results1 = await repo.findByDeckId("deck-123");
+		const results2 = await repo.findByDeckId("deck-123");
+
+		expect(results1.map((c) => c.id)).toEqual(results2.map((c) => c.id));
+		expect(results1.map((c) => c.id)).toEqual(["card-1", "card-2", "card-3"]);
+	});
+});
+
+describe("findByNoteId ordering", () => {
+	it("returns cards ordered by isReversed (normal card first)", async () => {
+		const repo = createMockCardRepo();
+
+		const normalCard = createMockCard({
+			id: "card-normal",
+			noteId: "note-123",
+			isReversed: false,
+		});
+		const reversedCard = createMockCard({
+			id: "card-reversed",
+			noteId: "note-123",
+			isReversed: true,
+		});
+
+		// Mock returns cards in isReversed order (false first, true second)
+		vi.mocked(repo.findByNoteId).mockResolvedValue([normalCard, reversedCard]);
+
+		const results = await repo.findByNoteId("note-123");
+
+		expect(results).toHaveLength(2);
+		expect(results[0]?.id).toBe("card-normal");
+		expect(results[0]?.isReversed).toBe(false);
+		expect(results[1]?.id).toBe("card-reversed");
+		expect(results[1]?.isReversed).toBe(true);
+	});
+
+	it("returns single card for non-reversible note type", async () => {
+		const repo = createMockCardRepo();
+
+		const normalCard = createMockCard({
+			id: "card-only",
+			noteId: "note-123",
+			isReversed: false,
+		});
+
+		vi.mocked(repo.findByNoteId).mockResolvedValue([normalCard]);
+
+		const results = await repo.findByNoteId("note-123");
+
+		expect(results).toHaveLength(1);
+		expect(results[0]?.isReversed).toBe(false);
+	});
+
+	it("returns empty array when note has no cards", async () => {
+		const repo = createMockCardRepo();
+
+		vi.mocked(repo.findByNoteId).mockResolvedValue([]);
+
+		const results = await repo.findByNoteId("note-without-cards");
+		expect(results).toHaveLength(0);
+	});
+
+	it("maintains consistent ordering across multiple calls", async () => {
+		const repo = createMockCardRepo();
+
+		const normalCard = createMockCard({
+			id: "card-normal",
+			noteId: "note-123",
+			isReversed: false,
+		});
+		const reversedCard = createMockCard({
+			id: "card-reversed",
+			noteId: "note-123",
+			isReversed: true,
+		});
+
+		vi.mocked(repo.findByNoteId).mockResolvedValue([normalCard, reversedCard]);
+
+		const results1 = await repo.findByNoteId("note-123");
+		const results2 = await repo.findByNoteId("note-123");
+
+		expect(results1.map((c) => c.id)).toEqual(results2.map((c) => c.id));
+		expect(results1.map((c) => c.isReversed)).toEqual([false, true]);
+	});
+});

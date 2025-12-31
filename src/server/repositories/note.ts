@@ -22,7 +22,8 @@ export const noteRepository: NoteRepository = {
 		const result = await db
 			.select()
 			.from(notes)
-			.where(and(eq(notes.deckId, deckId), isNull(notes.deletedAt)));
+			.where(and(eq(notes.deckId, deckId), isNull(notes.deletedAt)))
+			.orderBy(notes.createdAt);
 		return result;
 	},
 
@@ -52,7 +53,8 @@ export const noteRepository: NoteRepository = {
 		const fieldValuesResult = await db
 			.select()
 			.from(noteFieldValues)
-			.where(eq(noteFieldValues.noteId, id));
+			.where(eq(noteFieldValues.noteId, id))
+			.orderBy(noteFieldValues.noteFieldTypeId);
 
 		return {
 			...note,
@@ -219,7 +221,8 @@ export const noteRepository: NoteRepository = {
 		const allFieldValues = await db
 			.select()
 			.from(noteFieldValues)
-			.where(eq(noteFieldValues.noteId, id));
+			.where(eq(noteFieldValues.noteId, id))
+			.orderBy(noteFieldValues.noteFieldTypeId);
 
 		return {
 			...updatedNote,

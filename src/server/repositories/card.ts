@@ -20,7 +20,8 @@ export const cardRepository: CardRepository = {
 		const result = await db
 			.select()
 			.from(cards)
-			.where(and(eq(cards.deckId, deckId), isNull(cards.deletedAt)));
+			.where(and(eq(cards.deckId, deckId), isNull(cards.deletedAt)))
+			.orderBy(cards.createdAt);
 		return result;
 	},
 
@@ -73,7 +74,8 @@ export const cardRepository: CardRepository = {
 		const result = await db
 			.select()
 			.from(cards)
-			.where(and(eq(cards.noteId, noteId), isNull(cards.deletedAt)));
+			.where(and(eq(cards.noteId, noteId), isNull(cards.deletedAt)))
+			.orderBy(cards.isReversed);
 		return result;
 	},
 

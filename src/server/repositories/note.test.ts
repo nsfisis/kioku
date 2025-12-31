@@ -455,3 +455,200 @@ describe("Card generation from Note", () => {
 		expect(result.cards[1]?.back).toBe("Question");
 	});
 });
+
+describe("findByDeckId ordering", () => {
+	it("returns notes ordered by createdAt", async () => {
+		const repo = createMockNoteRepo();
+
+		const oldNote = createMockNote({
+			id: "note-old",
+			createdAt: new Date("2024-01-01"),
+		});
+		const newNote = createMockNote({
+			id: "note-new",
+			createdAt: new Date("2024-06-01"),
+		});
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([oldNote, newNote]);
+
+		const results = await repo.findByDeckId("deck-123");
+
+		expect(results).toHaveLength(2);
+		expect(results[0]?.id).toBe("note-old");
+		expect(results[1]?.id).toBe("note-new");
+		expect(results[0]?.createdAt.getTime()).toBeLessThan(
+			results[1]?.createdAt.getTime() ?? 0,
+		);
+	});
+
+	it("returns empty array when deck has no notes", async () => {
+		const repo = createMockNoteRepo();
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([]);
+
+		const results = await repo.findByDeckId("deck-with-no-notes");
+		expect(results).toHaveLength(0);
+	});
+
+	it("maintains consistent ordering across multiple calls", async () => {
+		const repo = createMockNoteRepo();
+
+		const note1 = createMockNote({
+			id: "note-1",
+			createdAt: new Date("2024-01-01"),
+		});
+		const note2 = createMockNote({
+			id: "note-2",
+			createdAt: new Date("2024-02-01"),
+		});
+		const note3 = createMockNote({
+			id: "note-3",
+			createdAt: new Date("2024-03-01"),
+		});
+
+		vi.mocked(repo.findByDeckId).mockResolvedValue([note1, note2, note3]);
+
+		const results1 = await repo.findByDeckId("deck-123");
+		const results2 = await repo.findByDeckId("deck-123");
+
+		expect(results1.map((n) => n.id)).toEqual(results2.map((n) => n.id));
+		expect(results1.map((n) => n.id)).toEqual(["note-1", "note-2", "note-3"]);
+	});
+});
+
+describe("findByIdWithFieldValues field values ordering", () => {
+	it("returns field values ordered by noteFieldTypeId", async () => {
+		const repo = createMockNoteRepo();
+
+		const fieldValueA = createMockNoteFieldValue({
+			id: "fv-1",
+			noteFieldTypeId: "field-type-aaa",
+			value: "Value A",
+		});
+		const fieldValueB = createMockNoteFieldValue({
+			id: "fv-2",
+			noteFieldTypeId: "field-type-bbb",
+			value: "Value B",
+		});
+
+		const noteWithFields = createMockNoteWithFieldValues({
+			fieldValues: [fieldValueA, fieldValueB],
+		});
+
+		vi.mocked(repo.findByIdWithFieldValues).mockResolvedValue(noteWithFields);
+
+		const result = await repo.findByIdWithFieldValues("note-id", "deck-id");
+
+		expect(result?.fieldValues).toHaveLength(2);
+		expect(result?.fieldValues[0]?.noteFieldTypeId).toBe("field-type-aaa");
+		expect(result?.fieldValues[1]?.noteFieldTypeId).toBe("field-type-bbb");
+	});
+
+	it("maintains consistent field value ordering across multiple calls", async () => {
+		const repo = createMockNoteRepo();
+
+		const fieldValues = [
+			createMockNoteFieldValue({
+				id: "fv-1",
+				noteFieldTypeId: "ft-001",
+				value: "First",
+			}),
+			createMockNoteFieldValue({
+				id: "fv-2",
+				noteFieldTypeId: "ft-002",
+				value: "Second",
+			}),
+			createMockNoteFieldValue({
+				id: "fv-3",
+				noteFieldTypeId: "ft-003",
+				value: "Third",
+			}),
+		];
+
+		const noteWithFields = createMockNoteWithFieldValues({ fieldValues });
+
+		vi.mocked(repo.findByIdWithFieldValues).mockResolvedValue(noteWithFields);
+
+		const results1 = await repo.findByIdWithFieldValues("note-id", "deck-id");
+		const results2 = await repo.findByIdWithFieldValues("note-id", "deck-id");
+
+		expect(results1?.fieldValues.map((fv) => fv.noteFieldTypeId)).toEqual(
+			results2?.fieldValues.map((fv) => fv.noteFieldTypeId),
+		);
+		expect(results1?.fieldValues.map((fv) => fv.noteFieldTypeId)).toEqual([
+			"ft-001",
+			"ft-002",
+			"ft-003",
+		]);
+	});
+});
+
+describe("update field values ordering", () => {
+	it("returns field values ordered by noteFieldTypeId after update", async () => {
+		const repo = createMockNoteRepo();
+
+		const fieldValueA = createMockNoteFieldValue({
+			id: "fv-1",
+			noteFieldTypeId: "field-type-aaa",
+			value: "Updated A",
+		});
+		const fieldValueB = createMockNoteFieldValue({
+			id: "fv-2",
+			noteFieldTypeId: "field-type-bbb",
+			value: "Updated B",
+		});
+
+		const updatedNote = createMockNoteWithFieldValues({
+			fieldValues: [fieldValueA, fieldValueB],
+		});
+
+		vi.mocked(repo.update).mockResolvedValue(updatedNote);
+
+		const result = await repo.update("note-id", "deck-id", {
+			"field-type-aaa": "Updated A",
+			"field-type-bbb": "Updated B",
+		});
+
+		expect(result?.fieldValues).toHaveLength(2);
+		expect(result?.fieldValues[0]?.noteFieldTypeId).toBe("field-type-aaa");
+		expect(result?.fieldValues[1]?.noteFieldTypeId).toBe("field-type-bbb");
+	});
+
+	it("maintains consistent field value ordering after update", async () => {
+		const repo = createMockNoteRepo();
+
+		const fieldValues = [
+			createMockNoteFieldValue({
+				id: "fv-1",
+				noteFieldTypeId: "ft-001",
+				value: "Updated First",
+			}),
+			createMockNoteFieldValue({
+				id: "fv-2",
+				noteFieldTypeId: "ft-002",
+				value: "Updated Second",
+			}),
+			createMockNoteFieldValue({
+				id: "fv-3",
+				noteFieldTypeId: "ft-003",
+				value: "Updated Third",
+			}),
+		];
+
+		const updatedNote = createMockNoteWithFieldValues({ fieldValues });
+
+		vi.mocked(repo.update).mockResolvedValue(updatedNote);
+
+		const result = await repo.update("note-id", "deck-id", {
+			"ft-001": "Updated First",
+			"ft-002": "Updated Second",
+			"ft-003": "Updated Third",
+		});
+
+		expect(result?.fieldValues.map((fv) => fv.noteFieldTypeId)).toEqual([
+			"ft-001",
+			"ft-002",
+			"ft-003",
+		]);
+	});
+});

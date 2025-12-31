@@ -14,7 +14,8 @@ export const noteTypeRepository: NoteTypeRepository = {
 		const result = await db
 			.select()
 			.from(noteTypes)
-			.where(and(eq(noteTypes.userId, userId), isNull(noteTypes.deletedAt)));
+			.where(and(eq(noteTypes.userId, userId), isNull(noteTypes.deletedAt)))
+			.orderBy(noteTypes.createdAt);
 		return result;
 	},
 

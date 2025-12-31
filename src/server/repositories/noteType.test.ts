@@ -356,3 +356,84 @@ describe("NoteFieldType deletion constraints", () => {
 		});
 	});
 });
+
+describe("findByUserId ordering", () => {
+	it("returns note types ordered by createdAt", async () => {
+		const repo = createMockNoteTypeRepo();
+
+		const oldNoteType = createMockNoteType({
+			id: "note-type-old",
+			name: "Old Type",
+			createdAt: new Date("2024-01-01"),
+		});
+		const newNoteType = createMockNoteType({
+			id: "note-type-new",
+			name: "New Type",
+			createdAt: new Date("2024-06-01"),
+		});
+
+		vi.mocked(repo.findByUserId).mockResolvedValue([oldNoteType, newNoteType]);
+
+		const results = await repo.findByUserId("user-123");
+
+		expect(results).toHaveLength(2);
+		expect(results[0]?.id).toBe("note-type-old");
+		expect(results[1]?.id).toBe("note-type-new");
+		expect(results[0]?.createdAt.getTime()).toBeLessThan(
+			results[1]?.createdAt.getTime() ?? 0,
+		);
+	});
+
+	it("returns empty array when user has no note types", async () => {
+		const repo = createMockNoteTypeRepo();
+
+		vi.mocked(repo.findByUserId).mockResolvedValue([]);
+
+		const results = await repo.findByUserId("user-with-no-note-types");
+		expect(results).toHaveLength(0);
+	});
+
+	it("returns single note type when user has one", async () => {
+		const repo = createMockNoteTypeRepo();
+		const singleNoteType = createMockNoteType({ id: "only-note-type" });
+
+		vi.mocked(repo.findByUserId).mockResolvedValue([singleNoteType]);
+
+		const results = await repo.findByUserId("user-123");
+		expect(results).toHaveLength(1);
+		expect(results[0]?.id).toBe("only-note-type");
+	});
+
+	it("maintains consistent ordering across multiple calls", async () => {
+		const repo = createMockNoteTypeRepo();
+
+		const noteType1 = createMockNoteType({
+			id: "note-type-1",
+			createdAt: new Date("2024-01-01"),
+		});
+		const noteType2 = createMockNoteType({
+			id: "note-type-2",
+			createdAt: new Date("2024-02-01"),
+		});
+		const noteType3 = createMockNoteType({
+			id: "note-type-3",
+			createdAt: new Date("2024-03-01"),
+		});
+
+		vi.mocked(repo.findByUserId).mockResolvedValue([
+			noteType1,
+			noteType2,
+			noteType3,
+		]);
+
+		const results1 = await repo.findByUserId("user-123");
+		const results2 = await repo.findByUserId("user-123");
+
+		expect(results1.map((nt) => nt.id)).toEqual(results2.map((nt) => nt.id));
+		expect(results1.map((nt) => nt.id)).toEqual([
+			"note-type-1",
+			"note-type-2",
+			"note-type-3",
+		]);
+	});
+});

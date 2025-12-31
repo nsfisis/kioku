@@ -8,7 +8,8 @@ export const deckRepository: DeckRepository = {
 		const result = await db
 			.select()
 			.from(decks)
-			.where(and(eq(decks.userId, userId), isNull(decks.deletedAt)));
+			.where(and(eq(decks.userId, userId), isNull(decks.deletedAt)))
+			.orderBy(decks.createdAt);
 		return result;
 	},
 
