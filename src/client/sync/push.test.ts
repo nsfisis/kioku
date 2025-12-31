@@ -13,7 +13,13 @@ import {
 	localNoteTypeRepository,
 	localReviewLogRepository,
 } from "../db/repositories";
-import { PushService, pendingChangesToPushData } from "./push";
+import { base64ToBinary } from "./crdt/sync-state";
+import { CrdtEntityType } from "./crdt/types";
+import {
+	generateCrdtChanges,
+	PushService,
+	pendingChangesToPushData,
+} from "./push";
 import type { PendingChanges } from "./queue";
 import { SyncQueue } from "./queue";
 
@@ -61,6 +67,9 @@ function createEmptyPushData(): Omit<
 		noteFieldTypes: [],
 		notes: [],
 		noteFieldValues: [],
+		crdtChanges: expect.any(
+			Array,
+		) as import("./crdt/sync-state").CrdtSyncPayload[],
 	};
 }
 
@@ -1095,5 +1104,431 @@ describe("PushService", () => {
 			const result = await pushService.hasPendingChanges();
 			expect(result).toBe(true);
 		});
+	});
+});
+
+describe("generateCrdtChanges", () => {
+	it("should generate CRDT changes for decks", () => {
+		const changes: PendingChanges = {
+			decks: [
+				{
+					id: "deck-1",
+					userId: "user-1",
+					name: "Test Deck",
+					description: null,
+					newCardsPerDay: 20,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.Deck);
+		expect(crdtChanges[0]?.entityId).toBe("deck-1");
+		expect(crdtChanges[0]?.documentId).toBe("deck:deck-1");
+		expect(crdtChanges[0]?.binary).toBeDefined();
+		// Verify it's valid base64
+		expect(() => base64ToBinary(crdtChanges[0]!.binary)).not.toThrow();
+	});
+
+	it("should generate CRDT changes for cards", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [
+				{
+					id: "card-1",
+					deckId: "deck-1",
+					noteId: "note-1",
+					isReversed: false,
+					front: "Question",
+					back: "Answer",
+					state: CardState.New,
+					due: new Date("2024-01-01T10:00:00Z"),
+					stability: 0,
+					difficulty: 0,
+					elapsedDays: 0,
+					scheduledDays: 0,
+					reps: 0,
+					lapses: 0,
+					lastReview: null,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-01T10:00:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.Card);
+		expect(crdtChanges[0]?.entityId).toBe("card-1");
+		expect(crdtChanges[0]?.documentId).toBe("card:card-1");
+	});
+
+	it("should generate CRDT changes for review logs", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [
+				{
+					id: "log-1",
+					cardId: "card-1",
+					userId: "user-1",
+					rating: Rating.Good,
+					state: CardState.New,
+					scheduledDays: 1,
+					elapsedDays: 0,
+					reviewedAt: new Date("2024-01-02T10:00:00Z"),
+					durationMs: 5000,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.ReviewLog);
+		expect(crdtChanges[0]?.entityId).toBe("log-1");
+		expect(crdtChanges[0]?.documentId).toBe("reviewLog:log-1");
+	});
+
+	it("should generate CRDT changes for note types", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [
+				{
+					id: "note-type-1",
+					userId: "user-1",
+					name: "Basic",
+					frontTemplate: "{{Front}}",
+					backTemplate: "{{Back}}",
+					isReversible: true,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.NoteType);
+		expect(crdtChanges[0]?.entityId).toBe("note-type-1");
+		expect(crdtChanges[0]?.documentId).toBe("noteType:note-type-1");
+	});
+
+	it("should generate CRDT changes for note field types", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [
+				{
+					id: "field-type-1",
+					noteTypeId: "note-type-1",
+					name: "Front",
+					order: 0,
+					fieldType: FieldType.Text,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.NoteFieldType);
+		expect(crdtChanges[0]?.entityId).toBe("field-type-1");
+		expect(crdtChanges[0]?.documentId).toBe("noteFieldType:field-type-1");
+	});
+
+	it("should generate CRDT changes for notes", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [
+				{
+					id: "note-1",
+					deckId: "deck-1",
+					noteTypeId: "note-type-1",
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.Note);
+		expect(crdtChanges[0]?.entityId).toBe("note-1");
+		expect(crdtChanges[0]?.documentId).toBe("note:note-1");
+	});
+
+	it("should generate CRDT changes for note field values", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [
+				{
+					id: "field-value-1",
+					noteId: "note-1",
+					noteFieldTypeId: "field-type-1",
+					value: "What is 2+2?",
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(1);
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.NoteFieldValue);
+		expect(crdtChanges[0]?.entityId).toBe("field-value-1");
+		expect(crdtChanges[0]?.documentId).toBe("noteFieldValue:field-value-1");
+	});
+
+	it("should generate CRDT changes for all entity types in correct order", () => {
+		const changes: PendingChanges = {
+			decks: [
+				{
+					id: "deck-1",
+					userId: "user-1",
+					name: "Test Deck",
+					description: null,
+					newCardsPerDay: 20,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			cards: [
+				{
+					id: "card-1",
+					deckId: "deck-1",
+					noteId: "note-1",
+					isReversed: false,
+					front: "Q",
+					back: "A",
+					state: CardState.New,
+					due: new Date("2024-01-01T10:00:00Z"),
+					stability: 0,
+					difficulty: 0,
+					elapsedDays: 0,
+					scheduledDays: 0,
+					reps: 0,
+					lapses: 0,
+					lastReview: null,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-01T10:00:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			reviewLogs: [
+				{
+					id: "log-1",
+					cardId: "card-1",
+					userId: "user-1",
+					rating: Rating.Good,
+					state: CardState.New,
+					scheduledDays: 1,
+					elapsedDays: 0,
+					reviewedAt: new Date("2024-01-02T10:00:00Z"),
+					durationMs: 5000,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteTypes: [
+				{
+					id: "note-type-1",
+					userId: "user-1",
+					name: "Basic",
+					frontTemplate: "{{Front}}",
+					backTemplate: "{{Back}}",
+					isReversible: false,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteFieldTypes: [
+				{
+					id: "field-type-1",
+					noteTypeId: "note-type-1",
+					name: "Front",
+					order: 0,
+					fieldType: FieldType.Text,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			notes: [
+				{
+					id: "note-1",
+					deckId: "deck-1",
+					noteTypeId: "note-type-1",
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			noteFieldValues: [
+				{
+					id: "field-value-1",
+					noteId: "note-1",
+					noteFieldTypeId: "field-type-1",
+					value: "What is 2+2?",
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(7);
+
+		// Verify order: decks, noteTypes, noteFieldTypes, notes, noteFieldValues, cards, reviewLogs
+		expect(crdtChanges[0]?.entityType).toBe(CrdtEntityType.Deck);
+		expect(crdtChanges[1]?.entityType).toBe(CrdtEntityType.NoteType);
+		expect(crdtChanges[2]?.entityType).toBe(CrdtEntityType.NoteFieldType);
+		expect(crdtChanges[3]?.entityType).toBe(CrdtEntityType.Note);
+		expect(crdtChanges[4]?.entityType).toBe(CrdtEntityType.NoteFieldValue);
+		expect(crdtChanges[5]?.entityType).toBe(CrdtEntityType.Card);
+		expect(crdtChanges[6]?.entityType).toBe(CrdtEntityType.ReviewLog);
+	});
+
+	it("should return empty array for empty pending changes", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const crdtChanges = generateCrdtChanges(changes);
+
+		expect(crdtChanges).toHaveLength(0);
+	});
+});
+
+describe("pendingChangesToPushData with crdtChanges", () => {
+	it("should include crdtChanges in push data", () => {
+		const changes: PendingChanges = {
+			decks: [
+				{
+					id: "deck-1",
+					userId: "user-1",
+					name: "Test Deck",
+					description: null,
+					newCardsPerDay: 20,
+					createdAt: new Date("2024-01-01T10:00:00Z"),
+					updatedAt: new Date("2024-01-02T15:30:00Z"),
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				},
+			],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const pushData = pendingChangesToPushData(changes);
+
+		expect(pushData.crdtChanges).toHaveLength(1);
+		expect(pushData.crdtChanges[0]?.entityType).toBe(CrdtEntityType.Deck);
+		expect(pushData.crdtChanges[0]?.entityId).toBe("deck-1");
+	});
+
+	it("should include empty crdtChanges for empty pending changes", () => {
+		const changes: PendingChanges = {
+			decks: [],
+			cards: [],
+			reviewLogs: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		};
+
+		const pushData = pendingChangesToPushData(changes);
+
+		expect(pushData.crdtChanges).toHaveLength(0);
 	});
 });

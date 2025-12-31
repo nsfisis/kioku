@@ -7,6 +7,17 @@ import type {
 	LocalNoteType,
 	LocalReviewLog,
 } from "../db/index";
+import {
+	crdtCardRepository,
+	crdtDeckRepository,
+	crdtNoteFieldTypeRepository,
+	crdtNoteFieldValueRepository,
+	crdtNoteRepository,
+	crdtNoteTypeRepository,
+	crdtReviewLogRepository,
+} from "./crdt";
+import type { CrdtSyncPayload } from "./crdt/sync-state";
+import { binaryToBase64 } from "./crdt/sync-state";
 import type { PendingChanges, SyncQueue } from "./queue";
 
 /**
@@ -20,6 +31,8 @@ export interface SyncPushData {
 	noteFieldTypes: SyncNoteFieldTypeData[];
 	notes: SyncNoteData[];
 	noteFieldValues: SyncNoteFieldValueData[];
+	/** CRDT document changes for conflict-free sync */
+	crdtChanges: CrdtSyncPayload[];
 }
 
 export interface SyncDeckData {
@@ -255,6 +268,94 @@ function noteFieldValueToSyncData(
 }
 
 /**
+ * Generate CRDT sync payloads from pending changes
+ */
+export function generateCrdtChanges(
+	changes: PendingChanges,
+): CrdtSyncPayload[] {
+	const crdtChanges: CrdtSyncPayload[] = [];
+
+	// Convert decks to CRDT documents
+	for (const deck of changes.decks) {
+		const result = crdtDeckRepository.toCrdtDocument(deck);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtDeckRepository.entityType,
+			entityId: deck.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert note types to CRDT documents
+	for (const noteType of changes.noteTypes) {
+		const result = crdtNoteTypeRepository.toCrdtDocument(noteType);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtNoteTypeRepository.entityType,
+			entityId: noteType.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert note field types to CRDT documents
+	for (const fieldType of changes.noteFieldTypes) {
+		const result = crdtNoteFieldTypeRepository.toCrdtDocument(fieldType);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtNoteFieldTypeRepository.entityType,
+			entityId: fieldType.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert notes to CRDT documents
+	for (const note of changes.notes) {
+		const result = crdtNoteRepository.toCrdtDocument(note);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtNoteRepository.entityType,
+			entityId: note.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert note field values to CRDT documents
+	for (const fieldValue of changes.noteFieldValues) {
+		const result = crdtNoteFieldValueRepository.toCrdtDocument(fieldValue);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtNoteFieldValueRepository.entityType,
+			entityId: fieldValue.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert cards to CRDT documents
+	for (const card of changes.cards) {
+		const result = crdtCardRepository.toCrdtDocument(card);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtCardRepository.entityType,
+			entityId: card.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	// Convert review logs to CRDT documents
+	for (const reviewLog of changes.reviewLogs) {
+		const result = crdtReviewLogRepository.toCrdtDocument(reviewLog);
+		crdtChanges.push({
+			documentId: result.documentId,
+			entityType: crdtReviewLogRepository.entityType,
+			entityId: reviewLog.id,
+			binary: binaryToBase64(result.binary),
+		});
+	}
+
+	return crdtChanges;
+}
+
+/**
  * Convert pending changes to sync push data format
  */
 export function pendingChangesToPushData(
@@ -268,6 +369,7 @@ export function pendingChangesToPushData(
 		noteFieldTypes: changes.noteFieldTypes.map(noteFieldTypeToSyncData),
 		notes: changes.notes.map(noteToSyncData),
 		noteFieldValues: changes.noteFieldValues.map(noteFieldValueToSyncData),
+		crdtChanges: generateCrdtChanges(changes),
 	};
 }
 
