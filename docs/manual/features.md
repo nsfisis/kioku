@@ -8,11 +8,20 @@ A list of features available in Kioku.
 - View all decks at a glance
 - Confirmation dialog before deletion
 
-## Card Management
+## Note Types
 
-- Create, edit, and delete cards within decks
-- Browse all cards in a deck
-- Front/back text fields for flashcards
+- Define custom note structures with configurable fields
+- Built-in note types: "Basic" and "Basic (and reversed card)"
+- Mustache-style templates for card rendering (e.g., `{{Front}}`, `{{Back}}`)
+- Reversible option: automatically generate both normal and reversed cards
+
+## Note & Card Management
+
+- Create notes with dynamic fields based on note type
+- One note can generate multiple cards (e.g., front→back and back→front)
+- Edit note content and all generated cards update automatically
+- Browse cards grouped by note in deck view
+- Independent scheduling: each card maintains its own FSRS state
 
 ## Study Session
 
