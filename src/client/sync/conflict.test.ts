@@ -6,6 +6,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CardState, db } from "../db/index";
 import { localCardRepository, localDeckRepository } from "../db/repositories";
 import { ConflictResolver } from "./conflict";
+import {
+	binaryToBase64,
+	crdtDeckRepository,
+	crdtSyncDb,
+	crdtSyncStateManager,
+} from "./crdt";
 import type { SyncPullResult } from "./pull";
 import type { SyncPushResult } from "./push";
 
@@ -37,6 +43,8 @@ describe("ConflictResolver", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
 		localStorage.clear();
 	});
 
@@ -44,6 +52,8 @@ describe("ConflictResolver", () => {
 		await db.decks.clear();
 		await db.cards.clear();
 		await db.reviewLogs.clear();
+		await crdtSyncDb.syncState.clear();
+		await crdtSyncDb.metadata.clear();
 		localStorage.clear();
 	});
 
@@ -581,7 +591,7 @@ describe("ConflictResolver", () => {
 			expect(localDeck?.name).toBe("Local Only Deck");
 		});
 
-		it("should default to server_wins strategy", async () => {
+		it("should default to crdt strategy", async () => {
 			const deck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Name",
@@ -619,7 +629,8 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(5),
 			};
 
-			// Create resolver without explicit strategy
+			// Create resolver without explicit strategy - defaults to CRDT
+			// Without CRDT data, falls back to server_wins behavior
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
@@ -627,6 +638,260 @@ describe("ConflictResolver", () => {
 
 			const updatedDeck = await localDeckRepository.findById(deck.id);
 			expect(updatedDeck?.name).toBe("Server Name");
+		});
+	});
+
+	describe("CRDT conflict resolution", () => {
+		it("should merge deck using CRDT when crdtChanges are provided", async () => {
+			// Create a local deck
+			const localDeck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Local Deck Name",
+				description: "Local description",
+				newCardsPerDay: 10,
+			});
+
+			// Store local CRDT document
+			const localCrdtResult = crdtDeckRepository.toCrdtDocument(localDeck);
+			await crdtSyncStateManager.setDocumentBinary(
+				"deck",
+				localDeck.id,
+				localCrdtResult.binary,
+				1,
+			);
+
+			// Create a "server" version with different data
+			const serverDeckData = {
+				id: localDeck.id,
+				userId: "user-1",
+				name: "Server Deck Name",
+				description: "Server description",
+				newCardsPerDay: 20,
+				createdAt: localDeck.createdAt,
+				updatedAt: new Date(Date.now() + 1000),
+				deletedAt: null,
+				syncVersion: 5,
+			};
+
+			// Create server CRDT document
+			const serverCrdtResult = crdtDeckRepository.toCrdtDocument({
+				...serverDeckData,
+				_synced: true,
+			});
+
+			const pushResult: SyncPushResult = {
+				decks: [{ id: localDeck.id, syncVersion: 1 }],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [localDeck.id] },
+			};
+
+			const pullResult: SyncPullResult = {
+				decks: [serverDeckData],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPullResult(5),
+				crdtChanges: [
+					{
+						documentId: `deck:${localDeck.id}`,
+						entityType: "deck",
+						entityId: localDeck.id,
+						binary: binaryToBase64(serverCrdtResult.binary),
+					},
+				],
+			};
+
+			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const result = await resolver.resolveConflicts(pushResult, pullResult);
+
+			expect(result.decks).toHaveLength(1);
+			expect(result.decks[0]?.resolution).toBe("server_wins");
+
+			// Verify the CRDT sync state was updated
+			const storedBinary = await crdtSyncStateManager.getDocumentBinary(
+				"deck",
+				localDeck.id,
+			);
+			expect(storedBinary).toBeDefined();
+		});
+
+		it("should fall back to server_wins when CRDT merge fails", async () => {
+			const localDeck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Local Name",
+				description: null,
+				newCardsPerDay: 10,
+			});
+
+			const serverDeck = {
+				id: localDeck.id,
+				userId: "user-1",
+				name: "Server Name",
+				description: null,
+				newCardsPerDay: 20,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 5,
+			};
+
+			const pushResult: SyncPushResult = {
+				decks: [{ id: localDeck.id, syncVersion: 1 }],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [localDeck.id] },
+			};
+
+			const pullResult: SyncPullResult = {
+				decks: [serverDeck],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPullResult(5),
+				crdtChanges: [
+					{
+						documentId: `deck:${localDeck.id}`,
+						entityType: "deck",
+						entityId: localDeck.id,
+						// Invalid base64 - should trigger fallback
+						binary: "invalid-base64-data!!!",
+					},
+				],
+			};
+
+			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const result = await resolver.resolveConflicts(pushResult, pullResult);
+
+			// Should still resolve using fallback
+			expect(result.decks).toHaveLength(1);
+			expect(result.decks[0]?.resolution).toBe("server_wins");
+
+			// Server data should be applied
+			const updatedDeck = await localDeckRepository.findById(localDeck.id);
+			expect(updatedDeck?.name).toBe("Server Name");
+		});
+
+		it("should fall back to server_wins when no CRDT data is available", async () => {
+			const localDeck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Local Name",
+				description: null,
+				newCardsPerDay: 10,
+			});
+
+			const serverDeck = {
+				id: localDeck.id,
+				userId: "user-1",
+				name: "Server Name",
+				description: null,
+				newCardsPerDay: 20,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 5,
+			};
+
+			const pushResult: SyncPushResult = {
+				decks: [{ id: localDeck.id, syncVersion: 1 }],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [localDeck.id] },
+			};
+
+			// No crdtChanges in pull result
+			const pullResult: SyncPullResult = {
+				decks: [serverDeck],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPullResult(5),
+			};
+
+			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const result = await resolver.resolveConflicts(pushResult, pullResult);
+
+			expect(result.decks).toHaveLength(1);
+			expect(result.decks[0]?.resolution).toBe("server_wins");
+
+			const updatedDeck = await localDeckRepository.findById(localDeck.id);
+			expect(updatedDeck?.name).toBe("Server Name");
+		});
+
+		it("should use CRDT to merge when local has no existing CRDT document", async () => {
+			// Create a local deck without a CRDT document
+			const localDeck = await localDeckRepository.create({
+				userId: "user-1",
+				name: "Local Name",
+				description: null,
+				newCardsPerDay: 10,
+			});
+
+			const serverDeck = {
+				id: localDeck.id,
+				userId: "user-1",
+				name: "Server Name",
+				description: null,
+				newCardsPerDay: 20,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 5,
+			};
+
+			// Create server CRDT document
+			const serverCrdtResult = crdtDeckRepository.toCrdtDocument({
+				...serverDeck,
+				_synced: true,
+			});
+
+			const pushResult: SyncPushResult = {
+				decks: [{ id: localDeck.id, syncVersion: 1 }],
+				cards: [],
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: [],
+				noteFieldValues: [],
+				conflicts: { ...createEmptyConflicts(), decks: [localDeck.id] },
+			};
+
+			const pullResult: SyncPullResult = {
+				decks: [serverDeck],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPullResult(5),
+				crdtChanges: [
+					{
+						documentId: `deck:${localDeck.id}`,
+						entityType: "deck",
+						entityId: localDeck.id,
+						binary: binaryToBase64(serverCrdtResult.binary),
+					},
+				],
+			};
+
+			const resolver = new ConflictResolver({ strategy: "crdt" });
+			const result = await resolver.resolveConflicts(pushResult, pullResult);
+
+			expect(result.decks).toHaveLength(1);
+			expect(result.decks[0]?.resolution).toBe("server_wins");
+
+			// Verify CRDT document was stored
+			const storedBinary = await crdtSyncStateManager.getDocumentBinary(
+				"deck",
+				localDeck.id,
+			);
+			expect(storedBinary).toBeDefined();
 		});
 	});
 });

@@ -1140,7 +1140,10 @@ describe("generateCrdtChanges", () => {
 		expect(crdtChanges[0]?.documentId).toBe("deck:deck-1");
 		expect(crdtChanges[0]?.binary).toBeDefined();
 		// Verify it's valid base64
-		expect(() => base64ToBinary(crdtChanges[0]!.binary)).not.toThrow();
+		const binary = crdtChanges[0]?.binary;
+		if (binary) {
+			expect(() => base64ToBinary(binary)).not.toThrow();
+		}
 	});
 
 	it("should generate CRDT changes for cards", () => {
