@@ -16,6 +16,9 @@ global.fetch = mockFetch;
 vi.mock("../api/client", () => ({
 	apiClient: {
 		getAuthHeader: vi.fn(() => ({ Authorization: "Bearer token" })),
+		authenticatedFetch: vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+			mockFetch(input, init),
+		),
 	},
 }));
 

@@ -108,15 +108,9 @@ interface PullResponse {
 }
 
 async function pushToServer(data: SyncPushData): Promise<SyncPushResult> {
-	const authHeader = apiClient.getAuthHeader();
-	if (!authHeader) {
-		throw new Error("Not authenticated");
-	}
-
-	const res = await fetch("/api/sync/push", {
+	const res = await apiClient.authenticatedFetch("/api/sync/push", {
 		method: "POST",
 		headers: {
-			...authHeader,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(data),
@@ -135,14 +129,9 @@ async function pushToServer(data: SyncPushData): Promise<SyncPushResult> {
 async function pullFromServer(
 	lastSyncVersion: number,
 ): Promise<SyncPullResult> {
-	const authHeader = apiClient.getAuthHeader();
-	if (!authHeader) {
-		throw new Error("Not authenticated");
-	}
-
-	const res = await fetch(`/api/sync/pull?lastSyncVersion=${lastSyncVersion}`, {
-		headers: authHeader,
-	});
+	const res = await apiClient.authenticatedFetch(
+		`/api/sync/pull?lastSyncVersion=${lastSyncVersion}`,
+	);
 
 	if (!res.ok) {
 		const errorBody = (await res.json().catch(() => ({}))) as {

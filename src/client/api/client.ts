@@ -61,12 +61,50 @@ export function createClient(baseUrl: string): Client {
 export class ApiClient {
 	private tokenStorage: TokenStorage;
 	private refreshPromise: Promise<boolean> | null = null;
+	private baseUrl: string;
 	public readonly rpc: Client;
 
 	constructor(options: ApiClientOptions = {}) {
-		const baseUrl = options.baseUrl ?? window.location.origin;
+		this.baseUrl = options.baseUrl ?? window.location.origin;
 		this.tokenStorage = options.tokenStorage ?? localStorageTokenStorage;
-		this.rpc = createClient(baseUrl);
+		this.rpc = this.createAuthenticatedClient();
+	}
+
+	private createAuthenticatedClient(): Client {
+		return hc<AppType>(this.baseUrl, {
+			fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+				return this.authenticatedFetch(input, init);
+			},
+		});
+	}
+
+	async authenticatedFetch(
+		input: RequestInfo | URL,
+		init?: RequestInit,
+	): Promise<Response> {
+		const tokens = this.tokenStorage.getTokens();
+		const headers = new Headers(init?.headers);
+
+		if (tokens?.accessToken && !headers.has("Authorization")) {
+			headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+		}
+
+		const response = await fetch(input, { ...init, headers });
+
+		if (response.status === 401 && tokens?.refreshToken) {
+			// Try to refresh the token
+			const refreshed = await this.refreshToken();
+			if (refreshed) {
+				// Retry with new token
+				const newTokens = this.tokenStorage.getTokens();
+				if (newTokens?.accessToken) {
+					headers.set("Authorization", `Bearer ${newTokens.accessToken}`);
+				}
+				return fetch(input, { ...init, headers });
+			}
+		}
+
+		return response;
 	}
 
 	private async handleResponse<T>(response: Response): Promise<T> {
@@ -108,15 +146,25 @@ export class ApiClient {
 		}
 
 		try {
-			const res = await this.rpc.api.auth.refresh.$post({
-				json: { refreshToken: tokens.refreshToken },
+			// Use raw fetch to avoid infinite loop through authenticatedFetch
+			const res = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ refreshToken: tokens.refreshToken }),
 			});
 
 			if (!res.ok) {
+				// Clear tokens if refresh fails
+				this.tokenStorage.clearTokens();
 				return false;
 			}
 
-			const data = await res.json();
+			const data = (await res.json()) as {
+				accessToken: string;
+				refreshToken: string;
+			};
 			this.tokenStorage.setTokens({
 				accessToken: data.accessToken,
 				refreshToken: data.refreshToken,
