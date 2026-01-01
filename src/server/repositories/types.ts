@@ -310,6 +310,21 @@ export interface CreateNoteResult {
 	cards: Card[];
 }
 
+export interface BulkCreateNoteInput {
+	noteTypeId: string;
+	fields: Record<string, string>;
+}
+
+export interface BulkCreateNoteFailure {
+	index: number;
+	error: string;
+}
+
+export interface BulkCreateNoteResult {
+	created: number;
+	failed: BulkCreateNoteFailure[];
+}
+
 export interface NoteRepository {
 	findByDeckId(deckId: string): Promise<Note[]>;
 	findById(id: string, deckId: string): Promise<Note | undefined>;
@@ -330,4 +345,8 @@ export interface NoteRepository {
 		fields: Record<string, string>,
 	): Promise<NoteWithFieldValues | undefined>;
 	softDelete(id: string, deckId: string): Promise<boolean>;
+	createMany(
+		deckId: string,
+		notes: BulkCreateNoteInput[],
+	): Promise<BulkCreateNoteResult>;
 }

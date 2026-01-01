@@ -9,6 +9,8 @@ import {
 	noteTypes,
 } from "../db/schema.js";
 import type {
+	BulkCreateNoteInput,
+	BulkCreateNoteResult,
 	Card,
 	CreateNoteResult,
 	Note,
@@ -264,6 +266,129 @@ export const noteRepository: NoteRepository = {
 			.returning({ id: notes.id });
 
 		return result.length > 0;
+	},
+
+	async createMany(
+		deckId: string,
+		notesInput: BulkCreateNoteInput[],
+	): Promise<BulkCreateNoteResult> {
+		const failed: { index: number; error: string }[] = [];
+		let created = 0;
+
+		// Pre-fetch all note types and their field types for validation
+		const noteTypeCache = new Map<
+			string,
+			{
+				noteType: {
+					frontTemplate: string;
+					backTemplate: string;
+					isReversible: boolean;
+				};
+				fieldTypes: { id: string; name: string }[];
+			}
+		>();
+
+		for (let i = 0; i < notesInput.length; i++) {
+			const input = notesInput[i];
+			if (!input) continue;
+
+			try {
+				// Get note type from cache or fetch
+				let cached = noteTypeCache.get(input.noteTypeId);
+				if (!cached) {
+					const noteType = await db
+						.select()
+						.from(noteTypes)
+						.where(
+							and(
+								eq(noteTypes.id, input.noteTypeId),
+								isNull(noteTypes.deletedAt),
+							),
+						);
+
+					if (!noteType[0]) {
+						failed.push({ index: i, error: "Note type not found" });
+						continue;
+					}
+
+					const fieldTypes = await db
+						.select()
+						.from(noteFieldTypes)
+						.where(
+							and(
+								eq(noteFieldTypes.noteTypeId, input.noteTypeId),
+								isNull(noteFieldTypes.deletedAt),
+							),
+						)
+						.orderBy(noteFieldTypes.order);
+
+					cached = { noteType: noteType[0], fieldTypes };
+					noteTypeCache.set(input.noteTypeId, cached);
+				}
+
+				// Create note
+				const [note] = await db
+					.insert(notes)
+					.values({
+						deckId,
+						noteTypeId: input.noteTypeId,
+					})
+					.returning();
+
+				if (!note) {
+					failed.push({ index: i, error: "Failed to create note" });
+					continue;
+				}
+
+				// Create field values
+				const fieldValuesResult: NoteFieldValue[] = [];
+				for (const fieldType of cached.fieldTypes) {
+					const value = input.fields[fieldType.id] ?? "";
+					const [fieldValue] = await db
+						.insert(noteFieldValues)
+						.values({
+							noteId: note.id,
+							noteFieldTypeId: fieldType.id,
+							value,
+						})
+						.returning();
+					if (fieldValue) {
+						fieldValuesResult.push(fieldValue);
+					}
+				}
+
+				// Create normal card
+				await createCardForNote(
+					deckId,
+					note.id,
+					cached.noteType,
+					fieldValuesResult,
+					cached.fieldTypes,
+					false,
+				);
+
+				// Create reversed card if reversible
+				if (cached.noteType.isReversible) {
+					await createCardForNote(
+						deckId,
+						note.id,
+						cached.noteType,
+						fieldValuesResult,
+						cached.fieldTypes,
+						true,
+					);
+				}
+
+				created++;
+			} catch (error) {
+				failed.push({
+					index: i,
+					error: error instanceof Error ? error.message : "Unknown error",
+				});
+			}
+		}
+
+		return { created, failed };
 	},
 };
 

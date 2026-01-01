@@ -8,7 +8,11 @@ import {
 	type NoteRepository,
 	noteRepository,
 } from "../repositories/index.js";
-import { createNoteSchema, updateNoteSchema } from "../schemas/index.js";
+import {
+	bulkCreateNotesSchema,
+	createNoteSchema,
+	updateNoteSchema,
+} from "../schemas/index.js";
 
 export interface NoteDependencies {
 	noteRepo: NoteRepository;
@@ -84,6 +88,32 @@ export function createNotesRouter(deps: NoteDependencies) {
 						}
 						throw error;
 					}
+				},
+			)
+			// Bulk import notes
+			.post(
+				"/import",
+				zValidator("param", deckIdParamSchema),
+				zValidator("json", bulkCreateNotesSchema),
+				async (c) => {
+					const user = getAuthUser(c);
+					const { deckId } = c.req.valid("param");
+					const data = c.req.valid("json");
+
+					const deck = await deckRepo.findById(deckId, user.id);
+					if (!deck) {
+						throw Errors.notFound("Deck not found", "DECK_NOT_FOUND");
+					}
+
+					const result = await noteRepo.createMany(deckId, data.notes);
+
+					return c.json(
+						{
+							created: result.created,
+							failed: result.failed,
+						},
+						201,
+					);
 				},
 			)
 			// Get note with field values

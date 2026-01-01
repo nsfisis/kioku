@@ -2,6 +2,7 @@ import {
 	faChevronLeft,
 	faCirclePlay,
 	faFile,
+	faFileImport,
 	faLayerGroup,
 	faPen,
 	faPlus,
@@ -17,6 +18,7 @@ import { DeleteCardModal } from "../components/DeleteCardModal";
 import { DeleteNoteModal } from "../components/DeleteNoteModal";
 import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
+import { ImportNotesModal } from "../components/ImportNotesModal";
 
 interface Card {
 	id: string;
@@ -183,6 +185,7 @@ export function DeckDetailPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 	const [editingCard, setEditingCard] = useState<Card | null>(null);
 	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
@@ -397,18 +400,32 @@ export function DeckDetailPage() {
 								Cards{" "}
 								<span className="text-muted font-normal">({cards.length})</span>
 							</h2>
-							<button
-								type="button"
-								onClick={() => setIsCreateModalOpen(true)}
-								className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
-							>
-								<FontAwesomeIcon
-									icon={faPlus}
-									className="w-5 h-5"
-									aria-hidden="true"
-								/>
-								Add Note
-							</button>
+							<div className="flex items-center gap-2">
+								<button
+									type="button"
+									onClick={() => setIsImportModalOpen(true)}
+									className="inline-flex items-center gap-2 border border-border hover:bg-ivory text-slate font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
+								>
+									<FontAwesomeIcon
+										icon={faFileImport}
+										className="w-5 h-5"
+										aria-hidden="true"
+									/>
+									Import CSV
+								</button>
+								<button
+									type="button"
+									onClick={() => setIsCreateModalOpen(true)}
+									className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
+								>
+									<FontAwesomeIcon
+										icon={faPlus}
+										className="w-5 h-5"
+										aria-hidden="true"
+									/>
+									Add Note
+								</button>
+							</div>
 						</div>
 
 						{/* Empty State */}
@@ -468,6 +485,15 @@ export function DeckDetailPage() {
 					deckId={deckId}
 					onClose={() => setIsCreateModalOpen(false)}
 					onNoteCreated={fetchCards}
+				/>
+			)}
+
+			{deckId && (
+				<ImportNotesModal
+					isOpen={isImportModalOpen}
+					deckId={deckId}
+					onClose={() => setIsImportModalOpen(false)}
+					onImportComplete={fetchCards}
 				/>
 			)}
 

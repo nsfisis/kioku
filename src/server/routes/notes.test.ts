@@ -23,6 +23,7 @@ function createMockNoteRepo(): NoteRepository {
 		create: vi.fn(),
 		update: vi.fn(),
 		softDelete: vi.fn(),
+		createMany: vi.fn(),
 	};
 }
 

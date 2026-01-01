@@ -12,6 +12,7 @@ A spaced repetition learning application (Anki clone).
 - Spaced Repetition: FSRS algorithm for optimal learning scheduling
 - Offline Support: Full PWA with IndexedDB local storage
 - Cloud Sync: Automatic sync when online with conflict resolution
+- CSV Import: Bulk import notes from CSV files
 
 ## Development Setup
 

@@ -186,6 +186,16 @@ export const updateNoteSchema = z.object({
 	fields: z.record(z.uuid(), z.string()),
 });
 
+// Bulk note import input schema
+export const bulkCreateNotesSchema = z.object({
+	notes: z.array(
+		z.object({
+			noteTypeId: z.uuid(),
+			fields: z.record(z.uuid(), z.string()),
+		}),
+	),
+});
+
 // NoteFieldValue schema
 export const noteFieldValueSchema = z.object({
 	id: z.uuid(),
@@ -244,4 +254,5 @@ export type UpdateNoteFieldTypeSchema = z.infer<
 export type NoteSchema = z.infer<typeof noteSchema>;
 export type CreateNoteSchema = z.infer<typeof createNoteSchema>;
 export type UpdateNoteSchema = z.infer<typeof updateNoteSchema>;
+export type BulkCreateNotesSchema = z.infer<typeof bulkCreateNotesSchema>;
 export type NoteFieldValueSchema = z.infer<typeof noteFieldValueSchema>;
