@@ -22,7 +22,7 @@ A list of features available in Kioku.
 - Edit note content and all generated cards update automatically
 - Browse cards grouped by note in deck view
 - Independent scheduling: each card maintains its own FSRS state
-- CSV import: Bulk import notes from CSV files
+- CSV import: Bulk import notes from CSV files ([details](csv-import.md))
 
 ## Study Session
 
