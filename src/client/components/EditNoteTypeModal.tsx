@@ -160,15 +160,15 @@ export function EditNoteTypeModal({
 							>
 								Front Template
 							</label>
-							<input
+							<textarea
 								id="edit-front-template"
-								type="text"
 								value={frontTemplate}
 								onChange={(e) => setFrontTemplate(e.target.value)}
 								required
 								maxLength={1000}
 								disabled={isSubmitting}
-								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted font-mono text-sm transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+								rows={3}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted font-mono text-sm transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
 							/>
 							<p className="text-muted text-xs mt-1">
 								Use {"{{FieldName}}"} to insert field values
@@ -182,15 +182,15 @@ export function EditNoteTypeModal({
 							>
 								Back Template
 							</label>
-							<input
+							<textarea
 								id="edit-back-template"
-								type="text"
 								value={backTemplate}
 								onChange={(e) => setBackTemplate(e.target.value)}
 								required
 								maxLength={1000}
 								disabled={isSubmitting}
-								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted font-mono text-sm transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+								rows={3}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted font-mono text-sm transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed resize-y"
 							/>
 						</div>
 
