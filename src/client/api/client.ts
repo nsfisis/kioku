@@ -58,16 +58,26 @@ export function createClient(baseUrl: string): Client {
 	return hc<AppType>(baseUrl);
 }
 
+export type SessionExpiredCallback = () => void;
+
 export class ApiClient {
 	private tokenStorage: TokenStorage;
 	private refreshPromise: Promise<boolean> | null = null;
 	private baseUrl: string;
+	private sessionExpiredCallback: SessionExpiredCallback | null = null;
 	public readonly rpc: Client;
 
 	constructor(options: ApiClientOptions = {}) {
 		this.baseUrl = options.baseUrl ?? window.location.origin;
 		this.tokenStorage = options.tokenStorage ?? localStorageTokenStorage;
 		this.rpc = this.createAuthenticatedClient();
+	}
+
+	onSessionExpired(callback: SessionExpiredCallback): () => void {
+		this.sessionExpiredCallback = callback;
+		return () => {
+			this.sessionExpiredCallback = null;
+		};
 	}
 
 	private createAuthenticatedClient(): Client {
@@ -156,8 +166,9 @@ export class ApiClient {
 			});
 
 			if (!res.ok) {
-				// Clear tokens if refresh fails
+				// Clear tokens if refresh fails and notify listeners
 				this.tokenStorage.clearTokens();
+				this.sessionExpiredCallback?.();
 				return false;
 			}
 

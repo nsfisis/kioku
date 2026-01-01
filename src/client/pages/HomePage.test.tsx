@@ -18,6 +18,7 @@ vi.mock("../api/client", () => ({
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
+		onSessionExpired: vi.fn(() => vi.fn()),
 		rpc: {
 			api: {
 				decks: {

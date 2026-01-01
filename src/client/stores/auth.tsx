@@ -31,6 +31,15 @@ export interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
 	const [user, setUser] = useState<User | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isAuthenticated, setIsAuthenticated] = useState(
+		apiClient.isAuthenticated(),
+	);
+
+	const logout = useCallback(() => {
+		apiClient.logout();
+		setUser(null);
+		setIsAuthenticated(false);
+	}, []);
 
 	// Check for existing auth on mount
 	useEffect(() => {
@@ -45,17 +54,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 		}
 	}, []);
 
+	// Subscribe to session expired events from the API client
+	useEffect(() => {
+		return apiClient.onSessionExpired(() => {
+			logout();
+		});
+	}, [logout]);
+
 	const login = useCallback(async (username: string, password: string) => {
 		const response = await apiClient.login(username, password);
 		setUser(response.user);
+		setIsAuthenticated(true);
 	}, []);
-
-	const logout = useCallback(() => {
-		apiClient.logout();
-		setUser(null);
-	}, []);
-
-	const isAuthenticated = apiClient.isAuthenticated();
 
 	const value = useMemo<AuthContextValue>(
 		() => ({

@@ -14,6 +14,7 @@ vi.mock("../api/client", () => ({
 		logout: vi.fn(),
 		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
+		onSessionExpired: vi.fn(() => vi.fn()),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
