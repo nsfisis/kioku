@@ -42,25 +42,10 @@ export function NoteTypesPage() {
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch("/api/note-types", {
-				headers: authHeader,
-			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const res = await apiClient.rpc.api["note-types"].$get();
+			const data = await apiClient.handleResponse<{ noteTypes: NoteType[] }>(
+				res,
+			);
 			setNoteTypes(data.noteTypes);
 		} catch (err) {
 			if (err instanceof ApiClientError) {

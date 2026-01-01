@@ -68,50 +68,20 @@ export function StudyPage() {
 	const fetchDeck = useCallback(async () => {
 		if (!deckId) return;
 
-		const authHeader = apiClient.getAuthHeader();
-		if (!authHeader) {
-			throw new ApiClientError("Not authenticated", 401);
-		}
-
-		const res = await fetch(`/api/decks/${deckId}`, {
-			headers: authHeader,
+		const res = await apiClient.rpc.api.decks[":id"].$get({
+			param: { id: deckId },
 		});
-
-		if (!res.ok) {
-			const errorBody = await res.json().catch(() => ({}));
-			throw new ApiClientError(
-				(errorBody as { error?: string }).error ||
-					`Request failed with status ${res.status}`,
-				res.status,
-			);
-		}
-
-		const data = await res.json();
+		const data = await apiClient.handleResponse<{ deck: Deck }>(res);
 		setDeck(data.deck);
 	}, [deckId]);
 
 	const fetchDueCards = useCallback(async () => {
 		if (!deckId) return;
 
-		const authHeader = apiClient.getAuthHeader();
-		if (!authHeader) {
-			throw new ApiClientError("Not authenticated", 401);
-		}
-
-		const res = await fetch(`/api/decks/${deckId}/study`, {
-			headers: authHeader,
+		const res = await apiClient.rpc.api.decks[":deckId"].study.$get({
+			param: { deckId },
 		});
-
-		if (!res.ok) {
-			const errorBody = await res.json().catch(() => ({}));
-			throw new ApiClientError(
-				(errorBody as { error?: string }).error ||
-					`Request failed with status ${res.status}`,
-				res.status,
-			);
-		}
-
-		const data = await res.json();
+		const data = await apiClient.handleResponse<{ cards: Card[] }>(res);
 		setCards(data.cards);
 	}, [deckId]);
 
@@ -158,31 +128,13 @@ export function StudyPage() {
 			const durationMs = Date.now() - cardStartTimeRef.current;
 
 			try {
-				const authHeader = apiClient.getAuthHeader();
-				if (!authHeader) {
-					throw new ApiClientError("Not authenticated", 401);
-				}
-
-				const res = await fetch(
-					`/api/decks/${deckId}/study/${currentCard.id}`,
-					{
-						method: "POST",
-						headers: {
-							...authHeader,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({ rating, durationMs }),
-					},
-				);
-
-				if (!res.ok) {
-					const errorBody = await res.json().catch(() => ({}));
-					throw new ApiClientError(
-						(errorBody as { error?: string }).error ||
-							`Request failed with status ${res.status}`,
-						res.status,
-					);
-				}
+				const res = await apiClient.rpc.api.decks[":deckId"].study[
+					":cardId"
+				].$post({
+					param: { deckId, cardId: currentCard.id },
+					json: { rating, durationMs },
+				});
+				await apiClient.handleResponse(res);
 
 				setCompletedCount((prev) => prev + 1);
 				setIsFlipped(false);

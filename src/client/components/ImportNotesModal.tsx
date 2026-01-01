@@ -73,34 +73,21 @@ export function ImportNotesModal({
 
 	const fetchNoteTypes = useCallback(async () => {
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch("/api/note-types", {
-				headers: authHeader,
-			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const res = await apiClient.rpc.api["note-types"].$get();
+			const data = await apiClient.handleResponse<{
+				noteTypes: { id: string; name: string }[];
+			}>(res);
 
 			// Fetch details for each note type to get fields
 			const noteTypesWithFields: NoteType[] = [];
 			for (const nt of data.noteTypes) {
-				const detailRes = await fetch(`/api/note-types/${nt.id}`, {
-					headers: authHeader,
+				const detailRes = await apiClient.rpc.api["note-types"][":id"].$get({
+					param: { id: nt.id },
 				});
 				if (detailRes.ok) {
-					const detailData = await detailRes.json();
+					const detailData = await apiClient.handleResponse<{
+						noteType: NoteType;
+					}>(detailRes);
 					noteTypesWithFields.push(detailData.noteType);
 				}
 			}
@@ -247,35 +234,16 @@ export function ImportNotesModal({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deckId}/notes/import`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api.decks[":deckId"].notes.import.$post({
+				param: { deckId },
+				json: {
 					notes: validatedRows.map((row) => ({
 						noteTypeId: row.noteTypeId,
 						fields: row.fields,
 					})),
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const result = await res.json();
+			const result = await apiClient.handleResponse<ImportResult>(res);
 			setImportResult(result);
 			setPhase("complete");
 			onImportComplete();

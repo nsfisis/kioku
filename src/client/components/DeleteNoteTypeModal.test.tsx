@@ -4,11 +4,22 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				"note-types": {
+					":id": {
+						$delete: (args: unknown) => mockDelete(args),
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +33,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { DeleteNoteTypeModal } from "./DeleteNoteTypeModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("DeleteNoteTypeModal", () => {
 	const mockNoteType = {
@@ -44,9 +52,8 @@ describe("DeleteNoteTypeModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockDelete.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({});
 	});
 
 	afterEach(() => {
@@ -128,11 +135,6 @@ describe("DeleteNoteTypeModal", () => {
 		const onClose = vi.fn();
 		const onNoteTypeDeleted = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ success: true }),
-		});
-
 		render(
 			<DeleteNoteTypeModal
 				isOpen={true}
@@ -145,11 +147,8 @@ describe("DeleteNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-123", {
-				method: "DELETE",
-				headers: {
-					Authorization: "Bearer access-token",
-				},
+			expect(mockDelete).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
 			});
 		});
 
@@ -160,7 +159,7 @@ describe("DeleteNoteTypeModal", () => {
 	it("shows loading state during deletion", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -180,11 +179,9 @@ describe("DeleteNoteTypeModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Note type not found" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Note type not found", 404),
+		);
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -200,13 +197,9 @@ describe("DeleteNoteTypeModal", () => {
 	it("displays conflict error when notes exist", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 409,
-			json: async () => ({
-				error: "Cannot delete note type with existing notes",
-			}),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Cannot delete note type with existing notes", 409),
+		);
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -222,7 +215,7 @@ describe("DeleteNoteTypeModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockDelete.mockRejectedValue(new Error("Network error"));
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -235,10 +228,12 @@ describe("DeleteNoteTypeModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -255,11 +250,7 @@ describe("DeleteNoteTypeModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
 
 		const { rerender } = render(
 			<DeleteNoteTypeModal {...defaultProps} onClose={onClose} />,

@@ -4,11 +4,22 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockPut = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					":id": {
+						$put: (args: unknown) => mockPut(args),
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +33,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { EditDeckModal } from "./EditDeckModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("EditDeckModal", () => {
 	const mockDeck = {
@@ -46,8 +54,14 @@ describe("EditDeckModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
+		mockPut.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({
+			deck: {
+				id: "deck-123",
+				name: "Test Deck",
+				description: "Test description",
+				newCardsPerDay: 20,
+			},
 		});
 	});
 
@@ -155,18 +169,6 @@ describe("EditDeckModal", () => {
 		const onClose = vi.fn();
 		const onDeckUpdated = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				deck: {
-					id: "deck-123",
-					name: "Updated Deck",
-					description: "Test description",
-					newCardsPerDay: 20,
-				},
-			}),
-		});
-
 		render(
 			<EditDeckModal
 				isOpen={true}
@@ -182,16 +184,12 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "deck-123" },
+				json: {
 					name: "Updated Deck",
 					description: "Test description",
-				}),
+				},
 			});
 		});
 
@@ -203,18 +201,6 @@ describe("EditDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onDeckUpdated = vi.fn();
-
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				deck: {
-					id: "deck-123",
-					name: "Test Deck",
-					description: "New description",
-					newCardsPerDay: 20,
-				},
-			}),
-		});
 
 		render(
 			<EditDeckModal
@@ -231,16 +217,12 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "deck-123" },
+				json: {
 					name: "Test Deck",
 					description: "New description",
-				}),
+				},
 			});
 		});
 
@@ -251,18 +233,6 @@ describe("EditDeckModal", () => {
 	it("clears description when input is emptied", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				deck: {
-					id: "deck-123",
-					name: "Test Deck",
-					description: null,
-					newCardsPerDay: 20,
-				},
-			}),
-		});
-
 		render(<EditDeckModal {...defaultProps} />);
 
 		const descInput = screen.getByLabelText("Description (optional)");
@@ -270,27 +240,18 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "deck-123" },
+				json: {
 					name: "Test Deck",
 					description: null,
-				}),
+				},
 			});
 		});
 	});
 
 	it("trims whitespace from name and description", async () => {
 		const user = userEvent.setup();
-
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ deck: { id: "deck-123" } }),
-		});
 
 		const deckWithWhitespace = {
 			...mockDeck,
@@ -302,16 +263,12 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "deck-123" },
+				json: {
 					name: "Deck",
 					description: "Description",
-				}),
+				},
 			});
 		});
 	});
@@ -319,7 +276,7 @@ describe("EditDeckModal", () => {
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockPut.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -344,11 +301,9 @@ describe("EditDeckModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 400,
-			json: async () => ({ error: "Deck name already exists" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Deck name already exists", 400),
+		);
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -364,7 +319,7 @@ describe("EditDeckModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockPut.mockRejectedValue(new Error("Network error"));
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -377,10 +332,12 @@ describe("EditDeckModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -419,11 +376,7 @@ describe("EditDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 400,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 400));
 
 		const { rerender } = render(
 			<EditDeckModal {...defaultProps} onClose={onClose} />,

@@ -34,24 +34,10 @@ export function DeleteNoteTypeModal({
 		setIsDeleting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteType.id}`, {
-				method: "DELETE",
-				headers: authHeader,
+			const res = await apiClient.rpc.api["note-types"][":id"].$delete({
+				param: { id: noteType.id },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onNoteTypeDeleted();
 			onClose();

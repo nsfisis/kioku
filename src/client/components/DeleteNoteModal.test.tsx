@@ -4,12 +4,26 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
-import { DeleteNoteModal } from "./DeleteNoteModal";
+
+const mockDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					":deckId": {
+						notes: {
+							":noteId": {
+								$delete: (args: unknown) => mockDelete(args),
+							},
+						},
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -23,8 +37,8 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+import { ApiClientError } from "../api/client";
+import { DeleteNoteModal } from "./DeleteNoteModal";
 
 describe("DeleteNoteModal", () => {
 	const defaultProps = {
@@ -37,9 +51,8 @@ describe("DeleteNoteModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockDelete.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({});
 	});
 
 	afterEach(() => {
@@ -125,11 +138,6 @@ describe("DeleteNoteModal", () => {
 		const onClose = vi.fn();
 		const onNoteDeleted = vi.fn();
 
-		mockFetch.mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ success: true }),
-		});
-
 		render(
 			<DeleteNoteModal
 				{...defaultProps}
@@ -141,9 +149,8 @@ describe("DeleteNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/notes/note-1", {
-				method: "DELETE",
-				headers: { Authorization: "Bearer access-token" },
+			expect(mockDelete).toHaveBeenCalledWith({
+				param: { deckId: "deck-1", noteId: "note-1" },
 			});
 		});
 
@@ -154,11 +161,9 @@ describe("DeleteNoteModal", () => {
 	it("displays error message when delete fails", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValueOnce({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "Failed to delete note" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Failed to delete note", 500),
+		);
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
@@ -175,12 +180,7 @@ describe("DeleteNoteModal", () => {
 		const user = userEvent.setup();
 
 		// Create a promise that we can control
-		let resolveDelete: ((value: unknown) => void) | undefined;
-		const deletePromise = new Promise((resolve) => {
-			resolveDelete = resolve;
-		});
-
-		mockFetch.mockReturnValueOnce(deletePromise);
+		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
@@ -188,24 +188,13 @@ describe("DeleteNoteModal", () => {
 
 		// Should show "Deleting..." while request is in progress
 		expect(screen.getByText("Deleting...")).toBeDefined();
-
-		// Resolve the delete request to cleanup
-		resolveDelete?.({
-			ok: true,
-			json: async () => ({ success: true }),
-		});
 	});
 
 	it("disables buttons while deleting", async () => {
 		const user = userEvent.setup();
 
 		// Create a promise that we can control
-		let resolveDelete: ((value: unknown) => void) | undefined;
-		const deletePromise = new Promise((resolve) => {
-			resolveDelete = resolve;
-		});
-
-		mockFetch.mockReturnValueOnce(deletePromise);
+		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
@@ -220,11 +209,5 @@ describe("DeleteNoteModal", () => {
 			"disabled",
 			true,
 		);
-
-		// Resolve the delete request to cleanup
-		resolveDelete?.({
-			ok: true,
-			json: async () => ({ success: true }),
-		});
 	});
 });

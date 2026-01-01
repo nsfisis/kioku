@@ -53,25 +53,10 @@ export function CreateNoteModal({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteTypeId}`, {
-				headers: authHeader,
+			const res = await apiClient.rpc.api["note-types"][":id"].$get({
+				param: { id: noteTypeId },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const data = await apiClient.handleResponse<{ noteType: NoteType }>(res);
 			setSelectedNoteType(data.noteType);
 
 			// Initialize field values for the new note type
@@ -96,31 +81,17 @@ export function CreateNoteModal({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch("/api/note-types", {
-				headers: authHeader,
-			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const res = await apiClient.rpc.api["note-types"].$get();
+			const data = await apiClient.handleResponse<{
+				noteTypes: NoteTypeSummary[];
+			}>(res);
 			setNoteTypes(data.noteTypes);
 			setHasLoadedNoteTypes(true);
 
 			// Auto-select first note type if available
-			if (data.noteTypes.length > 0) {
-				await fetchNoteTypeDetails(data.noteTypes[0].id);
+			const firstNoteType = data.noteTypes[0];
+			if (firstNoteType) {
+				await fetchNoteTypeDetails(firstNoteType.id);
 			}
 		} catch (err) {
 			if (err instanceof ApiClientError) {
@@ -183,37 +154,20 @@ export function CreateNoteModal({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
 			// Trim all field values
 			const trimmedFields: Record<string, string> = {};
 			for (const [fieldId, value] of Object.entries(fieldValues)) {
 				trimmedFields[fieldId] = value.trim();
 			}
 
-			const res = await fetch(`/api/decks/${deckId}/notes`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api.decks[":deckId"].notes.$post({
+				param: { deckId },
+				json: {
 					noteTypeId: selectedNoteType.id,
 					fields: trimmedFields,
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			resetForm();
 			onNoteCreated();

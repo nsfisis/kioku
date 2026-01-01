@@ -48,31 +48,14 @@ export function EditDeckModal({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deck.id}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api.decks[":id"].$put({
+				param: { id: deck.id },
+				json: {
 					name: name.trim(),
 					description: description.trim() || null,
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onDeckUpdated();
 			onClose();

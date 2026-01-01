@@ -4,11 +4,26 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockPut = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					":deckId": {
+						cards: {
+							":cardId": {
+								$put: (args: unknown) => mockPut(args),
+							},
+						},
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +37,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { EditCardModal } from "./EditCardModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("EditCardModal", () => {
 	const mockCard = {
@@ -46,8 +58,13 @@ describe("EditCardModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
+		mockPut.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({
+			card: {
+				id: "card-123",
+				front: "Test front",
+				back: "Test back",
+			},
 		});
 	});
 
@@ -156,17 +173,6 @@ describe("EditCardModal", () => {
 		const onClose = vi.fn();
 		const onCardUpdated = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				card: {
-					id: "card-123",
-					front: "Updated front",
-					back: "Test back",
-				},
-			}),
-		});
-
 		render(
 			<EditCardModal
 				isOpen={true}
@@ -183,20 +189,13 @@ describe("EditCardModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-456/cards/card-123",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						front: "Updated front",
-						back: "Test back",
-					}),
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { deckId: "deck-456", cardId: "card-123" },
+				json: {
+					front: "Updated front",
+					back: "Test back",
 				},
-			);
+			});
 		});
 
 		expect(onCardUpdated).toHaveBeenCalledTimes(1);
@@ -207,17 +206,6 @@ describe("EditCardModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onCardUpdated = vi.fn();
-
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				card: {
-					id: "card-123",
-					front: "Test front",
-					back: "Updated back",
-				},
-			}),
-		});
 
 		render(
 			<EditCardModal
@@ -235,20 +223,13 @@ describe("EditCardModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-456/cards/card-123",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						front: "Test front",
-						back: "Updated back",
-					}),
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { deckId: "deck-456", cardId: "card-123" },
+				json: {
+					front: "Test front",
+					back: "Updated back",
 				},
-			);
+			});
 		});
 
 		expect(onCardUpdated).toHaveBeenCalledTimes(1);
@@ -257,11 +238,6 @@ describe("EditCardModal", () => {
 
 	it("trims whitespace from front and back", async () => {
 		const user = userEvent.setup();
-
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ card: { id: "card-123" } }),
-		});
 
 		const cardWithWhitespace = {
 			...mockCard,
@@ -273,27 +249,20 @@ describe("EditCardModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-456/cards/card-123",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						front: "Front",
-						back: "Back",
-					}),
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { deckId: "deck-456", cardId: "card-123" },
+				json: {
+					front: "Front",
+					back: "Back",
 				},
-			);
+			});
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockPut.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<EditCardModal {...defaultProps} />);
 
@@ -315,11 +284,9 @@ describe("EditCardModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 400,
-			json: async () => ({ error: "Card not found" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Card not found", 404),
+		);
 
 		render(<EditCardModal {...defaultProps} />);
 
@@ -333,7 +300,7 @@ describe("EditCardModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockPut.mockRejectedValue(new Error("Network error"));
 
 		render(<EditCardModal {...defaultProps} />);
 
@@ -346,10 +313,12 @@ describe("EditCardModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<EditCardModal {...defaultProps} />);
 
@@ -385,11 +354,7 @@ describe("EditCardModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 400,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 400));
 
 		const { rerender } = render(
 			<EditCardModal {...defaultProps} onClose={onClose} />,

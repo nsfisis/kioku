@@ -4,11 +4,26 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					":deckId": {
+						cards: {
+							":cardId": {
+								$delete: (args: unknown) => mockDelete(args),
+							},
+						},
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +37,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { DeleteCardModal } from "./DeleteCardModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("DeleteCardModal", () => {
 	const mockCard = {
@@ -45,9 +57,8 @@ describe("DeleteCardModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockDelete.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({});
 	});
 
 	afterEach(() => {
@@ -142,11 +153,6 @@ describe("DeleteCardModal", () => {
 		const onClose = vi.fn();
 		const onCardDeleted = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({}),
-		});
-
 		render(
 			<DeleteCardModal
 				isOpen={true}
@@ -160,15 +166,9 @@ describe("DeleteCardModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-456/cards/card-123",
-				{
-					method: "DELETE",
-					headers: {
-						Authorization: "Bearer access-token",
-					},
-				},
-			);
+			expect(mockDelete).toHaveBeenCalledWith({
+				param: { deckId: "deck-456", cardId: "card-123" },
+			});
 		});
 
 		expect(onCardDeleted).toHaveBeenCalledTimes(1);
@@ -178,7 +178,7 @@ describe("DeleteCardModal", () => {
 	it("shows loading state during deletion", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<DeleteCardModal {...defaultProps} />);
 
@@ -198,11 +198,9 @@ describe("DeleteCardModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Card not found" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Card not found", 404),
+		);
 
 		render(<DeleteCardModal {...defaultProps} />);
 
@@ -216,7 +214,7 @@ describe("DeleteCardModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockDelete.mockRejectedValue(new Error("Network error"));
 
 		render(<DeleteCardModal {...defaultProps} />);
 
@@ -229,10 +227,12 @@ describe("DeleteCardModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<DeleteCardModal {...defaultProps} />);
 
@@ -249,11 +249,7 @@ describe("DeleteCardModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
 
 		const { rerender } = render(
 			<DeleteCardModal {...defaultProps} onClose={onClose} />,

@@ -53,33 +53,16 @@ export function EditNoteTypeModal({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteType.id}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api["note-types"][":id"].$put({
+				param: { id: noteType.id },
+				json: {
 					name: name.trim(),
 					frontTemplate: frontTemplate.trim(),
 					backTemplate: backTemplate.trim(),
 					isReversible,
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onNoteTypeUpdated();
 			onClose();

@@ -4,11 +4,38 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockNoteTypeGet = vi.fn();
+const mockNoteTypePut = vi.fn();
+const mockFieldPost = vi.fn();
+const mockFieldPut = vi.fn();
+const mockFieldDelete = vi.fn();
+const mockFieldsReorder = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				"note-types": {
+					":id": {
+						$get: (args: unknown) => mockNoteTypeGet(args),
+						$put: (args: unknown) => mockNoteTypePut(args),
+						fields: {
+							$post: (args: unknown) => mockFieldPost(args),
+							":fieldId": {
+								$put: (args: unknown) => mockFieldPut(args),
+								$delete: (args: unknown) => mockFieldDelete(args),
+							},
+							reorder: {
+								$put: (args: unknown) => mockFieldsReorder(args),
+							},
+						},
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +49,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { NoteTypeEditor } from "./NoteTypeEditor";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("NoteTypeEditor", () => {
 	const mockNoteTypeWithFields = {
@@ -63,9 +87,12 @@ describe("NoteTypeEditor", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockNoteTypeGet.mockResolvedValue({ ok: true });
+		mockNoteTypePut.mockResolvedValue({ ok: true });
+		mockFieldPost.mockResolvedValue({ ok: true });
+		mockFieldPut.mockResolvedValue({ ok: true });
+		mockFieldDelete.mockResolvedValue({ ok: true });
+		mockFieldsReorder.mockResolvedValue({ ok: true });
 	});
 
 	afterEach(() => {
@@ -80,9 +107,8 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("renders modal and fetches note type when open", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -90,12 +116,9 @@ describe("NoteTypeEditor", () => {
 		expect(screen.getByRole("dialog")).toBeDefined();
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123",
-				expect.objectContaining({
-					headers: { Authorization: "Bearer access-token" },
-				}),
-			);
+			expect(mockNoteTypeGet).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+			});
 		});
 
 		await waitFor(() => {
@@ -104,9 +127,8 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("displays note type data after loading", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -132,30 +154,18 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("displays loading state while fetching", async () => {
-		let resolvePromise: ((value: Response) => void) | undefined;
-		const fetchPromise = new Promise<Response>((resolve) => {
-			resolvePromise = resolve;
-		});
-		mockFetch.mockReturnValue(fetchPromise);
+		mockNoteTypeGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
-		// Should show loading spinner
+		// Should show dialog
 		expect(screen.getByRole("dialog")).toBeDefined();
-
-		// Resolve the promise to clean up
-		resolvePromise?.({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
-		} as Response);
 	});
 
 	it("displays error when fetch fails", async () => {
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Note type not found" }),
-		});
+		mockHandleResponse.mockRejectedValueOnce(
+			new ApiClientError("Note type not found", 404),
+		);
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
@@ -166,25 +176,12 @@ describe("NoteTypeEditor", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
-
-		render(<NoteTypeEditor {...defaultProps} />);
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Not authenticated",
-			);
-		});
-	});
-
 	it("calls onClose when Cancel is clicked", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} onClose={onClose} />);
@@ -202,9 +199,8 @@ describe("NoteTypeEditor", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} onClose={onClose} />);
@@ -224,16 +220,10 @@ describe("NoteTypeEditor", () => {
 		const onClose = vi.fn();
 		const onNoteTypeUpdated = vi.fn();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					noteType: { ...mockNoteTypeWithFields, name: "Updated Basic" },
-				}),
+				noteType: { ...mockNoteTypeWithFields, name: "Updated Basic" },
 			});
 
 		render(
@@ -256,18 +246,14 @@ describe("NoteTypeEditor", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockNoteTypePut).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: {
 					name: "Updated Basic",
 					frontTemplate: "{{Front}}",
 					backTemplate: "{{Back}}",
 					isReversible: false,
-				}),
+				},
 			});
 		});
 
@@ -278,22 +264,16 @@ describe("NoteTypeEditor", () => {
 	it("adds a new field", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					field: {
-						id: "field-3",
-						noteTypeId: "note-type-123",
-						name: "Hint",
-						order: 2,
-						fieldType: "text",
-					},
-				}),
+				field: {
+					id: "field-3",
+					noteTypeId: "note-type-123",
+					name: "Hint",
+					order: 2,
+					fieldType: "text",
+				},
 			});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -307,21 +287,14 @@ describe("NoteTypeEditor", () => {
 		await user.click(screen.getByRole("button", { name: "Add" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123/fields",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						name: "Hint",
-						order: 2,
-						fieldType: "text",
-					}),
+			expect(mockFieldPost).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: {
+					name: "Hint",
+					order: 2,
+					fieldType: "text",
 				},
-			);
+			});
 		});
 
 		await waitFor(() => {
@@ -332,15 +305,9 @@ describe("NoteTypeEditor", () => {
 	it("deletes a field", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ success: true }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
+			.mockResolvedValueOnce({ success: true });
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
@@ -357,31 +324,20 @@ describe("NoteTypeEditor", () => {
 		await user.click(deleteButton);
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123/fields/field-1",
-				{
-					method: "DELETE",
-					headers: { Authorization: "Bearer access-token" },
-				},
-			);
+			expect(mockFieldDelete).toHaveBeenCalledWith({
+				param: { id: "note-type-123", fieldId: "field-1" },
+			});
 		});
 	});
 
 	it("displays error when field deletion fails", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 409,
-				json: async () => ({
-					error: "Cannot delete field with existing values",
-				}),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
+			.mockRejectedValueOnce(
+				new ApiClientError("Cannot delete field with existing values", 409),
+			);
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
@@ -412,31 +368,25 @@ describe("NoteTypeEditor", () => {
 	it("moves a field up", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					fields: [
-						{
-							id: "field-2",
-							noteTypeId: "note-type-123",
-							name: "Back",
-							order: 0,
-							fieldType: "text",
-						},
-						{
-							id: "field-1",
-							noteTypeId: "note-type-123",
-							name: "Front",
-							order: 1,
-							fieldType: "text",
-						},
-					],
-				}),
+				fields: [
+					{
+						id: "field-2",
+						noteTypeId: "note-type-123",
+						name: "Back",
+						order: 0,
+						fieldType: "text",
+					},
+					{
+						id: "field-1",
+						noteTypeId: "note-type-123",
+						name: "Front",
+						order: 1,
+						fieldType: "text",
+					},
+				],
 			});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -454,50 +404,37 @@ describe("NoteTypeEditor", () => {
 		await user.click(secondMoveUpButton);
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123/fields/reorder",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						fieldIds: ["field-2", "field-1"],
-					}),
+			expect(mockFieldsReorder).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: {
+					fieldIds: ["field-2", "field-1"],
 				},
-			);
+			});
 		});
 	});
 
 	it("moves a field down", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					fields: [
-						{
-							id: "field-2",
-							noteTypeId: "note-type-123",
-							name: "Back",
-							order: 0,
-							fieldType: "text",
-						},
-						{
-							id: "field-1",
-							noteTypeId: "note-type-123",
-							name: "Front",
-							order: 1,
-							fieldType: "text",
-						},
-					],
-				}),
+				fields: [
+					{
+						id: "field-2",
+						noteTypeId: "note-type-123",
+						name: "Back",
+						order: 0,
+						fieldType: "text",
+					},
+					{
+						id: "field-1",
+						noteTypeId: "note-type-123",
+						name: "Front",
+						order: 1,
+						fieldType: "text",
+					},
+				],
 			});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -514,41 +451,28 @@ describe("NoteTypeEditor", () => {
 		await user.click(firstMoveDownButton);
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123/fields/reorder",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						fieldIds: ["field-2", "field-1"],
-					}),
+			expect(mockFieldsReorder).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: {
+					fieldIds: ["field-2", "field-1"],
 				},
-			);
+			});
 		});
 	});
 
 	it("edits a field name", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					field: {
-						id: "field-1",
-						noteTypeId: "note-type-123",
-						name: "Question",
-						order: 0,
-						fieldType: "text",
-					},
-				}),
+				field: {
+					id: "field-1",
+					noteTypeId: "note-type-123",
+					name: "Question",
+					order: 0,
+					fieldType: "text",
+				},
 			});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -569,26 +493,18 @@ describe("NoteTypeEditor", () => {
 		await user.tab();
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123/fields/field-1",
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer access-token",
-					},
-					body: JSON.stringify({
-						name: "Question",
-					}),
+			expect(mockFieldPut).toHaveBeenCalledWith({
+				param: { id: "note-type-123", fieldId: "field-1" },
+				json: {
+					name: "Question",
 				},
-			);
+			});
 		});
 	});
 
 	it("shows available fields in template help text", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -599,9 +515,8 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("disables move up button for first field", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -616,9 +531,8 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("disables move down button for last field", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -636,9 +550,8 @@ describe("NoteTypeEditor", () => {
 	});
 
 	it("disables Add button when new field name is empty", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteTypeWithFields }),
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
 		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -654,16 +567,10 @@ describe("NoteTypeEditor", () => {
 	it("toggles reversible option", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					noteType: { ...mockNoteTypeWithFields, isReversible: true },
-				}),
+				noteType: { ...mockNoteTypeWithFields, isReversible: true },
 			});
 
 		render(<NoteTypeEditor {...defaultProps} />);
@@ -682,12 +589,12 @@ describe("NoteTypeEditor", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenLastCalledWith(
-				"/api/note-types/note-type-123",
-				expect.objectContaining({
-					body: expect.stringContaining('"isReversible":true'),
+			expect(mockNoteTypePut).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: expect.objectContaining({
+					isReversible: true,
 				}),
-			);
+			});
 		});
 	});
 });

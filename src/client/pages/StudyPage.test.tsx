@@ -6,9 +6,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "../api/client";
 import { AuthProvider } from "../stores";
 import { StudyPage } from "./StudyPage";
+
+const mockDeckGet = vi.fn();
+const mockStudyGet = vi.fn();
+const mockStudyPost = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -21,11 +25,21 @@ vi.mock("../api/client", () => ({
 		rpc: {
 			api: {
 				decks: {
-					$get: vi.fn(),
-					$post: vi.fn(),
+					":id": {
+						$get: (args: unknown) => mockDeckGet(args),
+					},
+					":deckId": {
+						study: {
+							$get: (args: unknown) => mockStudyGet(args),
+							":cardId": {
+								$post: (args: unknown) => mockStudyPost(args),
+							},
+						},
+					},
 				},
 			},
 		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -39,9 +53,7 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+import { ApiClientError, apiClient } from "../api/client";
 
 const mockDeck = {
 	id: "deck-1",
@@ -117,6 +129,9 @@ describe("StudyPage", () => {
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});
+
+		// handleResponse passes through whatever it receives
+		mockHandleResponse.mockImplementation((res) => Promise.resolve(res));
 	});
 
 	afterEach(() => {
@@ -126,7 +141,8 @@ describe("StudyPage", () => {
 
 	describe("Loading and Initial State", () => {
 		it("shows loading state while fetching data", async () => {
-			mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+			mockDeckGet.mockImplementation(() => new Promise(() => {})); // Never resolves
+			mockStudyGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 			renderWithProviders();
 
@@ -135,15 +151,8 @@ describe("StudyPage", () => {
 		});
 
 		it("renders deck name and back link", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -156,37 +165,27 @@ describe("StudyPage", () => {
 			expect(screen.getByText(/Back to Deck/)).toBeDefined();
 		});
 
-		it("passes auth header when fetching data", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [] }),
-				});
+		it("calls correct RPC endpoints when fetching data", async () => {
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: [] });
 
 			renderWithProviders();
 
 			await waitFor(() => {
-				expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1", {
-					headers: { Authorization: "Bearer access-token" },
+				expect(mockDeckGet).toHaveBeenCalledWith({
+					param: { id: "deck-1" },
 				});
 			});
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/study", {
-				headers: { Authorization: "Bearer access-token" },
+			expect(mockStudyGet).toHaveBeenCalledWith({
+				param: { deckId: "deck-1" },
 			});
 		});
 	});
 
 	describe("Error Handling", () => {
 		it("displays error on API failure", async () => {
-			mockFetch.mockResolvedValueOnce({
-				ok: false,
-				status: 404,
-				json: async () => ({ error: "Deck not found" }),
-			});
+			mockDeckGet.mockRejectedValue(new ApiClientError("Deck not found", 404));
+			mockStudyGet.mockResolvedValue({ cards: [] });
 
 			renderWithProviders();
 
@@ -200,26 +199,11 @@ describe("StudyPage", () => {
 		it("allows retry after error", async () => {
 			const user = userEvent.setup();
 			// First call fails
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 500,
-					json: async () => ({ error: "Server error" }),
-				})
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 500,
-					json: async () => ({ error: "Server error" }),
-				})
+			mockDeckGet
+				.mockRejectedValueOnce(new ApiClientError("Server error", 500))
 				// Retry succeeds
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+				.mockResolvedValueOnce({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -239,15 +223,8 @@ describe("StudyPage", () => {
 
 	describe("No Cards State", () => {
 		it("shows no cards message when deck has no due cards", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [] }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: [] });
 
 			renderWithProviders();
 
@@ -263,15 +240,8 @@ describe("StudyPage", () => {
 
 	describe("Card Display and Progress", () => {
 		it("shows remaining cards count", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -283,15 +253,8 @@ describe("StudyPage", () => {
 		});
 
 		it("displays the front of the first card", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -301,15 +264,8 @@ describe("StudyPage", () => {
 		});
 
 		it("does not show rating buttons before card is flipped", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -325,15 +281,8 @@ describe("StudyPage", () => {
 		it("reveals answer when card is clicked", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -349,15 +298,8 @@ describe("StudyPage", () => {
 		it("shows rating buttons after card is flipped", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -377,15 +319,8 @@ describe("StudyPage", () => {
 		it("displays rating labels on buttons", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -406,20 +341,11 @@ describe("StudyPage", () => {
 		it("submits review and moves to next card", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				// Submit review
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -438,16 +364,11 @@ describe("StudyPage", () => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
 
-			// Verify API was called
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-1/study/card-1",
+			// Verify API was called with correct params
+			expect(mockStudyPost).toHaveBeenCalledWith(
 				expect.objectContaining({
-					method: "POST",
-					headers: expect.objectContaining({
-						Authorization: "Bearer access-token",
-						"Content-Type": "application/json",
-					}),
-					body: expect.stringContaining('"rating":3'),
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 3 }),
 				}),
 			);
 		});
@@ -455,19 +376,11 @@ describe("StudyPage", () => {
 		it("updates remaining count after review", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -490,20 +403,11 @@ describe("StudyPage", () => {
 		it("shows error when rating submission fails", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 500,
-					json: async () => ({ error: "Failed to submit review" }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockRejectedValue(
+				new ApiClientError("Failed to submit review", 500),
+			);
 
 			renderWithProviders();
 
@@ -526,19 +430,11 @@ describe("StudyPage", () => {
 		it("shows session complete screen after all cards reviewed", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [mockDueCards[0]] }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: [mockDueCards[0]] });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -561,25 +457,11 @@ describe("StudyPage", () => {
 		it("shows correct count for multiple cards reviewed", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				// First review
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				})
-				// Second review
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[1], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -608,19 +490,11 @@ describe("StudyPage", () => {
 		it("provides navigation links after session complete", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [mockDueCards[0]] }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: [mockDueCards[0]] });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -644,15 +518,8 @@ describe("StudyPage", () => {
 		it("flips card with Space key", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -668,15 +535,8 @@ describe("StudyPage", () => {
 		it("flips card with Enter key", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
 
 			renderWithProviders();
 
@@ -692,19 +552,11 @@ describe("StudyPage", () => {
 		it("rates card with number keys", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -719,10 +571,10 @@ describe("StudyPage", () => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
 
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-1/study/card-1",
+			expect(mockStudyPost).toHaveBeenCalledWith(
 				expect.objectContaining({
-					body: expect.stringContaining('"rating":3'),
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 3 }),
 				}),
 			);
 		});
@@ -730,19 +582,11 @@ describe("StudyPage", () => {
 		it("supports all rating keys (1, 2, 3, 4)", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockDueCards }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ card: { ...mockDueCards[0], reps: 1 } }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockStudyGet.mockResolvedValue({ cards: mockDueCards });
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockDueCards[0], reps: 1 },
+			});
 
 			renderWithProviders();
 
@@ -753,10 +597,10 @@ describe("StudyPage", () => {
 			await user.keyboard(" "); // Flip
 			await user.keyboard("1"); // Rate as Again
 
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/decks/deck-1/study/card-1",
+			expect(mockStudyPost).toHaveBeenCalledWith(
 				expect.objectContaining({
-					body: expect.stringContaining('"rating":1'),
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 1 }),
 				}),
 			);
 		});

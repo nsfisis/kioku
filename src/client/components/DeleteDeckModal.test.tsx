@@ -4,11 +4,22 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				decks: {
+					":id": {
+						$delete: (args: unknown) => mockDelete(args),
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +33,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { DeleteDeckModal } from "./DeleteDeckModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("DeleteDeckModal", () => {
 	const mockDeck = {
@@ -44,9 +52,8 @@ describe("DeleteDeckModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockDelete.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({});
 	});
 
 	afterEach(() => {
@@ -126,11 +133,6 @@ describe("DeleteDeckModal", () => {
 		const onClose = vi.fn();
 		const onDeckDeleted = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({}),
-		});
-
 		render(
 			<DeleteDeckModal
 				isOpen={true}
@@ -143,11 +145,8 @@ describe("DeleteDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123", {
-				method: "DELETE",
-				headers: {
-					Authorization: "Bearer access-token",
-				},
+			expect(mockDelete).toHaveBeenCalledWith({
+				param: { id: "deck-123" },
 			});
 		});
 
@@ -158,7 +157,7 @@ describe("DeleteDeckModal", () => {
 	it("shows loading state during deletion", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -178,11 +177,9 @@ describe("DeleteDeckModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Deck not found" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Deck not found", 404),
+		);
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -196,7 +193,7 @@ describe("DeleteDeckModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockDelete.mockRejectedValue(new Error("Network error"));
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -209,10 +206,12 @@ describe("DeleteDeckModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -229,11 +228,7 @@ describe("DeleteDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
 
 		const { rerender } = render(
 			<DeleteDeckModal {...defaultProps} onClose={onClose} />,

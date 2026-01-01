@@ -71,26 +71,13 @@ export function NoteTypeEditor({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteTypeId}`, {
-				headers: authHeader,
+			const res = await apiClient.rpc.api["note-types"][":id"].$get({
+				param: { id: noteTypeId },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
-			const fetchedNoteType = data.noteType as NoteTypeWithFields;
+			const data = await apiClient.handleResponse<{
+				noteType: NoteTypeWithFields;
+			}>(res);
+			const fetchedNoteType = data.noteType;
 			setNoteType(fetchedNoteType);
 			setName(fetchedNoteType.name);
 			setFrontTemplate(fetchedNoteType.frontTemplate);
@@ -138,33 +125,16 @@ export function NoteTypeEditor({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteType.id}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api["note-types"][":id"].$put({
+				param: { id: noteType.id },
+				json: {
 					name: name.trim(),
 					frontTemplate: frontTemplate.trim(),
 					backTemplate: backTemplate.trim(),
 					isReversible,
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onNoteTypeUpdated();
 			onClose();
@@ -186,37 +156,20 @@ export function NoteTypeEditor({
 		setIsAddingField(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
 			const newOrder =
 				fields.length > 0 ? Math.max(...fields.map((f) => f.order)) + 1 : 0;
 
-			const res = await fetch(`/api/note-types/${noteType.id}/fields`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api["note-types"][":id"].fields.$post({
+				param: { id: noteType.id },
+				json: {
 					name: newFieldName.trim(),
 					order: newOrder,
 					fieldType: "text",
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const data = await apiClient.handleResponse<{ field: NoteFieldType }>(
+				res,
+			);
 			setFields([...fields, data.field]);
 			setNewFieldName("");
 		} catch (err) {
@@ -236,35 +189,17 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(
-				`/api/note-types/${noteType.id}/fields/${fieldId}`,
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						...authHeader,
-					},
-					body: JSON.stringify({
-						name: editingFieldName.trim(),
-					}),
+			const res = await apiClient.rpc.api["note-types"][":id"].fields[
+				":fieldId"
+			].$put({
+				param: { id: noteType.id, fieldId },
+				json: {
+					name: editingFieldName.trim(),
 				},
+			});
+			const data = await apiClient.handleResponse<{ field: NoteFieldType }>(
+				res,
 			);
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
 			setFields(fields.map((f) => (f.id === fieldId ? data.field : f)));
 			setEditingFieldId(null);
 			setEditingFieldName("");
@@ -283,28 +218,12 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(
-				`/api/note-types/${noteType.id}/fields/${fieldId}`,
-				{
-					method: "DELETE",
-					headers: authHeader,
-				},
-			);
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
+			const res = await apiClient.rpc.api["note-types"][":id"].fields[
+				":fieldId"
+			].$delete({
+				param: { id: noteType.id, fieldId },
+			});
+			await apiClient.handleResponse(res);
 			setFields(fields.filter((f) => f.id !== fieldId));
 		} catch (err) {
 			if (err instanceof ApiClientError) {
@@ -334,30 +253,15 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteType.id}/fields/reorder`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({ fieldIds }),
+			const res = await apiClient.rpc.api["note-types"][
+				":id"
+			].fields.reorder.$put({
+				param: { id: noteType.id },
+				json: { fieldIds },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const data = await apiClient.handleResponse<{ fields: NoteFieldType[] }>(
+				res,
+			);
 			setFields(
 				data.fields.sort(
 					(a: NoteFieldType, b: NoteFieldType) => a.order - b.order,

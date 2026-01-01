@@ -4,11 +4,32 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockNoteTypesGet = vi.fn();
+const mockNoteTypeGet = vi.fn();
+const mockNotesPost = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				"note-types": {
+					$get: () => mockNoteTypesGet(),
+					":id": {
+						$get: (args: unknown) => mockNoteTypeGet(args),
+					},
+				},
+				decks: {
+					":deckId": {
+						notes: {
+							$post: (args: unknown) => mockNotesPost(args),
+						},
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +43,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { CreateNoteModal } from "./CreateNoteModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("CreateNoteModal", () => {
 	const defaultProps = {
@@ -56,9 +74,9 @@ describe("CreateNoteModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockNoteTypesGet.mockResolvedValue({ ok: true });
+		mockNoteTypeGet.mockResolvedValue({ ok: true });
+		mockNotesPost.mockResolvedValue({ ok: true });
 	});
 
 	afterEach(() => {
@@ -73,15 +91,9 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("renders modal when open", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -97,35 +109,21 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("loads note types on open", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types", {
-				headers: { Authorization: "Bearer access-token" },
-			});
+			expect(mockNoteTypesGet).toHaveBeenCalled();
 		});
 	});
 
 	it("auto-selects first note type and loads its fields", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -136,21 +134,15 @@ describe("CreateNoteModal", () => {
 		});
 
 		// Verify the note type details were fetched
-		expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-1", {
-			headers: { Authorization: "Bearer access-token" },
+		expect(mockNoteTypeGet).toHaveBeenCalledWith({
+			param: { id: "note-type-1" },
 		});
 	});
 
 	it("displays note type options in select", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -166,10 +158,7 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("shows message when no note types available", async () => {
-		mockFetch.mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ noteTypes: [] }),
-		});
+		mockHandleResponse.mockResolvedValueOnce({ noteTypes: [] });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -188,15 +177,9 @@ describe("CreateNoteModal", () => {
 			fields: [],
 		};
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: noteTypeWithNoFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: noteTypeWithNoFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -210,15 +193,9 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("disables create button when fields are empty", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -233,15 +210,9 @@ describe("CreateNoteModal", () => {
 	it("enables create button when all fields have values", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -260,15 +231,9 @@ describe("CreateNoteModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} onClose={onClose} />);
 
@@ -285,15 +250,9 @@ describe("CreateNoteModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} onClose={onClose} />);
 
@@ -313,22 +272,13 @@ describe("CreateNoteModal", () => {
 		const onClose = vi.fn();
 		const onNoteCreated = vi.fn();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					note: { id: "note-1" },
-					fieldValues: [],
-					cards: [{ id: "card-1", isReversed: false }],
-				}),
+				note: { id: "note-1" },
+				fieldValues: [],
+				cards: [{ id: "card-1", isReversed: false }],
 			});
 
 		render(
@@ -349,19 +299,15 @@ describe("CreateNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Note" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123/notes", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockNotesPost).toHaveBeenCalledWith({
+				param: { deckId: "deck-123" },
+				json: {
 					noteTypeId: "note-type-1",
 					fields: {
 						"field-1": "What is 2+2?",
 						"field-2": "4",
 					},
-				}),
+				},
 			});
 		});
 
@@ -372,22 +318,13 @@ describe("CreateNoteModal", () => {
 	it("trims whitespace from field values", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
 			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					note: { id: "note-1" },
-					fieldValues: [],
-					cards: [],
-				}),
+				note: { id: "note-1" },
+				fieldValues: [],
+				cards: [],
 			});
 
 		render(<CreateNoteModal {...defaultProps} />);
@@ -401,19 +338,15 @@ describe("CreateNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Note" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-123/notes", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockNotesPost).toHaveBeenCalledWith({
+				param: { deckId: "deck-123" },
+				json: {
 					noteTypeId: "note-type-1",
 					fields: {
 						"field-1": "Question",
 						"field-2": "Answer",
 					},
-				}),
+				},
 			});
 		});
 	});
@@ -421,16 +354,11 @@ describe("CreateNoteModal", () => {
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
+
+		mockNotesPost.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -452,20 +380,10 @@ describe("CreateNoteModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 400,
-				json: async () => ({ error: "Note type not found" }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
+			.mockRejectedValueOnce(new ApiClientError("Note type not found", 400));
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -487,16 +405,11 @@ describe("CreateNoteModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockRejectedValueOnce(new Error("Network error"));
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
+
+		mockNotesPost.mockRejectedValueOnce(new Error("Network error"));
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -530,19 +443,10 @@ describe("CreateNoteModal", () => {
 			],
 		};
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: reversedNoteType }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
+			.mockResolvedValueOnce({ noteType: reversedNoteType });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -561,8 +465,8 @@ describe("CreateNoteModal", () => {
 		});
 
 		// Verify the note type details were fetched for the new type
-		expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-2", {
-			headers: { Authorization: "Bearer access-token" },
+		expect(mockNoteTypeGet).toHaveBeenCalledWith({
+			param: { id: "note-type-2" },
 		});
 	});
 
@@ -572,15 +476,9 @@ describe("CreateNoteModal", () => {
 			isReversible: true,
 		};
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: reversedNoteType }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: reversedNoteType });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -591,15 +489,9 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("shows card count preview for non-reversible note type", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -609,11 +501,9 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("displays error when note types fail to load", async () => {
-		mockFetch.mockResolvedValueOnce({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "Server error" }),
-		});
+		mockHandleResponse.mockRejectedValueOnce(
+			new ApiClientError("Server error", 500),
+		);
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -626,15 +516,9 @@ describe("CreateNoteModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		mockHandleResponse
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
 
 		const { rerender } = render(
 			<CreateNoteModal
@@ -656,16 +540,8 @@ describe("CreateNoteModal", () => {
 		// Click cancel to close
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-		// Setup mocks for reopening
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteType: mockNoteTypeWithFields }),
-			});
+		// Note: The component already has note types loaded (hasLoadedNoteTypes = true)
+		// so it won't fetch again
 
 		// Reopen the modal
 		rerender(

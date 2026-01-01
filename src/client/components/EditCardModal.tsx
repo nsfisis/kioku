@@ -49,31 +49,16 @@ export function EditCardModal({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deckId}/cards/${card.id}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api.decks[":deckId"].cards[
+				":cardId"
+			].$put({
+				param: { deckId, cardId: card.id },
+				json: {
 					front: front.trim(),
 					back: back.trim(),
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onCardUpdated();
 			onClose();

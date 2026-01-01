@@ -7,9 +7,15 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "../api/client";
 import { AuthProvider, SyncProvider } from "../stores";
 import { NoteTypesPage } from "./NoteTypesPage";
+
+const mockNoteTypesGet = vi.fn();
+const mockNoteTypesPost = vi.fn();
+const mockNoteTypeGet = vi.fn();
+const mockNoteTypePut = vi.fn();
+const mockNoteTypeDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -19,6 +25,20 @@ vi.mock("../api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
+		rpc: {
+			api: {
+				"note-types": {
+					$get: () => mockNoteTypesGet(),
+					$post: (args: unknown) => mockNoteTypesPost(args),
+					":id": {
+						$get: (args: unknown) => mockNoteTypeGet(args),
+						$put: (args: unknown) => mockNoteTypePut(args),
+						$delete: (args: unknown) => mockNoteTypeDelete(args),
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -32,9 +52,7 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+import { ApiClientError, apiClient } from "../api/client";
 
 const mockNoteTypes = [
 	{
@@ -81,6 +99,9 @@ describe("NoteTypesPage", () => {
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});
+
+		// handleResponse passes through whatever it receives
+		mockHandleResponse.mockImplementation((res) => Promise.resolve(res));
 	});
 
 	afterEach(() => {
@@ -89,10 +110,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("renders page title and back button", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: [] }),
-		});
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
 
 		renderWithProviders();
 
@@ -101,7 +119,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("shows loading state while fetching note types", async () => {
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockNoteTypesGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		renderWithProviders();
 
@@ -110,10 +128,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays empty state when no note types exist", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: [] }),
-		});
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
 
 		renderWithProviders();
 
@@ -128,10 +143,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays list of note types", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: mockNoteTypes }),
-		});
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 		renderWithProviders();
 
@@ -144,10 +156,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays reversible badge for reversible note types", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: mockNoteTypes }),
-		});
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 		renderWithProviders();
 
@@ -161,10 +170,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays template info for each note type", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: mockNoteTypes }),
-		});
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 		renderWithProviders();
 
@@ -177,11 +183,9 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays error on API failure", async () => {
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "Internal server error" }),
-		});
+		mockNoteTypesGet.mockRejectedValue(
+			new ApiClientError("Internal server error", 500),
+		);
 
 		renderWithProviders();
 
@@ -193,7 +197,7 @@ describe("NoteTypesPage", () => {
 	});
 
 	it("displays generic error on unexpected failure", async () => {
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockNoteTypesGet.mockRejectedValue(new Error("Network error"));
 
 		renderWithProviders();
 
@@ -206,16 +210,9 @@ describe("NoteTypesPage", () => {
 
 	it("allows retry after error", async () => {
 		const user = userEvent.setup();
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 500,
-				json: async () => ({ error: "Server error" }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			});
+		mockNoteTypesGet
+			.mockRejectedValueOnce(new ApiClientError("Server error", 500))
+			.mockResolvedValueOnce({ noteTypes: mockNoteTypes });
 
 		renderWithProviders();
 
@@ -230,27 +227,19 @@ describe("NoteTypesPage", () => {
 		});
 	});
 
-	it("passes auth header when fetching note types", async () => {
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteTypes: [] }),
-		});
+	it("calls correct RPC endpoint when fetching note types", async () => {
+		mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
 
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types", {
-				headers: { Authorization: "Bearer access-token" },
-			});
+			expect(mockNoteTypesGet).toHaveBeenCalled();
 		});
 	});
 
 	describe("Create Note Type", () => {
 		it("shows New Note Type button", async () => {
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: [] }),
-			});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
 
 			renderWithProviders();
 
@@ -265,10 +254,7 @@ describe("NoteTypesPage", () => {
 
 		it("opens modal when New Note Type button is clicked", async () => {
 			const user = userEvent.setup();
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: [] }),
-			});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
 
 			renderWithProviders();
 
@@ -296,19 +282,10 @@ describe("NoteTypesPage", () => {
 				updatedAt: "2024-01-03T00:00:00Z",
 			};
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: [] }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteType: newNoteType }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: [newNoteType] }),
-				});
+			mockNoteTypesGet
+				.mockResolvedValueOnce({ noteTypes: [] })
+				.mockResolvedValueOnce({ noteTypes: [newNoteType] });
+			mockNoteTypesPost.mockResolvedValue({ noteType: newNoteType });
 
 			renderWithProviders();
 
@@ -341,10 +318,7 @@ describe("NoteTypesPage", () => {
 
 	describe("Edit Note Type", () => {
 		it("shows Edit button for each note type", async () => {
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 			renderWithProviders();
 
@@ -380,15 +354,8 @@ describe("NoteTypesPage", () => {
 				],
 			};
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: mockNoteTypes }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteType: mockNoteTypeWithFields }),
-				});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
+			mockNoteTypeGet.mockResolvedValue({ noteType: mockNoteTypeWithFields });
 
 			renderWithProviders();
 
@@ -437,25 +404,13 @@ describe("NoteTypesPage", () => {
 				name: "Updated Basic",
 			};
 
-			mockFetch
+			mockNoteTypesGet
+				.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
 				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: mockNoteTypes }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteType: mockNoteTypeWithFields }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteType: updatedNoteType }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({
-						noteTypes: [updatedNoteType, mockNoteTypes[1]],
-					}),
+					noteTypes: [updatedNoteType, mockNoteTypes[1]],
 				});
+			mockNoteTypeGet.mockResolvedValue({ noteType: mockNoteTypeWithFields });
+			mockNoteTypePut.mockResolvedValue({ noteType: updatedNoteType });
 
 			renderWithProviders();
 
@@ -498,10 +453,7 @@ describe("NoteTypesPage", () => {
 
 	describe("Delete Note Type", () => {
 		it("shows Delete button for each note type", async () => {
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 			renderWithProviders();
 
@@ -517,10 +469,7 @@ describe("NoteTypesPage", () => {
 
 		it("opens delete modal when Delete button is clicked", async () => {
 			const user = userEvent.setup();
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteTypes: mockNoteTypes }),
-			});
+			mockNoteTypesGet.mockResolvedValue({ noteTypes: mockNoteTypes });
 
 			renderWithProviders();
 
@@ -544,19 +493,10 @@ describe("NoteTypesPage", () => {
 		it("deletes note type and refreshes list", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: mockNoteTypes }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ success: true }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ noteTypes: [mockNoteTypes[1]] }),
-				});
+			mockNoteTypesGet
+				.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
+				.mockResolvedValueOnce({ noteTypes: [mockNoteTypes[1]] });
+			mockNoteTypeDelete.mockResolvedValue({ success: true });
 
 			renderWithProviders();
 

@@ -60,25 +60,10 @@ export function EditNoteModal({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/note-types/${noteTypeId}`, {
-				headers: authHeader,
+			const res = await apiClient.rpc.api["note-types"][":id"].$get({
+				param: { id: noteTypeId },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const data = await apiClient.handleResponse<{ noteType: NoteType }>(res);
 			setNoteType(data.noteType);
 		} catch (err) {
 			if (err instanceof ApiClientError) {
@@ -98,25 +83,14 @@ export function EditNoteModal({
 		setError(null);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deckId}/notes/${noteId}`, {
-				headers: authHeader,
+			const res = await apiClient.rpc.api.decks[":deckId"].notes[
+				":noteId"
+			].$get({
+				param: { deckId, noteId },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
-
-			const data = await res.json();
+			const data = await apiClient.handleResponse<{
+				note: NoteWithFieldValues;
+			}>(res);
 			setNote(data.note);
 
 			// Initialize field values from note
@@ -176,36 +150,21 @@ export function EditNoteModal({
 		setIsSubmitting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
 			// Trim all field values
 			const trimmedFields: Record<string, string> = {};
 			for (const [fieldId, value] of Object.entries(fieldValues)) {
 				trimmedFields[fieldId] = value.trim();
 			}
 
-			const res = await fetch(`/api/decks/${deckId}/notes/${note.id}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...authHeader,
-				},
-				body: JSON.stringify({
+			const res = await apiClient.rpc.api.decks[":deckId"].notes[
+				":noteId"
+			].$put({
+				param: { deckId, noteId: note.id },
+				json: {
 					fields: trimmedFields,
-				}),
+				},
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onNoteUpdated();
 			handleClose();

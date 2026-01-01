@@ -11,6 +11,10 @@ import { apiClient } from "../api/client";
 import { AuthProvider, SyncProvider } from "../stores";
 import { HomePage } from "./HomePage";
 
+const mockDeckPut = vi.fn();
+const mockDeckDelete = vi.fn();
+const mockHandleResponse = vi.fn();
+
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
@@ -24,9 +28,14 @@ vi.mock("../api/client", () => ({
 				decks: {
 					$get: vi.fn(),
 					$post: vi.fn(),
+					":id": {
+						$put: (args: unknown) => mockDeckPut(args),
+						$delete: (args: unknown) => mockDeckDelete(args),
+					},
 				},
 			},
 		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -110,6 +119,9 @@ describe("HomePage", () => {
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});
+
+		// handleResponse passes through whatever it receives
+		mockHandleResponse.mockImplementation((res) => Promise.resolve(res));
 	});
 
 	afterEach(() => {
@@ -544,10 +556,7 @@ describe("HomePage", () => {
 					}),
 				);
 
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({ deck: updatedDeck }),
-			});
+			mockDeckPut.mockResolvedValue({ deck: updatedDeck });
 
 			renderWithProviders();
 
@@ -686,10 +695,7 @@ describe("HomePage", () => {
 					}),
 				);
 
-			mockFetch.mockResolvedValue({
-				ok: true,
-				json: async () => ({}),
-			});
+			mockDeckDelete.mockResolvedValue({ success: true });
 
 			renderWithProviders();
 

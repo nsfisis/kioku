@@ -6,9 +6,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "../api/client";
 import { AuthProvider } from "../stores";
 import { DeckDetailPage } from "./DeckDetailPage";
+
+const mockDeckGet = vi.fn();
+const mockCardsGet = vi.fn();
+const mockNoteDelete = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -21,11 +25,23 @@ vi.mock("../api/client", () => ({
 		rpc: {
 			api: {
 				decks: {
-					$get: vi.fn(),
-					$post: vi.fn(),
+					":id": {
+						$get: (args: unknown) => mockDeckGet(args),
+					},
+					":deckId": {
+						cards: {
+							$get: (args: unknown) => mockCardsGet(args),
+						},
+						notes: {
+							":noteId": {
+								$delete: (args: unknown) => mockNoteDelete(args),
+							},
+						},
+					},
 				},
 			},
 		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -39,9 +55,7 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+import { ApiClientError, apiClient } from "../api/client";
 
 const mockDeck = {
 	id: "deck-1",
@@ -171,6 +185,9 @@ describe("DeckDetailPage", () => {
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});
+
+		// handleResponse passes through whatever it receives
+		mockHandleResponse.mockImplementation((res) => Promise.resolve(res));
 	});
 
 	afterEach(() => {
@@ -179,15 +196,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("renders back link and deck name", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -202,7 +212,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("shows loading state while fetching data", async () => {
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDeckGet.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockCardsGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		renderWithProviders();
 
@@ -211,15 +222,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays empty state when no cards exist", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: [] }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: [] });
 
 		renderWithProviders();
 
@@ -230,15 +234,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays list of cards", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -251,15 +248,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays card count", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -269,15 +259,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays card state labels", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -288,15 +271,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays card stats (reps and lapses)", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -308,11 +284,8 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays error on API failure for deck", async () => {
-		mockFetch.mockResolvedValueOnce({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Deck not found" }),
-		});
+		mockDeckGet.mockRejectedValue(new ApiClientError("Deck not found", 404));
+		mockCardsGet.mockResolvedValue({ cards: [] });
 
 		renderWithProviders();
 
@@ -322,16 +295,10 @@ describe("DeckDetailPage", () => {
 	});
 
 	it("displays error on API failure for cards", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 500,
-				json: async () => ({ error: "Failed to load cards" }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockRejectedValue(
+			new ApiClientError("Failed to load cards", 500),
+		);
 
 		renderWithProviders();
 
@@ -344,27 +311,12 @@ describe("DeckDetailPage", () => {
 
 	it("allows retry after error", async () => {
 		const user = userEvent.setup();
-		// First call fails for both deck and cards (they run in parallel)
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 500,
-				json: async () => ({ error: "Server error" }),
-			})
-			.mockResolvedValueOnce({
-				ok: false,
-				status: 500,
-				json: async () => ({ error: "Server error" }),
-			})
-			// Second call (retry) succeeds
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: mockCards }),
-			});
+		// First call fails
+		mockDeckGet
+			.mockRejectedValueOnce(new ApiClientError("Server error", 500))
+			// Retry succeeds
+			.mockResolvedValueOnce({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 		renderWithProviders();
 
@@ -381,40 +333,26 @@ describe("DeckDetailPage", () => {
 		});
 	});
 
-	it("passes auth header when fetching data", async () => {
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: mockDeck }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: [] }),
-			});
+	it("calls correct RPC endpoints when fetching data", async () => {
+		mockDeckGet.mockResolvedValue({ deck: mockDeck });
+		mockCardsGet.mockResolvedValue({ cards: [] });
 
 		renderWithProviders();
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1", {
-				headers: { Authorization: "Bearer access-token" },
+			expect(mockDeckGet).toHaveBeenCalledWith({
+				param: { id: "deck-1" },
 			});
 		});
-		expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/cards", {
-			headers: { Authorization: "Bearer access-token" },
+		expect(mockCardsGet).toHaveBeenCalledWith({
+			param: { deckId: "deck-1" },
 		});
 	});
 
 	it("does not show description if deck has none", async () => {
 		const deckWithoutDescription = { ...mockDeck, description: null };
-		mockFetch
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ deck: deckWithoutDescription }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ cards: [] }),
-			});
+		mockDeckGet.mockResolvedValue({ deck: deckWithoutDescription });
+		mockCardsGet.mockResolvedValue({ cards: [] });
 
 		renderWithProviders();
 
@@ -430,15 +368,8 @@ describe("DeckDetailPage", () => {
 
 	describe("Delete Note", () => {
 		it("shows Delete button for each note", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 			renderWithProviders();
 
@@ -455,15 +386,8 @@ describe("DeckDetailPage", () => {
 		it("opens delete confirmation modal when Delete button is clicked", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 			renderWithProviders();
 
@@ -488,15 +412,8 @@ describe("DeckDetailPage", () => {
 		it("closes delete modal when Cancel is clicked", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockCards });
 
 			renderWithProviders();
 
@@ -522,26 +439,12 @@ describe("DeckDetailPage", () => {
 		it("deletes note and refreshes list on confirmation", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				// Initial load
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockCards }),
-				})
-				// Delete request
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ success: true }),
-				})
-				// Refresh cards after deletion
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [mockCards[1]] }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet
+				.mockResolvedValueOnce({ cards: mockCards })
+				// Refresh after deletion
+				.mockResolvedValueOnce({ cards: [mockCards[1]] });
+			mockNoteDelete.mockResolvedValue({ success: true });
 
 			renderWithProviders();
 
@@ -574,9 +477,8 @@ describe("DeckDetailPage", () => {
 			});
 
 			// Verify DELETE request was made to notes endpoint
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/notes/note-1", {
-				method: "DELETE",
-				headers: { Authorization: "Bearer access-token" },
+			expect(mockNoteDelete).toHaveBeenCalledWith({
+				param: { deckId: "deck-1", noteId: "note-1" },
 			});
 
 			// Verify card count updated
@@ -588,22 +490,11 @@ describe("DeckDetailPage", () => {
 		it("displays error when delete fails", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				// Initial load
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockCards }),
-				})
-				// Delete request fails
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 500,
-					json: async () => ({ error: "Failed to delete note" }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockCards });
+			mockNoteDelete.mockRejectedValue(
+				new ApiClientError("Failed to delete note", 500),
+			);
 
 			renderWithProviders();
 
@@ -641,15 +532,8 @@ describe("DeckDetailPage", () => {
 
 	describe("Card Grouping by Note", () => {
 		it("groups cards by noteId and displays as note groups", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -664,15 +548,8 @@ describe("DeckDetailPage", () => {
 		});
 
 		it("shows Normal and Reversed badges for note-based cards", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -684,15 +561,8 @@ describe("DeckDetailPage", () => {
 		});
 
 		it("shows note card count in note group header", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -703,15 +573,8 @@ describe("DeckDetailPage", () => {
 		});
 
 		it("shows edit note button for note groups", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -724,15 +587,8 @@ describe("DeckDetailPage", () => {
 		});
 
 		it("shows delete note button for note groups", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -749,15 +605,8 @@ describe("DeckDetailPage", () => {
 		it("opens delete note modal when delete button is clicked", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 
@@ -779,26 +628,12 @@ describe("DeckDetailPage", () => {
 		it("deletes note and refreshes list when confirmed", async () => {
 			const user = userEvent.setup();
 
-			mockFetch
-				// Initial load
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				})
-				// Delete request
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ success: true }),
-				})
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet
+				.mockResolvedValueOnce({ cards: mockNoteBasedCards })
 				// Refresh cards after deletion
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: [] }),
-				});
+				.mockResolvedValueOnce({ cards: [] });
+			mockNoteDelete.mockResolvedValue({ success: true });
 
 			renderWithProviders();
 
@@ -827,9 +662,8 @@ describe("DeckDetailPage", () => {
 			});
 
 			// Verify DELETE request was made to notes endpoint
-			expect(mockFetch).toHaveBeenCalledWith("/api/decks/deck-1/notes/note-1", {
-				method: "DELETE",
-				headers: { Authorization: "Bearer access-token" },
+			expect(mockNoteDelete).toHaveBeenCalledWith({
+				param: { deckId: "deck-1", noteId: "note-1" },
 			});
 
 			// Should show empty state after deletion
@@ -839,15 +673,8 @@ describe("DeckDetailPage", () => {
 		});
 
 		it("displays note preview from normal card content", async () => {
-			mockFetch
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ deck: mockDeck }),
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ cards: mockNoteBasedCards }),
-				});
+			mockDeckGet.mockResolvedValue({ deck: mockDeck });
+			mockCardsGet.mockResolvedValue({ cards: mockNoteBasedCards });
 
 			renderWithProviders();
 

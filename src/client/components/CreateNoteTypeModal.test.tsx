@@ -4,11 +4,20 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockPost = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				"note-types": {
+					$post: (args: unknown) => mockPost(args),
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +31,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { CreateNoteTypeModal } from "./CreateNoteTypeModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("CreateNoteTypeModal", () => {
 	const defaultProps = {
@@ -38,8 +44,15 @@ describe("CreateNoteTypeModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
+		mockPost.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({
+			noteType: {
+				id: "note-type-1",
+				name: "Test Note Type",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: false,
+			},
 		});
 	});
 
@@ -126,19 +139,6 @@ describe("CreateNoteTypeModal", () => {
 		const onClose = vi.fn();
 		const onNoteTypeCreated = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				noteType: {
-					id: "note-type-1",
-					name: "Test Note Type",
-					frontTemplate: "{{Front}}",
-					backTemplate: "{{Back}}",
-					isReversible: true,
-				},
-			}),
-		});
-
 		render(
 			<CreateNoteTypeModal
 				isOpen={true}
@@ -153,18 +153,13 @@ describe("CreateNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPost).toHaveBeenCalledWith({
+				json: {
 					name: "Test Note Type",
 					frontTemplate: "{{Front}}",
 					backTemplate: "{{Back}}",
 					isReversible: true,
-				}),
+				},
 			});
 		});
 
@@ -175,30 +170,24 @@ describe("CreateNoteTypeModal", () => {
 	it("trims whitespace from text fields", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: { id: "note-type-1" } }),
-		});
-
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
 		await user.type(screen.getByLabelText("Name"), "  Test Note Type  ");
 		await user.click(screen.getByRole("button", { name: "Create" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types",
-				expect.objectContaining({
-					body: expect.stringContaining('"name":"Test Note Type"'),
+			expect(mockPost).toHaveBeenCalledWith({
+				json: expect.objectContaining({
+					name: "Test Note Type",
 				}),
-			);
+			});
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockPost.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
@@ -220,11 +209,9 @@ describe("CreateNoteTypeModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 400,
-			json: async () => ({ error: "Note type name already exists" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Note type name already exists", 400),
+		);
 
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
@@ -241,7 +228,7 @@ describe("CreateNoteTypeModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockPost.mockRejectedValue(new Error("Network error"));
 
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
@@ -251,23 +238,6 @@ describe("CreateNoteTypeModal", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
 				"Failed to create note type. Please try again.",
-			);
-		});
-	});
-
-	it("displays error when not authenticated", async () => {
-		const user = userEvent.setup();
-
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
-
-		render(<CreateNoteTypeModal {...defaultProps} />);
-
-		await user.type(screen.getByLabelText("Name"), "Test Note Type");
-		await user.click(screen.getByRole("button", { name: "Create" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Not authenticated",
 			);
 		});
 	});

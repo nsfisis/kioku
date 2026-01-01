@@ -4,11 +4,22 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
+
+const mockPut = vi.fn();
+const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
-		getAuthHeader: vi.fn(),
+		rpc: {
+			api: {
+				"note-types": {
+					":id": {
+						$put: (args: unknown) => mockPut(args),
+					},
+				},
+			},
+		},
+		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -22,12 +33,9 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { ApiClientError } from "../api/client";
 // Import after mock is set up
 import { EditNoteTypeModal } from "./EditNoteTypeModal";
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe("EditNoteTypeModal", () => {
 	const mockNoteType = {
@@ -47,9 +55,8 @@ describe("EditNoteTypeModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
+		mockPut.mockResolvedValue({ ok: true });
+		mockHandleResponse.mockResolvedValue({ noteType: mockNoteType });
 	});
 
 	afterEach(() => {
@@ -155,17 +162,6 @@ describe("EditNoteTypeModal", () => {
 		const onClose = vi.fn();
 		const onNoteTypeUpdated = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				noteType: {
-					...mockNoteType,
-					name: "Updated Basic",
-					isReversible: true,
-				},
-			}),
-		});
-
 		render(
 			<EditNoteTypeModal
 				isOpen={true}
@@ -185,18 +181,14 @@ describe("EditNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith("/api/note-types/note-type-123", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer access-token",
-				},
-				body: JSON.stringify({
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: {
 					name: "Updated Basic",
 					frontTemplate: "{{Front}}",
 					backTemplate: "{{Back}}",
 					isReversible: true,
-				}),
+				},
 			});
 		});
 
@@ -207,11 +199,6 @@ describe("EditNoteTypeModal", () => {
 	it("trims whitespace from text fields", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ noteType: mockNoteType }),
-		});
-
 		render(<EditNoteTypeModal {...defaultProps} />);
 
 		const nameInput = screen.getByLabelText("Name");
@@ -220,19 +207,19 @@ describe("EditNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockFetch).toHaveBeenCalledWith(
-				"/api/note-types/note-type-123",
-				expect.objectContaining({
-					body: expect.stringContaining('"name":"Updated Basic"'),
+			expect(mockPut).toHaveBeenCalledWith({
+				param: { id: "note-type-123" },
+				json: expect.objectContaining({
+					name: "Updated Basic",
 				}),
-			);
+			});
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockPut.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<EditNoteTypeModal {...defaultProps} />);
 
@@ -253,11 +240,9 @@ describe("EditNoteTypeModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Note type not found" }),
-		});
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Note type not found", 404),
+		);
 
 		render(<EditNoteTypeModal {...defaultProps} />);
 
@@ -273,7 +258,7 @@ describe("EditNoteTypeModal", () => {
 	it("displays generic error on unexpected failure", async () => {
 		const user = userEvent.setup();
 
-		mockFetch.mockRejectedValue(new Error("Network error"));
+		mockPut.mockRejectedValue(new Error("Network error"));
 
 		render(<EditNoteTypeModal {...defaultProps} />);
 
@@ -286,10 +271,12 @@ describe("EditNoteTypeModal", () => {
 		});
 	});
 
-	it("displays error when not authenticated", async () => {
+	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue(undefined);
+		mockHandleResponse.mockRejectedValue(
+			new ApiClientError("Not authenticated", 401),
+		);
 
 		render(<EditNoteTypeModal {...defaultProps} />);
 
@@ -339,11 +326,7 @@ describe("EditNoteTypeModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockFetch.mockResolvedValue({
-			ok: false,
-			status: 404,
-			json: async () => ({ error: "Some error" }),
-		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
 
 		const { rerender } = render(
 			<EditNoteTypeModal {...defaultProps} onClose={onClose} />,

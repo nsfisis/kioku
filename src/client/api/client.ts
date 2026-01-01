@@ -117,7 +117,7 @@ export class ApiClient {
 		return response;
 	}
 
-	private async handleResponse<T>(response: Response): Promise<T> {
+	async handleResponse<T>(response: Response): Promise<T> {
 		if (!response.ok) {
 			const errorBody = (await response.json().catch(() => ({}))) as ApiError;
 			throw new ApiClientError(

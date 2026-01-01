@@ -36,24 +36,12 @@ export function DeleteCardModal({
 		setIsDeleting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deckId}/cards/${card.id}`, {
-				method: "DELETE",
-				headers: authHeader,
+			const res = await apiClient.rpc.api.decks[":deckId"].cards[
+				":cardId"
+			].$delete({
+				param: { deckId, cardId: card.id },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onCardDeleted();
 			onClose();

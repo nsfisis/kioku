@@ -31,24 +31,12 @@ export function DeleteNoteModal({
 		setIsDeleting(true);
 
 		try {
-			const authHeader = apiClient.getAuthHeader();
-			if (!authHeader) {
-				throw new ApiClientError("Not authenticated", 401);
-			}
-
-			const res = await fetch(`/api/decks/${deckId}/notes/${noteId}`, {
-				method: "DELETE",
-				headers: authHeader,
+			const res = await apiClient.rpc.api.decks[":deckId"].notes[
+				":noteId"
+			].$delete({
+				param: { deckId, noteId },
 			});
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await apiClient.handleResponse(res);
 
 			onNoteDeleted();
 			onClose();
