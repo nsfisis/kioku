@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
+import { shuffle } from "../utils/shuffle";
 import { renderCard } from "../utils/templateRenderer";
 
 interface Card {
@@ -82,7 +83,7 @@ export function StudyPage() {
 			param: { deckId },
 		});
 		const data = await apiClient.handleResponse<{ cards: Card[] }>(res);
-		setCards(data.cards);
+		setCards(shuffle(data.cards));
 	}, [deckId]);
 
 	const fetchData = useCallback(async () => {

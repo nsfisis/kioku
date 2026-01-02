@@ -14,6 +14,11 @@ const mockStudyGet = vi.fn();
 const mockStudyPost = vi.fn();
 const mockHandleResponse = vi.fn();
 
+// Mock shuffle to return array in original order for predictable tests
+vi.mock("../utils/shuffle", () => ({
+	shuffle: <T,>(array: T[]): T[] => [...array],
+}));
+
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
