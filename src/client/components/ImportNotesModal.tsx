@@ -313,11 +313,25 @@ export function ImportNotesModal({
 							</div>
 							<div className="bg-ivory rounded-lg px-4 py-3 text-sm text-muted">
 								<p className="font-medium text-slate mb-1">Expected format:</p>
-								<code className="text-xs">
-									note_type,Front,Back
-									<br />
-									Basic,hello,world
-								</code>
+								{noteTypes.length === 0 ? (
+									<p className="text-xs text-muted">Loading note types...</p>
+								) : (
+									<div className="text-xs space-y-2">
+										{noteTypes.map((nt) => {
+											const sortedFields = [...nt.fields].sort(
+												(a, b) => a.order - b.order,
+											);
+											const fieldNames = sortedFields.map((f) => f.name);
+											return (
+												<code key={nt.id} className="block">
+													note_type,{fieldNames.join(",")}
+													<br />
+													{nt.name},{fieldNames.map(() => "...").join(",")}
+												</code>
+											);
+										})}
+									</div>
+								)}
 							</div>
 						</div>
 					)}
