@@ -16,10 +16,9 @@ Kioku allows you to bulk import notes from CSV files.
 The first row is the header. Use the following format:
 
 ```
-deck,note_type,Field1,Field2,...
+note_type,Field1,Field2,...
 ```
 
-- **deck**: Deck name (for reference only; import destination is selected in the UI)
 - **note_type**: Note type name (required)
 - **Field names**: Field names defined in the note type
 
@@ -28,27 +27,27 @@ deck,note_type,Field1,Field2,...
 Rows 2 and onwards contain the notes to import.
 
 ```csv
-deck,note_type,Front,Back
-MyDeck,Basic,hello,world
-MyDeck,Basic,goodbye,farewell
+note_type,Front,Back
+Basic,hello,world
+Basic,goodbye,farewell
 ```
 
 ### Example: Basic Note Type
 
 ```csv
-deck,note_type,Front,Back
-Vocabulary,Basic,apple,a round fruit
-Vocabulary,Basic,banana,a yellow fruit
-Vocabulary,Basic,orange,a citrus fruit
+note_type,Front,Back
+Basic,apple,a round fruit
+Basic,banana,a yellow fruit
+Basic,orange,a citrus fruit
 ```
 
 ### Example: Basic (and reversed card) Note Type
 
 ```csv
-deck,note_type,Front,Back
-Capitals,Basic (and reversed card),Tokyo,Japan
-Capitals,Basic (and reversed card),Paris,France
-Capitals,Basic (and reversed card),London,United Kingdom
+note_type,Front,Back
+Basic (and reversed card),Tokyo,Japan
+Basic (and reversed card),Paris,France
+Basic (and reversed card),London,United Kingdom
 ```
 
 ## CSV Specification
@@ -66,17 +65,17 @@ Kioku's CSV parser is RFC 4180 compliant.
 Use double quotes (`"`) to include commas or newlines within a field:
 
 ```csv
-deck,note_type,Front,Back
-MyDeck,Basic,"Hello, World!",example with comma
-MyDeck,Basic,"Line 1
+note_type,Front,Back
+Basic,"Hello, World!",example with comma
+Basic,"Line 1
 Line 2",example with newline
 ```
 
 To include a double quote within a field, escape it by doubling:
 
 ```csv
-deck,note_type,Front,Back
-MyDeck,Basic,"He said ""Hello""",example with quotes
+note_type,Front,Back
+Basic,"He said ""Hello""",example with quotes
 ```
 
 ## Important Notes

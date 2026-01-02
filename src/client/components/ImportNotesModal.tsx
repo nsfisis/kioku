@@ -142,22 +142,20 @@ export function ImportNotesModal({
 
 			const { headers, rows } = parseResult.data;
 
-			// Validate headers: must have deck, note_type, and at least one field
-			if (headers.length < 3) {
-				setError(
-					"CSV must have at least 3 columns: deck, note_type, and field(s)",
-				);
+			// Validate headers: must have note_type and at least one field
+			if (headers.length < 2) {
+				setError("CSV must have at least 2 columns: note_type and field(s)");
 				setPhase("upload");
 				return;
 			}
 
-			if (headers[0] !== "deck" || headers[1] !== "note_type") {
-				setError("First two columns must be 'deck' and 'note_type'");
+			if (headers[0] !== "note_type") {
+				setError("First column must be 'note_type'");
 				setPhase("upload");
 				return;
 			}
 
-			const fieldNames = headers.slice(2);
+			const fieldNames = headers.slice(1);
 			const validated: ValidatedRow[] = [];
 			const errors: ValidationError[] = [];
 
@@ -316,9 +314,9 @@ export function ImportNotesModal({
 							<div className="bg-ivory rounded-lg px-4 py-3 text-sm text-muted">
 								<p className="font-medium text-slate mb-1">Expected format:</p>
 								<code className="text-xs">
-									deck,note_type,Front,Back
+									note_type,Front,Back
 									<br />
-									MyDeck,Basic,hello,world
+									Basic,hello,world
 								</code>
 							</div>
 						</div>
