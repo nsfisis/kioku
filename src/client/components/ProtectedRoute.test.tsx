@@ -2,11 +2,11 @@
  * @vitest-environment jsdom
  */
 import { cleanup, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "../api/client";
-import { AuthProvider } from "../stores";
+import { authLoadingAtom } from "../atoms";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 vi.mock("../api/client", () => ({
@@ -29,17 +29,29 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-function renderWithRouter(path: string) {
+import { apiClient } from "../api/client";
+
+function renderWithProvider(
+	path: string,
+	atomValues: { isAuthenticated: boolean; isLoading: boolean },
+) {
+	// Mock the apiClient.isAuthenticated to control isAuthenticatedAtom value
+	vi.mocked(apiClient.isAuthenticated).mockReturnValue(
+		atomValues.isAuthenticated,
+	);
+
 	const { hook } = memoryLocation({ path });
+	const store = createStore();
+	store.set(authLoadingAtom, atomValues.isLoading);
 
 	return render(
-		<Router hook={hook}>
-			<AuthProvider>
+		<Provider store={store}>
+			<Router hook={hook}>
 				<ProtectedRoute>
 					<div data-testid="protected-content">Protected Content</div>
 				</ProtectedRoute>
-			</AuthProvider>
-		</Router>,
+			</Router>
+		</Provider>,
 	);
 }
 
@@ -54,35 +66,22 @@ afterEach(() => {
 
 describe("ProtectedRoute", () => {
 	it("shows loading state while auth is loading", () => {
-		vi.mocked(apiClient.getTokens).mockReturnValue(null);
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
+		renderWithProvider("/", { isAuthenticated: false, isLoading: true });
 
-		// The AuthProvider initially sets isLoading to true, then false after checking tokens
-		// Since getTokens returns null, isLoading will quickly become false
-		renderWithRouter("/");
-
-		// After the initial check, the component should redirect since not authenticated
 		expect(screen.queryByTestId("protected-content")).toBeNull();
+		// Loading spinner should be visible
+		expect(screen.getByRole("status")).toBeDefined();
 	});
 
 	it("renders children when authenticated", () => {
-		vi.mocked(apiClient.getTokens).mockReturnValue({
-			accessToken: "access-token",
-			refreshToken: "refresh-token",
-		});
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
-
-		renderWithRouter("/");
+		renderWithProvider("/", { isAuthenticated: true, isLoading: false });
 
 		expect(screen.getByTestId("protected-content")).toBeDefined();
 		expect(screen.getByText("Protected Content")).toBeDefined();
 	});
 
 	it("redirects to login when not authenticated", () => {
-		vi.mocked(apiClient.getTokens).mockReturnValue(null);
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
-
-		renderWithRouter("/");
+		renderWithProvider("/", { isAuthenticated: false, isLoading: false });
 
 		// Should not show protected content
 		expect(screen.queryByTestId("protected-content")).toBeNull();

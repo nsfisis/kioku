@@ -3,11 +3,11 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { apiClient } from "../api/client";
-import { AuthProvider } from "../stores";
+import { authLoadingAtom } from "../atoms";
 import { LoginPage } from "./LoginPage";
 
 vi.mock("../api/client", () => ({
@@ -30,14 +30,18 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+import { apiClient } from "../api/client";
+
 function renderWithProviders(path = "/login") {
 	const { hook } = memoryLocation({ path });
+	const store = createStore();
+	store.set(authLoadingAtom, false);
 	return render(
-		<Router hook={hook}>
-			<AuthProvider>
+		<Provider store={store}>
+			<Router hook={hook}>
 				<LoginPage />
-			</AuthProvider>
-		</Router>,
+			</Router>
+		</Provider>,
 	);
 }
 
@@ -156,12 +160,15 @@ describe("LoginPage", () => {
 			return [result[0], navigateSpy];
 		};
 
+		const store = createStore();
+		store.set(authLoadingAtom, false);
+
 		render(
-			<Router hook={hookWithSpy}>
-				<AuthProvider>
+			<Provider store={store}>
+				<Router hook={hookWithSpy}>
 					<LoginPage />
-				</AuthProvider>
-			</Router>,
+				</Router>
+			</Provider>,
 		);
 
 		await waitFor(() => {

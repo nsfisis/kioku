@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { AuthProvider, SyncProvider } from "./stores";
+import { StoreInitializer } from "./components/StoreInitializer";
 import "./styles.css";
 
 const rootElement = document.getElementById("root");
@@ -11,10 +11,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
 	<StrictMode>
-		<AuthProvider>
-			<SyncProvider>
-				<App />
-			</SyncProvider>
-		</AuthProvider>
+		<StoreInitializer>
+			<App />
+		</StoreInitializer>
 	</StrictMode>,
 );

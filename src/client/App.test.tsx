@@ -3,12 +3,12 @@
  */
 import "fake-indexeddb/auto";
 import { cleanup, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { App } from "./App";
-import { apiClient } from "./api/client";
-import { AuthProvider, SyncProvider } from "./stores";
+import { authLoadingAtom } from "./atoms";
 
 vi.mock("./api/client", () => ({
 	apiClient: {
@@ -38,6 +38,8 @@ vi.mock("./api/client", () => ({
 	},
 }));
 
+import { apiClient } from "./api/client";
+
 // Helper to create mock responses compatible with Hono's ClientResponse
 function mockResponse(data: {
 	ok: boolean;
@@ -52,14 +54,14 @@ function mockResponse(data: {
 
 function renderWithRouter(path: string) {
 	const { hook } = memoryLocation({ path, static: true });
+	const store = createStore();
+	store.set(authLoadingAtom, false);
 	return render(
-		<Router hook={hook}>
-			<AuthProvider>
-				<SyncProvider>
-					<App />
-				</SyncProvider>
-			</AuthProvider>
-		</Router>,
+		<Provider store={store}>
+			<Router hook={hook}>
+				<App />
+			</Router>
+		</Provider>,
 	);
 }
 

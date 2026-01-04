@@ -3,23 +3,38 @@
  */
 import "fake-indexeddb/auto";
 import { cleanup, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	isOnlineAtom,
+	isSyncingAtom,
+	lastErrorAtom,
+	pendingCountAtom,
+	syncStatusAtom,
+} from "../atoms";
+import { SyncStatus } from "../sync";
 import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
-// Mock the useSync hook
-const mockUseSync = vi.fn();
-vi.mock("../stores", () => ({
-	useSync: () => mockUseSync(),
-}));
+function renderWithStore(atomValues: {
+	isOnline: boolean;
+	isSyncing: boolean;
+	pendingCount: number;
+	lastError: string | null;
+	status: (typeof SyncStatus)[keyof typeof SyncStatus];
+}) {
+	const store = createStore();
+	store.set(isOnlineAtom, atomValues.isOnline);
+	store.set(isSyncingAtom, atomValues.isSyncing);
+	store.set(pendingCountAtom, atomValues.pendingCount);
+	store.set(lastErrorAtom, atomValues.lastError);
+	store.set(syncStatusAtom, atomValues.status);
 
-// Mock the SyncStatus constant
-vi.mock("../sync", () => ({
-	SyncStatus: {
-		Idle: "idle",
-		Syncing: "syncing",
-		Error: "error",
-	},
-}));
+	return render(
+		<Provider store={store}>
+			<SyncStatusIndicator />
+		</Provider>,
+	);
+}
 
 describe("SyncStatusIndicator", () => {
 	beforeEach(() => {
@@ -31,129 +46,111 @@ describe("SyncStatusIndicator", () => {
 	});
 
 	it("displays 'Synced' when online with no pending changes", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: false,
 			pendingCount: 0,
 			lastError: null,
-			status: "idle",
+			status: SyncStatus.Idle,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Synced")).toBeDefined();
 		expect(screen.getByTestId("sync-status-indicator")).toBeDefined();
 	});
 
 	it("displays 'Offline' when not online", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			isSyncing: false,
 			pendingCount: 0,
 			lastError: null,
-			status: "idle",
+			status: SyncStatus.Idle,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Offline")).toBeDefined();
 	});
 
 	it("displays 'Syncing...' when syncing", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: true,
 			pendingCount: 0,
 			lastError: null,
-			status: "syncing",
+			status: SyncStatus.Syncing,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Syncing...")).toBeDefined();
 	});
 
 	it("displays pending count when there are pending changes", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: false,
 			pendingCount: 5,
 			lastError: null,
-			status: "idle",
+			status: SyncStatus.Idle,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("5 pending")).toBeDefined();
 	});
 
 	it("displays 'Sync error' when there is an error", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: false,
 			pendingCount: 0,
 			lastError: "Network error",
-			status: "error",
+			status: SyncStatus.Error,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Sync error")).toBeDefined();
 	});
 
 	it("shows error message in title when there is an error", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: false,
 			pendingCount: 0,
 			lastError: "Network error",
-			status: "error",
+			status: SyncStatus.Error,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		const indicator = screen.getByTestId("sync-status-indicator");
 		expect(indicator.getAttribute("title")).toBe("Network error");
 	});
 
 	it("prioritizes offline status over other states", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			isSyncing: true,
 			pendingCount: 5,
 			lastError: "Error",
-			status: "error",
+			status: SyncStatus.Error,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Offline")).toBeDefined();
 	});
 
 	it("prioritizes syncing status over pending and error", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: true,
 			pendingCount: 5,
 			lastError: null,
-			status: "syncing",
+			status: SyncStatus.Syncing,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Syncing...")).toBeDefined();
 	});
 
 	it("prioritizes error status over pending", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			isSyncing: false,
 			pendingCount: 5,
 			lastError: "Network error",
-			status: "error",
+			status: SyncStatus.Error,
 		});
-
-		render(<SyncStatusIndicator />);
 
 		expect(screen.getByText("Sync error")).toBeDefined();
 	});

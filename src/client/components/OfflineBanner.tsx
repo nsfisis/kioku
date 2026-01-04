@@ -1,9 +1,11 @@
 import { faWifi } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useSync } from "../stores";
+import { useAtomValue } from "jotai";
+import { isOnlineAtom, pendingCountAtom } from "../atoms";
 
 export function OfflineBanner() {
-	const { isOnline, pendingCount } = useSync();
+	const isOnline = useAtomValue(isOnlineAtom);
+	const pendingCount = useAtomValue(pendingCountAtom);
 
 	if (isOnline) {
 		return null;

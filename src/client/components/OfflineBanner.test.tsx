@@ -3,14 +3,25 @@
  */
 import "fake-indexeddb/auto";
 import { cleanup, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isOnlineAtom, pendingCountAtom } from "../atoms";
 import { OfflineBanner } from "./OfflineBanner";
 
-// Mock the useSync hook
-const mockUseSync = vi.fn();
-vi.mock("../stores", () => ({
-	useSync: () => mockUseSync(),
-}));
+function renderWithStore(atomValues: {
+	isOnline: boolean;
+	pendingCount: number;
+}) {
+	const store = createStore();
+	store.set(isOnlineAtom, atomValues.isOnline);
+	store.set(pendingCountAtom, atomValues.pendingCount);
+
+	return render(
+		<Provider store={store}>
+			<OfflineBanner />
+		</Provider>,
+	);
+}
 
 describe("OfflineBanner", () => {
 	beforeEach(() => {
@@ -22,23 +33,19 @@ describe("OfflineBanner", () => {
 	});
 
 	it("renders nothing when online", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: true,
 			pendingCount: 0,
 		});
-
-		render(<OfflineBanner />);
 
 		expect(screen.queryByTestId("offline-banner")).toBeNull();
 	});
 
 	it("renders banner when offline", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			pendingCount: 0,
 		});
-
-		render(<OfflineBanner />);
 
 		const banner = screen.getByTestId("offline-banner");
 		expect(banner).toBeDefined();
@@ -48,35 +55,29 @@ describe("OfflineBanner", () => {
 	});
 
 	it("displays pending count when offline with pending changes", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			pendingCount: 5,
 		});
-
-		render(<OfflineBanner />);
 
 		expect(screen.getByTestId("offline-pending-count")).toBeDefined();
 		expect(screen.getByText("(5 pending)")).toBeDefined();
 	});
 
 	it("does not display pending count when there are no pending changes", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			pendingCount: 0,
 		});
-
-		render(<OfflineBanner />);
 
 		expect(screen.queryByTestId("offline-pending-count")).toBeNull();
 	});
 
 	it("has correct accessibility attributes", () => {
-		mockUseSync.mockReturnValue({
+		renderWithStore({
 			isOnline: false,
 			pendingCount: 0,
 		});
-
-		render(<OfflineBanner />);
 
 		const banner = screen.getByTestId("offline-banner");
 		// <output> element has implicit role="status", so we check it's an output element

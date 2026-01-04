@@ -6,43 +6,24 @@ import {
 	faLayerGroup,
 	faPen,
 	faPlus,
-	faSpinner,
 	faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { Suspense, useMemo, useState, useTransition } from "react";
 import { Link, useParams } from "wouter";
-import { ApiClientError, apiClient } from "../api";
+import { type Card, cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
 import { DeleteCardModal } from "../components/DeleteCardModal";
 import { DeleteNoteModal } from "../components/DeleteNoteModal";
 import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ImportNotesModal } from "../components/ImportNotesModal";
-
-interface Card {
-	id: string;
-	deckId: string;
-	noteId: string;
-	isReversed: boolean;
-	front: string;
-	back: string;
-	state: number;
-	due: string;
-	reps: number;
-	lapses: number;
-	createdAt: string;
-	updatedAt: string;
-}
+import { LoadingSpinner } from "../components/LoadingSpinner";
 
 /** Combined type for display: note group */
 type CardDisplayItem = { type: "note"; noteId: string; cards: Card[] };
-
-interface Deck {
-	id: string;
-	name: string;
-	description: string | null;
-}
 
 const CardStateLabels: Record<number, string> = {
 	0: "New",
@@ -178,18 +159,31 @@ function NoteGroupCard({
 	);
 }
 
-export function DeckDetailPage() {
-	const { deckId } = useParams<{ deckId: string }>();
-	const [deck, setDeck] = useState<Deck | null>(null);
-	const [cards, setCards] = useState<Card[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-	const [editingCard, setEditingCard] = useState<Card | null>(null);
-	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
-	const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+function DeckHeader({ deckId }: { deckId: string }) {
+	const deck = useAtomValue(deckByIdAtomFamily(deckId));
+
+	return (
+		<div className="mb-8">
+			<h1 className="font-display text-3xl font-semibold text-ink mb-2">
+				{deck.name}
+			</h1>
+			{deck.description && <p className="text-muted">{deck.description}</p>}
+		</div>
+	);
+}
+
+function CardList({
+	deckId,
+	onEditNote,
+	onDeleteNote,
+	onCreateNote,
+}: {
+	deckId: string;
+	onEditNote: (noteId: string) => void;
+	onDeleteNote: (noteId: string) => void;
+	onCreateNote: () => void;
+}) {
+	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
 
 	// Group cards by note for display
 	const displayItems = useMemo((): CardDisplayItem[] => {
@@ -230,46 +224,153 @@ export function DeckDetailPage() {
 		return items;
 	}, [cards]);
 
-	const fetchDeck = useCallback(async () => {
-		if (!deckId) return;
+	if (cards.length === 0) {
+		return (
+			<div className="text-center py-12 bg-white rounded-xl border border-border/50">
+				<div className="w-14 h-14 mx-auto mb-4 bg-ivory rounded-xl flex items-center justify-center">
+					<FontAwesomeIcon
+						icon={faFile}
+						className="w-7 h-7 text-muted"
+						aria-hidden="true"
+					/>
+				</div>
+				<h3 className="font-display text-lg font-medium text-slate mb-2">
+					No cards yet
+				</h3>
+				<p className="text-muted text-sm mb-4">Add notes to start studying</p>
+				<button
+					type="button"
+					onClick={onCreateNote}
+					className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
+				>
+					<FontAwesomeIcon
+						icon={faPlus}
+						className="w-5 h-5"
+						aria-hidden="true"
+					/>
+					Add Your First Note
+				</button>
+			</div>
+		);
+	}
 
-		const res = await apiClient.rpc.api.decks[":id"].$get({
-			param: { id: deckId },
+	return (
+		<div className="space-y-4">
+			{displayItems.map((item, index) => (
+				<NoteGroupCard
+					key={item.noteId}
+					noteId={item.noteId}
+					cards={item.cards}
+					index={index}
+					onEditNote={() => onEditNote(item.noteId)}
+					onDeleteNote={() => onDeleteNote(item.noteId)}
+				/>
+			))}
+		</div>
+	);
+}
+
+function DeckContent({
+	deckId,
+	onCreateNote,
+	onImportNotes,
+	onEditNote,
+	onDeleteNote,
+}: {
+	deckId: string;
+	onCreateNote: () => void;
+	onImportNotes: () => void;
+	onEditNote: (noteId: string) => void;
+	onDeleteNote: (noteId: string) => void;
+}) {
+	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+
+	return (
+		<div className="animate-fade-in">
+			{/* Deck Header */}
+			<ErrorBoundary>
+				<Suspense fallback={<LoadingSpinner />}>
+					<DeckHeader deckId={deckId} />
+				</Suspense>
+			</ErrorBoundary>
+
+			{/* Study Button */}
+			<div className="mb-8">
+				<Link
+					href={`/decks/${deckId}/study`}
+					className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
+				>
+					<FontAwesomeIcon
+						icon={faCirclePlay}
+						className="w-5 h-5"
+						aria-hidden="true"
+					/>
+					Study Now
+				</Link>
+			</div>
+
+			{/* Cards Section */}
+			<div className="flex items-center justify-between mb-6">
+				<h2 className="font-display text-xl font-medium text-slate">
+					Cards <span className="text-muted font-normal">({cards.length})</span>
+				</h2>
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={onImportNotes}
+						className="inline-flex items-center gap-2 border border-border hover:bg-ivory text-slate font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
+					>
+						<FontAwesomeIcon
+							icon={faFileImport}
+							className="w-5 h-5"
+							aria-hidden="true"
+						/>
+						Import CSV
+					</button>
+					<button
+						type="button"
+						onClick={onCreateNote}
+						className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
+					>
+						<FontAwesomeIcon
+							icon={faPlus}
+							className="w-5 h-5"
+							aria-hidden="true"
+						/>
+						Add Note
+					</button>
+				</div>
+			</div>
+
+			{/* Card List */}
+			<CardList
+				deckId={deckId}
+				onEditNote={onEditNote}
+				onDeleteNote={onDeleteNote}
+				onCreateNote={onCreateNote}
+			/>
+		</div>
+	);
+}
+
+export function DeckDetailPage() {
+	const { deckId } = useParams<{ deckId: string }>();
+	const [, startTransition] = useTransition();
+
+	const reloadCards = useSetAtom(cardsByDeckAtomFamily(deckId || ""));
+
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+	const [editingCard, setEditingCard] = useState<Card | null>(null);
+	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
+	const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+	const handleCardMutation = () => {
+		startTransition(() => {
+			reloadCards();
 		});
-		const data = await apiClient.handleResponse<{ deck: Deck }>(res);
-		setDeck(data.deck);
-	}, [deckId]);
-
-	const fetchCards = useCallback(async () => {
-		if (!deckId) return;
-
-		const res = await apiClient.rpc.api.decks[":deckId"].cards.$get({
-			param: { deckId },
-		});
-		const data = await apiClient.handleResponse<{ cards: Card[] }>(res);
-		setCards(data.cards);
-	}, [deckId]);
-
-	const fetchData = useCallback(async () => {
-		setIsLoading(true);
-		setError(null);
-
-		try {
-			await Promise.all([fetchDeck(), fetchCards()]);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load data. Please try again.");
-			}
-		} finally {
-			setIsLoading(false);
-		}
-	}, [fetchDeck, fetchCards]);
-
-	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+	};
 
 	if (!deckId) {
 		return (
@@ -308,204 +409,65 @@ export function DeckDetailPage() {
 
 			{/* Main Content */}
 			<main className="max-w-4xl mx-auto px-4 py-8">
-				{/* Loading State */}
-				{isLoading && (
-					<div className="flex items-center justify-center py-12">
-						<FontAwesomeIcon
-							icon={faSpinner}
-							className="h-8 w-8 text-primary animate-spin"
-							aria-hidden="true"
+				<ErrorBoundary>
+					<Suspense fallback={<LoadingSpinner />}>
+						<DeckContent
+							deckId={deckId}
+							onCreateNote={() => setIsCreateModalOpen(true)}
+							onImportNotes={() => setIsImportModalOpen(true)}
+							onEditNote={setEditingNoteId}
+							onDeleteNote={setDeletingNoteId}
 						/>
-					</div>
-				)}
-
-				{/* Error State */}
-				{error && (
-					<div
-						role="alert"
-						className="bg-error/5 border border-error/20 rounded-xl p-4 flex items-center justify-between"
-					>
-						<span className="text-error">{error}</span>
-						<button
-							type="button"
-							onClick={fetchData}
-							className="text-error hover:text-error/80 font-medium text-sm"
-						>
-							Retry
-						</button>
-					</div>
-				)}
-
-				{/* Deck Content */}
-				{!isLoading && !error && deck && (
-					<div className="animate-fade-in">
-						{/* Deck Header */}
-						<div className="mb-8">
-							<h1 className="font-display text-3xl font-semibold text-ink mb-2">
-								{deck.name}
-							</h1>
-							{deck.description && (
-								<p className="text-muted">{deck.description}</p>
-							)}
-						</div>
-
-						{/* Study Button */}
-						<div className="mb-8">
-							<Link
-								href={`/decks/${deckId}/study`}
-								className="inline-flex items-center gap-2 bg-success hover:bg-success/90 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
-							>
-								<FontAwesomeIcon
-									icon={faCirclePlay}
-									className="w-5 h-5"
-									aria-hidden="true"
-								/>
-								Study Now
-							</Link>
-						</div>
-
-						{/* Cards Section */}
-						<div className="flex items-center justify-between mb-6">
-							<h2 className="font-display text-xl font-medium text-slate">
-								Cards{" "}
-								<span className="text-muted font-normal">({cards.length})</span>
-							</h2>
-							<div className="flex items-center gap-2">
-								<button
-									type="button"
-									onClick={() => setIsImportModalOpen(true)}
-									className="inline-flex items-center gap-2 border border-border hover:bg-ivory text-slate font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
-								>
-									<FontAwesomeIcon
-										icon={faFileImport}
-										className="w-5 h-5"
-										aria-hidden="true"
-									/>
-									Import CSV
-								</button>
-								<button
-									type="button"
-									onClick={() => setIsCreateModalOpen(true)}
-									className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 active:scale-[0.98]"
-								>
-									<FontAwesomeIcon
-										icon={faPlus}
-										className="w-5 h-5"
-										aria-hidden="true"
-									/>
-									Add Note
-								</button>
-							</div>
-						</div>
-
-						{/* Empty State */}
-						{cards.length === 0 && (
-							<div className="text-center py-12 bg-white rounded-xl border border-border/50">
-								<div className="w-14 h-14 mx-auto mb-4 bg-ivory rounded-xl flex items-center justify-center">
-									<FontAwesomeIcon
-										icon={faFile}
-										className="w-7 h-7 text-muted"
-										aria-hidden="true"
-									/>
-								</div>
-								<h3 className="font-display text-lg font-medium text-slate mb-2">
-									No cards yet
-								</h3>
-								<p className="text-muted text-sm mb-4">
-									Add notes to start studying
-								</p>
-								<button
-									type="button"
-									onClick={() => setIsCreateModalOpen(true)}
-									className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
-								>
-									<FontAwesomeIcon
-										icon={faPlus}
-										className="w-5 h-5"
-										aria-hidden="true"
-									/>
-									Add Your First Note
-								</button>
-							</div>
-						)}
-
-						{/* Card List - Grouped by Note */}
-						{cards.length > 0 && (
-							<div className="space-y-4">
-								{displayItems.map((item, index) => (
-									<NoteGroupCard
-										key={item.noteId}
-										noteId={item.noteId}
-										cards={item.cards}
-										index={index}
-										onEditNote={() => setEditingNoteId(item.noteId)}
-										onDeleteNote={() => setDeletingNoteId(item.noteId)}
-									/>
-								))}
-							</div>
-						)}
-					</div>
-				)}
+					</Suspense>
+				</ErrorBoundary>
 			</main>
 
 			{/* Modals */}
-			{deckId && (
-				<CreateNoteModal
-					isOpen={isCreateModalOpen}
-					deckId={deckId}
-					onClose={() => setIsCreateModalOpen(false)}
-					onNoteCreated={fetchCards}
-				/>
-			)}
+			<CreateNoteModal
+				isOpen={isCreateModalOpen}
+				deckId={deckId}
+				onClose={() => setIsCreateModalOpen(false)}
+				onNoteCreated={handleCardMutation}
+			/>
 
-			{deckId && (
-				<ImportNotesModal
-					isOpen={isImportModalOpen}
-					deckId={deckId}
-					onClose={() => setIsImportModalOpen(false)}
-					onImportComplete={fetchCards}
-				/>
-			)}
+			<ImportNotesModal
+				isOpen={isImportModalOpen}
+				deckId={deckId}
+				onClose={() => setIsImportModalOpen(false)}
+				onImportComplete={handleCardMutation}
+			/>
 
-			{deckId && (
-				<EditCardModal
-					isOpen={editingCard !== null}
-					deckId={deckId}
-					card={editingCard}
-					onClose={() => setEditingCard(null)}
-					onCardUpdated={fetchCards}
-				/>
-			)}
+			<EditCardModal
+				isOpen={editingCard !== null}
+				deckId={deckId}
+				card={editingCard}
+				onClose={() => setEditingCard(null)}
+				onCardUpdated={handleCardMutation}
+			/>
 
-			{deckId && (
-				<EditNoteModal
-					isOpen={editingNoteId !== null}
-					deckId={deckId}
-					noteId={editingNoteId}
-					onClose={() => setEditingNoteId(null)}
-					onNoteUpdated={fetchCards}
-				/>
-			)}
+			<EditNoteModal
+				isOpen={editingNoteId !== null}
+				deckId={deckId}
+				noteId={editingNoteId}
+				onClose={() => setEditingNoteId(null)}
+				onNoteUpdated={handleCardMutation}
+			/>
 
-			{deckId && (
-				<DeleteCardModal
-					isOpen={deletingCard !== null}
-					deckId={deckId}
-					card={deletingCard}
-					onClose={() => setDeletingCard(null)}
-					onCardDeleted={fetchCards}
-				/>
-			)}
+			<DeleteCardModal
+				isOpen={deletingCard !== null}
+				deckId={deckId}
+				card={deletingCard}
+				onClose={() => setDeletingCard(null)}
+				onCardDeleted={handleCardMutation}
+			/>
 
-			{deckId && (
-				<DeleteNoteModal
-					isOpen={deletingNoteId !== null}
-					deckId={deckId}
-					noteId={deletingNoteId}
-					onClose={() => setDeletingNoteId(null)}
-					onNoteDeleted={fetchCards}
-				/>
-			)}
+			<DeleteNoteModal
+				isOpen={deletingNoteId !== null}
+				deckId={deckId}
+				noteId={deletingNoteId}
+				onClose={() => setDeletingNoteId(null)}
+				onNoteDeleted={handleCardMutation}
+			/>
 		</div>
 	);
 }

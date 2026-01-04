@@ -4,31 +4,119 @@ import {
 	faLayerGroup,
 	faPen,
 	faPlus,
-	faSpinner,
 	faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useCallback, useEffect, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { Suspense, useState, useTransition } from "react";
 import { Link } from "wouter";
-import { ApiClientError, apiClient } from "../api";
+import { type NoteType, noteTypesAtom } from "../atoms";
 import { CreateNoteTypeModal } from "../components/CreateNoteTypeModal";
 import { DeleteNoteTypeModal } from "../components/DeleteNoteTypeModal";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { NoteTypeEditor } from "../components/NoteTypeEditor";
 
-interface NoteType {
-	id: string;
-	name: string;
-	frontTemplate: string;
-	backTemplate: string;
-	isReversible: boolean;
-	createdAt: string;
-	updatedAt: string;
+function NoteTypeList({
+	onEditNoteType,
+	onDeleteNoteType,
+}: {
+	onEditNoteType: (id: string) => void;
+	onDeleteNoteType: (noteType: NoteType) => void;
+}) {
+	const noteTypes = useAtomValue(noteTypesAtom);
+
+	if (noteTypes.length === 0) {
+		return (
+			<div className="text-center py-16 animate-fade-in">
+				<div className="w-16 h-16 mx-auto mb-4 bg-ivory rounded-2xl flex items-center justify-center">
+					<FontAwesomeIcon
+						icon={faBoxOpen}
+						className="w-8 h-8 text-muted"
+						aria-hidden="true"
+					/>
+				</div>
+				<h3 className="font-display text-lg font-medium text-slate mb-2">
+					No note types yet
+				</h3>
+				<p className="text-muted text-sm mb-6">
+					Create a note type to define how your cards are structured
+				</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="space-y-3 animate-fade-in">
+			{noteTypes.map((noteType, index) => (
+				<div
+					key={noteType.id}
+					className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200 group"
+					style={{ animationDelay: `${index * 50}ms` }}
+				>
+					<div className="flex items-start justify-between gap-4">
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center gap-2 mb-1">
+								<FontAwesomeIcon
+									icon={faLayerGroup}
+									className="w-4 h-4 text-muted"
+									aria-hidden="true"
+								/>
+								<h3 className="font-display text-lg font-medium text-slate truncate">
+									{noteType.name}
+								</h3>
+							</div>
+							<div className="flex flex-wrap gap-2 mt-2">
+								<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
+									Front: {noteType.frontTemplate}
+								</span>
+								<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
+									Back: {noteType.backTemplate}
+								</span>
+								{noteType.isReversible && (
+									<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+										Reversible
+									</span>
+								)}
+							</div>
+						</div>
+						<div className="flex items-center gap-2 shrink-0">
+							<button
+								type="button"
+								onClick={() => onEditNoteType(noteType.id)}
+								className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
+								title="Edit note type"
+							>
+								<FontAwesomeIcon
+									icon={faPen}
+									className="w-4 h-4"
+									aria-hidden="true"
+								/>
+							</button>
+							<button
+								type="button"
+								onClick={() => onDeleteNoteType(noteType)}
+								className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+								title="Delete note type"
+							>
+								<FontAwesomeIcon
+									icon={faTrash}
+									className="w-4 h-4"
+									aria-hidden="true"
+								/>
+							</button>
+						</div>
+					</div>
+				</div>
+			))}
+		</div>
+	);
 }
 
 export function NoteTypesPage() {
-	const [noteTypes, setNoteTypes] = useState<NoteType[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const reloadNoteTypes = useSetAtom(noteTypesAtom);
+	const [, startTransition] = useTransition();
+
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingNoteTypeId, setEditingNoteTypeId] = useState<string | null>(
 		null,
@@ -37,30 +125,11 @@ export function NoteTypesPage() {
 		null,
 	);
 
-	const fetchNoteTypes = useCallback(async () => {
-		setIsLoading(true);
-		setError(null);
-
-		try {
-			const res = await apiClient.rpc.api["note-types"].$get();
-			const data = await apiClient.handleResponse<{ noteTypes: NoteType[] }>(
-				res,
-			);
-			setNoteTypes(data.noteTypes);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note types. Please try again.");
-			}
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		fetchNoteTypes();
-	}, [fetchNoteTypes]);
+	const handleNoteTypeMutation = () => {
+		startTransition(() => {
+			reloadNoteTypes();
+		});
+	};
 
 	return (
 		<div className="min-h-screen bg-cream">
@@ -107,140 +176,36 @@ export function NoteTypesPage() {
 					</button>
 				</div>
 
-				{/* Loading State */}
-				{isLoading && (
-					<div className="flex items-center justify-center py-12">
-						<FontAwesomeIcon
-							icon={faSpinner}
-							className="h-8 w-8 text-primary animate-spin"
-							aria-hidden="true"
+				{/* Note Type List with Suspense */}
+				<ErrorBoundary>
+					<Suspense fallback={<LoadingSpinner />}>
+						<NoteTypeList
+							onEditNoteType={setEditingNoteTypeId}
+							onDeleteNoteType={setDeletingNoteType}
 						/>
-					</div>
-				)}
-
-				{/* Error State */}
-				{error && (
-					<div
-						role="alert"
-						className="bg-error/5 border border-error/20 rounded-xl p-4 flex items-center justify-between"
-					>
-						<span className="text-error">{error}</span>
-						<button
-							type="button"
-							onClick={fetchNoteTypes}
-							className="text-error hover:text-error/80 font-medium text-sm"
-						>
-							Retry
-						</button>
-					</div>
-				)}
-
-				{/* Empty State */}
-				{!isLoading && !error && noteTypes.length === 0 && (
-					<div className="text-center py-16 animate-fade-in">
-						<div className="w-16 h-16 mx-auto mb-4 bg-ivory rounded-2xl flex items-center justify-center">
-							<FontAwesomeIcon
-								icon={faBoxOpen}
-								className="w-8 h-8 text-muted"
-								aria-hidden="true"
-							/>
-						</div>
-						<h3 className="font-display text-lg font-medium text-slate mb-2">
-							No note types yet
-						</h3>
-						<p className="text-muted text-sm mb-6">
-							Create a note type to define how your cards are structured
-						</p>
-					</div>
-				)}
-
-				{/* Note Type List */}
-				{!isLoading && !error && noteTypes.length > 0 && (
-					<div className="space-y-3 animate-fade-in">
-						{noteTypes.map((noteType, index) => (
-							<div
-								key={noteType.id}
-								className="bg-white rounded-xl border border-border/50 p-5 shadow-card hover:shadow-md transition-all duration-200 group"
-								style={{ animationDelay: `${index * 50}ms` }}
-							>
-								<div className="flex items-start justify-between gap-4">
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-2 mb-1">
-											<FontAwesomeIcon
-												icon={faLayerGroup}
-												className="w-4 h-4 text-muted"
-												aria-hidden="true"
-											/>
-											<h3 className="font-display text-lg font-medium text-slate truncate">
-												{noteType.name}
-											</h3>
-										</div>
-										<div className="flex flex-wrap gap-2 mt-2">
-											<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
-												Front: {noteType.frontTemplate}
-											</span>
-											<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-ivory text-muted">
-												Back: {noteType.backTemplate}
-											</span>
-											{noteType.isReversible && (
-												<span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-													Reversible
-												</span>
-											)}
-										</div>
-									</div>
-									<div className="flex items-center gap-2 shrink-0">
-										<button
-											type="button"
-											onClick={() => setEditingNoteTypeId(noteType.id)}
-											className="p-2 text-muted hover:text-slate hover:bg-ivory rounded-lg transition-colors"
-											title="Edit note type"
-										>
-											<FontAwesomeIcon
-												icon={faPen}
-												className="w-4 h-4"
-												aria-hidden="true"
-											/>
-										</button>
-										<button
-											type="button"
-											onClick={() => setDeletingNoteType(noteType)}
-											className="p-2 text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
-											title="Delete note type"
-										>
-											<FontAwesomeIcon
-												icon={faTrash}
-												className="w-4 h-4"
-												aria-hidden="true"
-											/>
-										</button>
-									</div>
-								</div>
-							</div>
-						))}
-					</div>
-				)}
+					</Suspense>
+				</ErrorBoundary>
 			</main>
 
 			{/* Modals */}
 			<CreateNoteTypeModal
 				isOpen={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
-				onNoteTypeCreated={fetchNoteTypes}
+				onNoteTypeCreated={handleNoteTypeMutation}
 			/>
 
 			<NoteTypeEditor
 				isOpen={editingNoteTypeId !== null}
 				noteTypeId={editingNoteTypeId}
 				onClose={() => setEditingNoteTypeId(null)}
-				onNoteTypeUpdated={fetchNoteTypes}
+				onNoteTypeUpdated={handleNoteTypeMutation}
 			/>
 
 			<DeleteNoteTypeModal
 				isOpen={deletingNoteType !== null}
 				noteType={deletingNoteType}
 				onClose={() => setDeletingNoteType(null)}
-				onNoteTypeDeleted={fetchNoteTypes}
+				onNoteTypeDeleted={handleNoteTypeMutation}
 			/>
 		</div>
 	);

@@ -1,9 +1,12 @@
 import { faArrowsRotate, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useSync } from "../stores";
+import { useAtomValue, useSetAtom } from "jotai";
+import { isOnlineAtom, isSyncingAtom, syncActionAtom } from "../atoms";
 
 export function SyncButton() {
-	const { isOnline, isSyncing, sync } = useSync();
+	const isOnline = useAtomValue(isOnlineAtom);
+	const isSyncing = useAtomValue(isSyncingAtom);
+	const sync = useSetAtom(syncActionAtom);
 
 	const handleSync = async () => {
 		await sync();

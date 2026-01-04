@@ -1,12 +1,15 @@
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type FormEvent, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ApiClientError, useAuth } from "../stores";
+import { ApiClientError } from "../api/client";
+import { isAuthenticatedAtom, loginAtom } from "../atoms";
 
 export function LoginPage() {
 	const [, navigate] = useLocation();
-	const { login, isAuthenticated } = useAuth();
+	const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+	const login = useSetAtom(loginAtom);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export function LoginPage() {
 		setIsSubmitting(true);
 
 		try {
-			await login(username, password);
+			await login({ username, password });
 			navigate("/", { replace: true });
 		} catch (err) {
 			if (err instanceof ApiClientError) {

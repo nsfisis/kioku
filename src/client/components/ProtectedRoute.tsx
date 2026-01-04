@@ -1,16 +1,18 @@
+import { useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { Redirect } from "wouter";
-import { useAuth } from "../stores";
+import { authLoadingAtom, isAuthenticatedAtom } from "../atoms";
 
 export interface ProtectedRouteProps {
 	children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-	const { isAuthenticated, isLoading } = useAuth();
+	const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+	const isLoading = useAtomValue(authLoadingAtom);
 
 	if (isLoading) {
-		return <div>Loading...</div>;
+		return <output>Loading...</output>;
 	}
 
 	if (!isAuthenticated) {

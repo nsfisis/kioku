@@ -1,12 +1,5 @@
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { atom, useSetAtom } from "jotai";
+import { useEffect } from "react";
 import { apiClient } from "../api/client";
 import {
 	conflictResolver,
@@ -31,26 +24,9 @@ import type {
 } from "../sync/pull";
 import type { SyncPushData, SyncPushResult } from "../sync/push";
 
-export interface SyncState {
-	isOnline: boolean;
-	isSyncing: boolean;
-	pendingCount: number;
-	lastSyncAt: Date | null;
-	lastError: string | null;
-	status: SyncQueueState["status"];
-}
-
-export interface SyncActions {
-	sync: () => Promise<SyncResult>;
-}
-
-export type SyncContextValue = SyncState & SyncActions;
-
-const SyncContext = createContext<SyncContextValue | null>(null);
-
-export interface SyncProviderProps {
-	children: ReactNode;
-}
+// =====================
+// Sync Services Setup
+// =====================
 
 interface PullResponse {
 	decks: Array<
@@ -205,17 +181,32 @@ const syncManager = createSyncManager({
 	conflictResolver,
 });
 
-export function SyncProvider({ children }: SyncProviderProps) {
-	const [isOnline, setIsOnline] = useState(
-		typeof navigator !== "undefined" ? navigator.onLine : true,
-	);
-	const [isSyncing, setIsSyncing] = useState(false);
-	const [pendingCount, setPendingCount] = useState(0);
-	const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
-	const [lastError, setLastError] = useState<string | null>(null);
-	const [status, setStatus] = useState<SyncQueueState["status"]>(
-		SyncStatus.Idle,
-	);
+// =====================
+// Sync State Atoms
+// =====================
+
+export const isOnlineAtom = atom<boolean>(
+	typeof navigator !== "undefined" ? navigator.onLine : true,
+);
+export const isSyncingAtom = atom<boolean>(false);
+export const pendingCountAtom = atom<number>(0);
+export const lastSyncAtAtom = atom<Date | null>(null);
+export const lastErrorAtom = atom<string | null>(null);
+export const syncStatusAtom = atom<SyncQueueState["status"]>(SyncStatus.Idle);
+
+// Action atom - trigger sync
+export const syncActionAtom = atom(null, async (): Promise<SyncResult> => {
+	return syncManager.sync();
+});
+
+// Hook to initialize sync subscriptions
+export function useSyncInit() {
+	const setIsOnline = useSetAtom(isOnlineAtom);
+	const setIsSyncing = useSetAtom(isSyncingAtom);
+	const setPendingCount = useSetAtom(pendingCountAtom);
+	const setLastSyncAt = useSetAtom(lastSyncAtAtom);
+	const setLastError = useSetAtom(lastErrorAtom);
+	const setStatus = useSetAtom(syncStatusAtom);
 
 	useEffect(() => {
 		syncManager.start();
@@ -272,32 +263,12 @@ export function SyncProvider({ children }: SyncProviderProps) {
 			unsubscribeQueue();
 			syncManager.stop();
 		};
-	}, []);
-
-	const sync = useCallback(async () => {
-		return syncManager.sync();
-	}, []);
-
-	const value = useMemo<SyncContextValue>(
-		() => ({
-			isOnline,
-			isSyncing,
-			pendingCount,
-			lastSyncAt,
-			lastError,
-			status,
-			sync,
-		}),
-		[isOnline, isSyncing, pendingCount, lastSyncAt, lastError, status, sync],
-	);
-
-	return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
-}
-
-export function useSync(): SyncContextValue {
-	const context = useContext(SyncContext);
-	if (!context) {
-		throw new Error("useSync must be used within a SyncProvider");
-	}
-	return context;
+	}, [
+		setIsOnline,
+		setIsSyncing,
+		setPendingCount,
+		setLastSyncAt,
+		setLastError,
+		setStatus,
+	]);
 }

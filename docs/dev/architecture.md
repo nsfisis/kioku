@@ -6,6 +6,7 @@
 |-------|------------|
 | Frontend | React + Vite |
 | Routing | Wouter |
+| State | Jotai |
 | Styling | TailwindCSS |
 | Backend | Hono + TypeScript |
 | Database | PostgreSQL |
@@ -68,7 +69,7 @@ kioku/
 │       ├── index.tsx
 │       ├── components/
 │       ├── pages/
-│       ├── stores/
+│       ├── atoms/            # Jotai atoms (state management)
 │       ├── db/               # Dexie IndexedDB
 │       ├── sync/             # Sync engine
 │       └── api/

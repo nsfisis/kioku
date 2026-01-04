@@ -6,11 +6,22 @@ import {
 	faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useSync } from "../stores";
-import { SyncStatus } from "../sync";
+import { useAtomValue } from "jotai";
+import {
+	isOnlineAtom,
+	isSyncingAtom,
+	lastErrorAtom,
+	pendingCountAtom,
+	SyncStatus,
+	syncStatusAtom,
+} from "../atoms";
 
 export function SyncStatusIndicator() {
-	const { isOnline, isSyncing, pendingCount, lastError, status } = useSync();
+	const isOnline = useAtomValue(isOnlineAtom);
+	const isSyncing = useAtomValue(isSyncingAtom);
+	const pendingCount = useAtomValue(pendingCountAtom);
+	const lastError = useAtomValue(lastErrorAtom);
+	const status = useAtomValue(syncStatusAtom);
 
 	const getStatusText = (): string => {
 		if (!isOnline) {
