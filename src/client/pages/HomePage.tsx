@@ -57,14 +57,21 @@ function DeckList({
 				>
 					<div className="flex items-start justify-between gap-4">
 						<div className="flex-1 min-w-0">
-							<Link
-								href={`/decks/${deck.id}`}
-								className="block group-hover:text-primary transition-colors"
-							>
-								<h3 className="font-display text-lg font-medium text-slate truncate">
-									{deck.name}
-								</h3>
-							</Link>
+							<div className="flex items-center gap-3">
+								<Link
+									href={`/decks/${deck.id}`}
+									className="block group-hover:text-primary transition-colors flex-1 min-w-0"
+								>
+									<h3 className="font-display text-lg font-medium text-slate truncate">
+										{deck.name}
+									</h3>
+								</Link>
+								{deck.dueCardCount > 0 && (
+									<span className="shrink-0 inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 bg-primary text-white text-sm font-medium rounded-full">
+										{deck.dueCardCount}
+									</span>
+								)}
+							</div>
 							{deck.description && (
 								<p className="text-muted text-sm mt-1 line-clamp-2">
 									{deck.description}

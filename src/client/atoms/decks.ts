@@ -6,6 +6,7 @@ export interface Deck {
 	name: string;
 	description: string | null;
 	newCardsPerDay: number;
+	dueCardCount: number;
 	createdAt: string;
 	updatedAt: string;
 }

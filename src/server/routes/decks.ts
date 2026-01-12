@@ -2,11 +2,17 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { authMiddleware, Errors, getAuthUser } from "../middleware/index.js";
-import { type DeckRepository, deckRepository } from "../repositories/index.js";
+import {
+	type CardRepository,
+	cardRepository,
+	type DeckRepository,
+	deckRepository,
+} from "../repositories/index.js";
 import { createDeckSchema, updateDeckSchema } from "../schemas/index.js";
 
 export interface DeckDependencies {
 	deckRepo: DeckRepository;
+	cardRepo: CardRepository;
 }
 
 const deckIdParamSchema = z.object({
@@ -14,14 +20,21 @@ const deckIdParamSchema = z.object({
 });
 
 export function createDecksRouter(deps: DeckDependencies) {
-	const { deckRepo } = deps;
+	const { deckRepo, cardRepo } = deps;
 
 	return new Hono()
 		.use("*", authMiddleware)
 		.get("/", async (c) => {
 			const user = getAuthUser(c);
 			const decks = await deckRepo.findByUserId(user.id);
-			return c.json({ decks }, 200);
+			const now = new Date();
+			const decksWithDueCount = await Promise.all(
+				decks.map(async (deck) => {
+					const dueCardCount = await cardRepo.countDueCards(deck.id, now);
+					return { ...deck, dueCardCount };
+				}),
+			);
+			return c.json({ decks: decksWithDueCount }, 200);
 		})
 		.post("/", zValidator("json", createDeckSchema), async (c) => {
 			const user = getAuthUser(c);
@@ -79,4 +92,5 @@ export function createDecksRouter(deps: DeckDependencies) {
 
 export const decks = createDecksRouter({
 	deckRepo: deckRepository,
+	cardRepo: cardRepository,
 });

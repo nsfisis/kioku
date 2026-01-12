@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import { sign } from "hono/jwt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware/index.js";
-import type { Deck, DeckRepository } from "../repositories/index.js";
+import type {
+	CardRepository,
+	Deck,
+	DeckRepository,
+} from "../repositories/index.js";
 import { createDecksRouter } from "./decks.js";
 
 function createMockDeckRepo(): DeckRepository {
@@ -12,6 +16,24 @@ function createMockDeckRepo(): DeckRepository {
 		create: vi.fn(),
 		update: vi.fn(),
 		softDelete: vi.fn(),
+	};
+}
+
+function createMockCardRepo(): CardRepository {
+	return {
+		findByDeckId: vi.fn(),
+		findById: vi.fn(),
+		findByIdWithNoteData: vi.fn(),
+		findByNoteId: vi.fn(),
+		create: vi.fn(),
+		update: vi.fn(),
+		softDelete: vi.fn(),
+		softDeleteByNoteId: vi.fn(),
+		findDueCards: vi.fn(),
+		countDueCards: vi.fn().mockResolvedValue(0),
+		findDueCardsWithNoteData: vi.fn(),
+		findDueCardsForStudy: vi.fn(),
+		updateFSRSFields: vi.fn(),
 	};
 }
 
@@ -57,12 +79,17 @@ interface DeckResponse {
 describe("GET /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
+	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
-		const decksRouter = createDecksRouter({ deckRepo: mockDeckRepo });
+		mockCardRepo = createMockCardRepo();
+		const decksRouter = createDecksRouter({
+			deckRepo: mockDeckRepo,
+			cardRepo: mockCardRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/decks", decksRouter);
@@ -112,12 +139,17 @@ describe("GET /api/decks", () => {
 describe("POST /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
+	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
-		const decksRouter = createDecksRouter({ deckRepo: mockDeckRepo });
+		mockCardRepo = createMockCardRepo();
+		const decksRouter = createDecksRouter({
+			deckRepo: mockDeckRepo,
+			cardRepo: mockCardRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/decks", decksRouter);
@@ -220,12 +252,17 @@ describe("POST /api/decks", () => {
 describe("GET /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
+	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
-		const decksRouter = createDecksRouter({ deckRepo: mockDeckRepo });
+		mockCardRepo = createMockCardRepo();
+		const decksRouter = createDecksRouter({
+			deckRepo: mockDeckRepo,
+			cardRepo: mockCardRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/decks", decksRouter);
@@ -285,12 +322,17 @@ describe("GET /api/decks/:id", () => {
 describe("PUT /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
+	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
-		const decksRouter = createDecksRouter({ deckRepo: mockDeckRepo });
+		mockCardRepo = createMockCardRepo();
+		const decksRouter = createDecksRouter({
+			deckRepo: mockDeckRepo,
+			cardRepo: mockCardRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/decks", decksRouter);
@@ -410,12 +452,17 @@ describe("PUT /api/decks/:id", () => {
 describe("DELETE /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
+	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
-		const decksRouter = createDecksRouter({ deckRepo: mockDeckRepo });
+		mockCardRepo = createMockCardRepo();
+		const decksRouter = createDecksRouter({
+			deckRepo: mockDeckRepo,
+			cardRepo: mockCardRepo,
+		});
 		app = new Hono();
 		app.onError(errorHandler);
 		app.route("/api/decks", decksRouter);
