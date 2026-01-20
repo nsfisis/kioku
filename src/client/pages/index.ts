@@ -1,3 +1,4 @@
+export { DeckCardsPage } from "./DeckCardsPage";
 export { DeckDetailPage } from "./DeckDetailPage";
 export { HomePage } from "./HomePage";
 export { LoginPage } from "./LoginPage";

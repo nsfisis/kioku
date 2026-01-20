@@ -1,6 +1,7 @@
 import { Route, Switch } from "wouter";
 import { OfflineBanner, ProtectedRoute } from "./components";
 import {
+	DeckCardsPage,
 	DeckDetailPage,
 	HomePage,
 	LoginPage,
@@ -19,14 +20,19 @@ export function App() {
 						<HomePage />
 					</ProtectedRoute>
 				</Route>
-				<Route path="/decks/:deckId">
+				<Route path="/decks/:deckId/cards">
 					<ProtectedRoute>
-						<DeckDetailPage />
+						<DeckCardsPage />
 					</ProtectedRoute>
 				</Route>
 				<Route path="/decks/:deckId/study">
 					<ProtectedRoute>
 						<StudyPage />
+					</ProtectedRoute>
+				</Route>
+				<Route path="/decks/:deckId">
+					<ProtectedRoute>
+						<DeckDetailPage />
 					</ProtectedRoute>
 				</Route>
 				<Route path="/note-types">
