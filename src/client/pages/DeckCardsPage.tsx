@@ -4,13 +4,24 @@ import {
 	faFile,
 	faFileImport,
 	faLayerGroup,
+	faMagnifyingGlass,
 	faPen,
 	faPlus,
 	faTrash,
+	faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue, useSetAtom } from "jotai";
-import { Suspense, useCallback, useMemo, useState, useTransition } from "react";
+import {
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { Link, useParams } from "wouter";
 import { type Card, cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
@@ -245,11 +256,13 @@ function Pagination({
 
 function CardList({
 	deckId,
+	searchQuery,
 	onEditNote,
 	onDeleteNote,
 	onCreateNote,
 }: {
 	deckId: string;
+	searchQuery: string;
 	onEditNote: (noteId: string) => void;
 	onDeleteNote: (noteId: string) => void;
 	onCreateNote: () => void;
@@ -257,7 +270,7 @@ function CardList({
 	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
 	const [currentPage, setCurrentPage] = useState(0);
 
-	// Group cards by note for display
+	// Group cards by note for display, applying search filter
 	const displayItems = useMemo((): CardDisplayItem[] => {
 		const noteGroups = new Map<string, Card[]>();
 
@@ -283,6 +296,7 @@ function CardList({
 			},
 		);
 
+		const query = searchQuery.toLowerCase();
 		const items: CardDisplayItem[] = [];
 		for (const [noteId, noteCards] of sortedNoteGroups) {
 			// Sort cards within group: normal first, then reversed
@@ -290,11 +304,33 @@ function CardList({
 				if (a.isReversed === b.isReversed) return 0;
 				return a.isReversed ? 1 : -1;
 			});
+
+			// Filter: if query is set, only include note groups where any card matches
+			if (
+				query &&
+				!noteCards.some(
+					(c) =>
+						c.front.toLowerCase().includes(query) ||
+						c.back.toLowerCase().includes(query),
+				)
+			) {
+				continue;
+			}
+
 			items.push({ type: "note", noteId, cards: noteCards });
 		}
 
 		return items;
-	}, [cards]);
+	}, [cards, searchQuery]);
+
+	// Reset to first page when search query changes
+	const prevSearchQuery = useRef(searchQuery);
+	useEffect(() => {
+		if (prevSearchQuery.current !== searchQuery) {
+			prevSearchQuery.current = searchQuery;
+			setCurrentPage(0);
+		}
+	}, [searchQuery]);
 
 	const pages = useMemo(() => paginateNoteGroups(displayItems), [displayItems]);
 	const totalPages = pages.length;
@@ -379,6 +415,26 @@ function CardsContent({
 	onDeleteNote: (noteId: string) => void;
 }) {
 	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+	const [searchInput, setSearchInput] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
+	const debouncedSetQuery = useDebouncedCallback((value: string) => {
+		setSearchQuery(value);
+	}, 500);
+
+	const handleSearchChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const value = e.target.value;
+			setSearchInput(value);
+			debouncedSetQuery(value);
+		},
+		[debouncedSetQuery],
+	);
+
+	const handleClearSearch = useCallback(() => {
+		setSearchInput("");
+		setSearchQuery("");
+		debouncedSetQuery.cancel();
+	}, [debouncedSetQuery]);
 
 	return (
 		<div className="animate-fade-in">
@@ -390,7 +446,7 @@ function CardsContent({
 			</ErrorBoundary>
 
 			{/* Cards Section */}
-			<div className="flex items-center justify-between mb-6">
+			<div className="flex items-center justify-between mb-4">
 				<h2 className="font-display text-xl font-medium text-slate">
 					Cards <span className="text-muted font-normal">({cards.length})</span>
 				</h2>
@@ -422,9 +478,39 @@ function CardsContent({
 				</div>
 			</div>
 
+			{/* Search */}
+			<div className="relative mb-6">
+				<FontAwesomeIcon
+					icon={faMagnifyingGlass}
+					className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none"
+					aria-hidden="true"
+				/>
+				<input
+					type="text"
+					value={searchInput}
+					onChange={handleSearchChange}
+					placeholder="Search cards..."
+					className="w-full pl-10 pr-9 py-2.5 bg-white border border-border/50 rounded-lg text-sm text-slate placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+				/>
+				{searchInput && (
+					<button
+						type="button"
+						onClick={handleClearSearch}
+						className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-slate transition-colors"
+					>
+						<FontAwesomeIcon
+							icon={faXmark}
+							className="w-4 h-4"
+							aria-hidden="true"
+						/>
+					</button>
+				)}
+			</div>
+
 			{/* Card List */}
 			<CardList
 				deckId={deckId}
+				searchQuery={searchQuery}
 				onEditNote={onEditNote}
 				onDeleteNote={onDeleteNote}
 				onCreateNote={onCreateNote}
