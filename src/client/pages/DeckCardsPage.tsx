@@ -1,5 +1,6 @@
 import {
 	faChevronLeft,
+	faChevronRight,
 	faFile,
 	faFileImport,
 	faLayerGroup,
@@ -9,7 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue, useSetAtom } from "jotai";
-import { Suspense, useMemo, useState, useTransition } from "react";
+import { Suspense, useCallback, useMemo, useState, useTransition } from "react";
 import { Link, useParams } from "wouter";
 import { type Card, cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
@@ -23,6 +24,8 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 
 /** Combined type for display: note group */
 type CardDisplayItem = { type: "note"; noteId: string; cards: Card[] };
+
+const CARDS_PER_PAGE = 50;
 
 const CardStateLabels: Record<number, string> = {
 	0: "New",
@@ -171,6 +174,75 @@ function DeckHeader({ deckId }: { deckId: string }) {
 	);
 }
 
+/** Paginate note groups so each page contains at most CARDS_PER_PAGE cards */
+function paginateNoteGroups(items: CardDisplayItem[]): CardDisplayItem[][] {
+	const pages: CardDisplayItem[][] = [];
+	let currentPage: CardDisplayItem[] = [];
+	let currentCount = 0;
+
+	for (const item of items) {
+		if (currentCount > 0 && currentCount + item.cards.length > CARDS_PER_PAGE) {
+			pages.push(currentPage);
+			currentPage = [];
+			currentCount = 0;
+		}
+		currentPage.push(item);
+		currentCount += item.cards.length;
+	}
+
+	if (currentPage.length > 0) {
+		pages.push(currentPage);
+	}
+
+	return pages;
+}
+
+function Pagination({
+	currentPage,
+	totalPages,
+	onPageChange,
+}: {
+	currentPage: number;
+	totalPages: number;
+	onPageChange: (page: number) => void;
+}) {
+	if (totalPages <= 1) return null;
+
+	return (
+		<div className="flex items-center justify-center gap-2 mt-6">
+			<button
+				type="button"
+				onClick={() => onPageChange(currentPage - 1)}
+				disabled={currentPage === 0}
+				className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-ivory text-slate transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+			>
+				<FontAwesomeIcon
+					icon={faChevronLeft}
+					className="w-3 h-3"
+					aria-hidden="true"
+				/>
+				Prev
+			</button>
+			<span className="text-sm text-muted px-2">
+				{currentPage + 1} / {totalPages}
+			</span>
+			<button
+				type="button"
+				onClick={() => onPageChange(currentPage + 1)}
+				disabled={currentPage === totalPages - 1}
+				className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-ivory text-slate transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+			>
+				Next
+				<FontAwesomeIcon
+					icon={faChevronRight}
+					className="w-3 h-3"
+					aria-hidden="true"
+				/>
+			</button>
+		</div>
+	);
+}
+
 function CardList({
 	deckId,
 	onEditNote,
@@ -183,6 +255,7 @@ function CardList({
 	onCreateNote: () => void;
 }) {
 	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+	const [currentPage, setCurrentPage] = useState(0);
 
 	// Group cards by note for display
 	const displayItems = useMemo((): CardDisplayItem[] => {
@@ -223,6 +296,20 @@ function CardList({
 		return items;
 	}, [cards]);
 
+	const pages = useMemo(() => paginateNoteGroups(displayItems), [displayItems]);
+	const totalPages = pages.length;
+
+	// Clamp current page when data changes (e.g. after deletion)
+	const safePage = totalPages > 0 ? Math.min(currentPage, totalPages - 1) : 0;
+	if (safePage !== currentPage) {
+		setCurrentPage(safePage);
+	}
+
+	const handlePageChange = useCallback((page: number) => {
+		setCurrentPage(page);
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}, []);
+
 	if (cards.length === 0) {
 		return (
 			<div className="text-center py-12 bg-white rounded-xl border border-border/50">
@@ -253,18 +340,27 @@ function CardList({
 		);
 	}
 
+	const pageItems = pages[safePage] ?? [];
+
 	return (
-		<div className="space-y-4">
-			{displayItems.map((item, index) => (
-				<NoteGroupCard
-					key={item.noteId}
-					noteId={item.noteId}
-					cards={item.cards}
-					index={index}
-					onEditNote={() => onEditNote(item.noteId)}
-					onDeleteNote={() => onDeleteNote(item.noteId)}
-				/>
-			))}
+		<div>
+			<div className="space-y-4">
+				{pageItems.map((item, index) => (
+					<NoteGroupCard
+						key={item.noteId}
+						noteId={item.noteId}
+						cards={item.cards}
+						index={index}
+						onEditNote={() => onEditNote(item.noteId)}
+						onDeleteNote={() => onDeleteNote(item.noteId)}
+					/>
+				))}
+			</div>
+			<Pagination
+				currentPage={safePage}
+				totalPages={totalPages}
+				onPageChange={handlePageChange}
+			/>
 		</div>
 	);
 }
