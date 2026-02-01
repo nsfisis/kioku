@@ -37,7 +37,9 @@ const RatingStyles: Record<Rating, string> = {
 };
 
 function StudySession({ deckId }: { deckId: string }) {
-	const { deck, cards } = useAtomValue(studyDataAtomFamily(deckId));
+	const {
+		data: { deck, cards },
+	} = useAtomValue(studyDataAtomFamily(deckId));
 
 	// Session state (kept as useState - transient UI state)
 	const [currentIndex, setCurrentIndex] = useState(0);

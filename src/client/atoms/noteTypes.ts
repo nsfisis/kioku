@@ -1,5 +1,5 @@
+import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { apiClient } from "../api/client";
-import { createReloadableAtom } from "./utils";
 
 export interface NoteType {
 	id: string;
@@ -15,8 +15,11 @@ export interface NoteType {
 // NoteTypes List - Suspense-compatible
 // =====================
 
-export const noteTypesAtom = createReloadableAtom(async () => {
-	const res = await apiClient.rpc.api["note-types"].$get();
-	const data = await apiClient.handleResponse<{ noteTypes: NoteType[] }>(res);
-	return data.noteTypes;
-});
+export const noteTypesAtom = atomWithSuspenseQuery(() => ({
+	queryKey: ["noteTypes"],
+	queryFn: async () => {
+		const res = await apiClient.rpc.api["note-types"].$get();
+		const data = await apiClient.handleResponse<{ noteTypes: NoteType[] }>(res);
+		return data.noteTypes;
+	},
+}));

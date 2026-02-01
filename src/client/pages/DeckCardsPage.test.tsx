@@ -1,20 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
+import { QueryClient } from "@tanstack/query-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import {
-	authLoadingAtom,
-	type Card,
-	cardsByDeckAtomFamily,
-	type Deck,
-	deckByIdAtomFamily,
-} from "../atoms";
-import { clearAtomFamilyCaches } from "../atoms/utils";
+import { authLoadingAtom, type Card, type Deck } from "../atoms";
 import { DeckCardsPage } from "./DeckCardsPage";
 
 const mockDeckGet = vi.fn();
@@ -60,6 +55,14 @@ vi.mock("../api/client", () => ({
 			super(message);
 			this.name = "ApiClientError";
 		}
+	},
+}));
+
+// Mock queryClient module so pages use our test queryClient
+let testQueryClient: QueryClient;
+vi.mock("../queryClient", () => ({
+	get queryClient() {
+		return testQueryClient;
 	},
 }));
 
@@ -184,17 +187,18 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path, static: true });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(queryClientAtom, testQueryClient);
 
 	// Extract deckId from path
 	const deckIdMatch = path.match(/\/decks\/([^/]+)/);
 	const deckId = deckIdMatch?.[1] ?? "deck-1";
 
-	// Hydrate atoms if initial data provided
+	// Seed query cache if initial data provided
 	if (initialDeck !== undefined) {
-		store.set(deckByIdAtomFamily(deckId), initialDeck);
+		testQueryClient.setQueryData(["decks", deckId], initialDeck);
 	}
 	if (initialCards !== undefined) {
-		store.set(cardsByDeckAtomFamily(deckId), initialCards);
+		testQueryClient.setQueryData(["decks", deckId, "cards"], initialCards);
 	}
 
 	return render(
@@ -211,6 +215,11 @@ function renderWithProviders({
 describe("DeckCardsPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		testQueryClient = new QueryClient({
+			defaultOptions: {
+				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
+			},
+		});
 		vi.mocked(apiClient.getTokens).mockReturnValue({
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
@@ -238,7 +247,7 @@ describe("DeckCardsPage", () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
-		clearAtomFamilyCaches();
+		testQueryClient.clear();
 	});
 
 	it("renders back link and deck name", () => {

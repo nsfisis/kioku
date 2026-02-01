@@ -6,7 +6,7 @@
 |-------|------------|
 | Frontend | React + Vite |
 | Routing | Wouter |
-| State | Jotai |
+| State | Jotai + jotai-tanstack-query |
 | Styling | TailwindCSS |
 | Backend | Hono + TypeScript |
 | Database | PostgreSQL |
@@ -67,9 +67,10 @@ kioku/
 │   │   └── scripts/          # CLI scripts (add-user)
 │   └── client/               # React frontend
 │       ├── index.tsx
+│       ├── queryClient.ts    # Shared TanStack QueryClient instance
 │       ├── components/
 │       ├── pages/
-│       ├── atoms/            # Jotai atoms (state management)
+│       ├── atoms/            # Jotai atoms (atomWithSuspenseQuery for server data)
 │       ├── db/               # Dexie IndexedDB
 │       ├── sync/             # Sync engine
 │       └── api/

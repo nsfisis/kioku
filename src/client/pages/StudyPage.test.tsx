@@ -1,19 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
+import { QueryClient } from "@tanstack/query-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import {
-	authLoadingAtom,
-	type StudyCard,
-	type StudyData,
-	studyDataAtomFamily,
-} from "../atoms";
-import { clearAtomFamilyCaches } from "../atoms/utils";
+import { authLoadingAtom, type StudyCard, type StudyData } from "../atoms";
 import { StudyPage } from "./StudyPage";
 
 interface RenderOptions {
@@ -72,6 +68,8 @@ vi.mock("../api/client", () => ({
 
 import { ApiClientError, apiClient } from "../api/client";
 
+let testQueryClient: QueryClient;
+
 const mockDeck = {
 	id: "deck-1",
 	name: "Japanese Vocabulary",
@@ -121,14 +119,15 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path, static: true });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(queryClientAtom, testQueryClient);
 
 	// Extract deckId from path
 	const deckIdMatch = path.match(/\/decks\/([^/]+)/);
 	const deckId = deckIdMatch?.[1] ?? "deck-1";
 
-	// Hydrate atom if initial data provided
+	// Seed query cache if initial data provided
 	if (initialStudyData !== undefined) {
-		store.set(studyDataAtomFamily(deckId), initialStudyData);
+		testQueryClient.setQueryData(["decks", deckId, "study"], initialStudyData);
 	}
 
 	return render(
@@ -145,6 +144,11 @@ function renderWithProviders({
 describe("StudyPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		testQueryClient = new QueryClient({
+			defaultOptions: {
+				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
+			},
+		});
 		vi.mocked(apiClient.getTokens).mockReturnValue({
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
@@ -161,7 +165,7 @@ describe("StudyPage", () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
-		clearAtomFamilyCaches();
+		testQueryClient.clear();
 	});
 
 	describe("Loading and Initial State", () => {

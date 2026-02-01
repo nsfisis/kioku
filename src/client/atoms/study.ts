@@ -1,6 +1,7 @@
+import { atomFamily } from "jotai/utils";
+import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { apiClient } from "../api/client";
 import { shuffle } from "../utils/shuffle";
-import { createReloadableAtomFamily } from "./utils";
 
 export interface StudyCard {
 	id: string;
@@ -36,24 +37,27 @@ export interface StudyData {
 // Study Session - Suspense-compatible
 // =====================
 
-export const studyDataAtomFamily = createReloadableAtomFamily(
-	async (deckId: string): Promise<StudyData> => {
-		// Fetch deck and due cards in parallel
-		const [deckRes, cardsRes] = await Promise.all([
-			apiClient.rpc.api.decks[":id"].$get({ param: { id: deckId } }),
-			apiClient.rpc.api.decks[":deckId"].study.$get({ param: { deckId } }),
-		]);
+export const studyDataAtomFamily = atomFamily((deckId: string) =>
+	atomWithSuspenseQuery(() => ({
+		queryKey: ["decks", deckId, "study"],
+		queryFn: async (): Promise<StudyData> => {
+			// Fetch deck and due cards in parallel
+			const [deckRes, cardsRes] = await Promise.all([
+				apiClient.rpc.api.decks[":id"].$get({ param: { id: deckId } }),
+				apiClient.rpc.api.decks[":deckId"].study.$get({ param: { deckId } }),
+			]);
 
-		const deckData = await apiClient.handleResponse<{ deck: StudyDeck }>(
-			deckRes,
-		);
-		const cardsData = await apiClient.handleResponse<{ cards: StudyCard[] }>(
-			cardsRes,
-		);
+			const deckData = await apiClient.handleResponse<{ deck: StudyDeck }>(
+				deckRes,
+			);
+			const cardsData = await apiClient.handleResponse<{
+				cards: StudyCard[];
+			}>(cardsRes);
 
-		return {
-			deck: deckData.deck,
-			cards: shuffle(cardsData.cards),
-		};
-	},
+			return {
+				deck: deckData.deck,
+				cards: shuffle(cardsData.cards),
+			};
+		},
+	})),
 );

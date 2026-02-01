@@ -7,8 +7,8 @@ import {
 	faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue, useSetAtom } from "jotai";
-import { Suspense, useState, useTransition } from "react";
+import { useAtomValue } from "jotai";
+import { Suspense, useState } from "react";
 import { Link } from "wouter";
 import { type NoteType, noteTypesAtom } from "../atoms";
 import { CreateNoteTypeModal } from "../components/CreateNoteTypeModal";
@@ -16,6 +16,7 @@ import { DeleteNoteTypeModal } from "../components/DeleteNoteTypeModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { NoteTypeEditor } from "../components/NoteTypeEditor";
+import { queryClient } from "../queryClient";
 
 function NoteTypeList({
 	onEditNoteType,
@@ -24,7 +25,7 @@ function NoteTypeList({
 	onEditNoteType: (id: string) => void;
 	onDeleteNoteType: (noteType: NoteType) => void;
 }) {
-	const noteTypes = useAtomValue(noteTypesAtom);
+	const { data: noteTypes } = useAtomValue(noteTypesAtom);
 
 	if (noteTypes.length === 0) {
 		return (
@@ -114,9 +115,6 @@ function NoteTypeList({
 }
 
 export function NoteTypesPage() {
-	const reloadNoteTypes = useSetAtom(noteTypesAtom);
-	const [, startTransition] = useTransition();
-
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingNoteTypeId, setEditingNoteTypeId] = useState<string | null>(
 		null,
@@ -126,9 +124,7 @@ export function NoteTypesPage() {
 	);
 
 	const handleNoteTypeMutation = () => {
-		startTransition(() => {
-			reloadNoteTypes();
-		});
+		queryClient.invalidateQueries({ queryKey: ["noteTypes"] });
 	};
 
 	return (

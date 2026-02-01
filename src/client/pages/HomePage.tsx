@@ -7,7 +7,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue, useSetAtom } from "jotai";
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useState } from "react";
 import { Link } from "wouter";
 import { type Deck, decksAtom, logoutAtom } from "../atoms";
 import { CreateDeckModal } from "../components/CreateDeckModal";
@@ -17,6 +17,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SyncButton } from "../components/SyncButton";
 import { SyncStatusIndicator } from "../components/SyncStatusIndicator";
+import { queryClient } from "../queryClient";
 
 function DeckList({
 	onEditDeck,
@@ -25,7 +26,7 @@ function DeckList({
 	onEditDeck: (deck: Deck) => void;
 	onDeleteDeck: (deck: Deck) => void;
 }) {
-	const decks = useAtomValue(decksAtom);
+	const { data: decks } = useAtomValue(decksAtom);
 
 	if (decks.length === 0) {
 		return (
@@ -113,17 +114,13 @@ function DeckList({
 
 export function HomePage() {
 	const logout = useSetAtom(logoutAtom);
-	const reloadDecks = useSetAtom(decksAtom);
-	const [, startTransition] = useTransition();
 
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
 	const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
 
 	const handleDeckMutation = () => {
-		startTransition(() => {
-			reloadDecks();
-		});
+		queryClient.invalidateQueries({ queryKey: ["decks"] });
 	};
 
 	return (

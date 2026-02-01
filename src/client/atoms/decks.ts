@@ -1,5 +1,6 @@
+import { atomFamily } from "jotai/utils";
+import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { apiClient } from "../api/client";
-import { createReloadableAtom, createReloadableAtomFamily } from "./utils";
 
 export interface Deck {
 	id: string;
@@ -15,24 +16,30 @@ export interface Deck {
 // Decks List - Suspense-compatible
 // =====================
 
-export const decksAtom = createReloadableAtom(async () => {
-	const res = await apiClient.rpc.api.decks.$get(undefined, {
-		headers: apiClient.getAuthHeader(),
-	});
-	const data = await apiClient.handleResponse<{ decks: Deck[] }>(res);
-	return data.decks;
-});
+export const decksAtom = atomWithSuspenseQuery(() => ({
+	queryKey: ["decks"],
+	queryFn: async () => {
+		const res = await apiClient.rpc.api.decks.$get(undefined, {
+			headers: apiClient.getAuthHeader(),
+		});
+		const data = await apiClient.handleResponse<{ decks: Deck[] }>(res);
+		return data.decks;
+	},
+}));
 
 // =====================
 // Single Deck by ID - Suspense-compatible
 // =====================
 
-export const deckByIdAtomFamily = createReloadableAtomFamily(
-	async (deckId: string) => {
-		const res = await apiClient.rpc.api.decks[":id"].$get({
-			param: { id: deckId },
-		});
-		const data = await apiClient.handleResponse<{ deck: Deck }>(res);
-		return data.deck;
-	},
+export const deckByIdAtomFamily = atomFamily((deckId: string) =>
+	atomWithSuspenseQuery(() => ({
+		queryKey: ["decks", deckId],
+		queryFn: async () => {
+			const res = await apiClient.rpc.api.decks[":id"].$get({
+				param: { id: deckId },
+			});
+			const data = await apiClient.handleResponse<{ deck: Deck }>(res);
+			return data.deck;
+		},
+	})),
 );

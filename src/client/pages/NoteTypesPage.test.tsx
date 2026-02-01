@@ -2,14 +2,15 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
+import { QueryClient } from "@tanstack/query-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { authLoadingAtom, type NoteType, noteTypesAtom } from "../atoms";
-import { clearAtomFamilyCaches } from "../atoms/utils";
+import { authLoadingAtom, type NoteType } from "../atoms";
 import { NoteTypesPage } from "./NoteTypesPage";
 
 interface RenderOptions {
@@ -59,6 +60,14 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+// Mock queryClient module so pages use our test queryClient
+let testQueryClient: QueryClient;
+vi.mock("../queryClient", () => ({
+	get queryClient() {
+		return testQueryClient;
+	},
+}));
+
 import { ApiClientError, apiClient } from "../api/client";
 
 const mockNoteTypes = [
@@ -89,10 +98,11 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(queryClientAtom, testQueryClient);
 
-	// Hydrate atom if initial data provided
+	// Seed query cache if initial data provided
 	if (initialNoteTypes !== undefined) {
-		store.set(noteTypesAtom, initialNoteTypes);
+		testQueryClient.setQueryData(["noteTypes"], initialNoteTypes);
 	}
 
 	return render(
@@ -107,6 +117,11 @@ function renderWithProviders({
 describe("NoteTypesPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		testQueryClient = new QueryClient({
+			defaultOptions: {
+				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
+			},
+		});
 		vi.mocked(apiClient.getTokens).mockReturnValue({
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
@@ -138,7 +153,7 @@ describe("NoteTypesPage", () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
-		clearAtomFamilyCaches();
+		testQueryClient.clear();
 	});
 
 	it("renders page title and back button", () => {

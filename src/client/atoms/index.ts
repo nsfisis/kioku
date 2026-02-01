@@ -37,6 +37,3 @@ export {
 	syncStatusAtom,
 	useSyncInit,
 } from "./sync";
-
-// Utilities
-export { createReloadableAtom, createReloadableAtomFamily } from "./utils";

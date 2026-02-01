@@ -12,7 +12,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
 function DeckHeader({ deckId }: { deckId: string }) {
-	const deck = useAtomValue(deckByIdAtomFamily(deckId));
+	const { data: deck } = useAtomValue(deckByIdAtomFamily(deckId));
 
 	return (
 		<div className="mb-8">
@@ -25,7 +25,7 @@ function DeckHeader({ deckId }: { deckId: string }) {
 }
 
 function DeckStats({ deckId }: { deckId: string }) {
-	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+	const { data: cards } = useAtomValue(cardsByDeckAtomFamily(deckId));
 
 	// Count cards due today
 	const now = new Date();

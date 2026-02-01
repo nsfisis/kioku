@@ -2,15 +2,16 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
+import { QueryClient } from "@tanstack/query-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { apiClient } from "../api/client";
-import { authLoadingAtom, type Deck, decksAtom } from "../atoms";
-import { clearAtomFamilyCaches } from "../atoms/utils";
+import { authLoadingAtom, type Deck } from "../atoms";
 import { HomePage } from "./HomePage";
 
 const mockDeckPut = vi.fn();
@@ -48,6 +49,14 @@ vi.mock("../api/client", () => ({
 			super(message);
 			this.name = "ApiClientError";
 		}
+	},
+}));
+
+// Mock queryClient module so pages use our test queryClient
+let testQueryClient: QueryClient;
+vi.mock("../queryClient", () => ({
+	get queryClient() {
+		return testQueryClient;
 	},
 }));
 
@@ -109,10 +118,11 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(queryClientAtom, testQueryClient);
 
-	// If initialDecks provided, hydrate the atom to skip Suspense
+	// If initialDecks provided, seed query cache to skip Suspense
 	if (initialDecks !== undefined) {
-		store.set(decksAtom, initialDecks);
+		testQueryClient.setQueryData(["decks"], initialDecks);
 	}
 
 	return render(
@@ -127,7 +137,11 @@ function renderWithProviders({
 describe("HomePage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		clearAtomFamilyCaches();
+		testQueryClient = new QueryClient({
+			defaultOptions: {
+				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
+			},
+		});
 		vi.mocked(apiClient.getTokens).mockReturnValue({
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
@@ -152,7 +166,7 @@ describe("HomePage", () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
-		clearAtomFamilyCaches();
+		testQueryClient.clear();
 	});
 
 	it("renders page title and logout button", () => {
@@ -260,6 +274,12 @@ describe("HomePage", () => {
 	});
 
 	it("passes auth header when fetching decks", async () => {
+		testQueryClient = new QueryClient({
+			defaultOptions: {
+				queries: { staleTime: 0, retry: false },
+			},
+		});
+
 		vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
 			mockResponse({
 				ok: true,

@@ -11,7 +11,7 @@ import {
 	faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import {
 	Suspense,
 	useCallback,
@@ -19,7 +19,6 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	useTransition,
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Link, useParams } from "wouter";
@@ -32,6 +31,7 @@ import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ImportNotesModal } from "../components/ImportNotesModal";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { queryClient } from "../queryClient";
 
 /** Combined type for display: note group */
 type CardDisplayItem = { type: "note"; noteId: string; cards: Card[] };
@@ -173,7 +173,7 @@ function NoteGroupCard({
 }
 
 function DeckHeader({ deckId }: { deckId: string }) {
-	const deck = useAtomValue(deckByIdAtomFamily(deckId));
+	const { data: deck } = useAtomValue(deckByIdAtomFamily(deckId));
 
 	return (
 		<div className="mb-8">
@@ -267,7 +267,7 @@ function CardList({
 	onDeleteNote: (noteId: string) => void;
 	onCreateNote: () => void;
 }) {
-	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+	const { data: cards } = useAtomValue(cardsByDeckAtomFamily(deckId));
 	const [currentPage, setCurrentPage] = useState(0);
 
 	// Group cards by note for display, applying search filter
@@ -414,7 +414,7 @@ function CardsContent({
 	onEditNote: (noteId: string) => void;
 	onDeleteNote: (noteId: string) => void;
 }) {
-	const cards = useAtomValue(cardsByDeckAtomFamily(deckId));
+	const { data: cards } = useAtomValue(cardsByDeckAtomFamily(deckId));
 	const [searchInput, setSearchInput] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
 	const debouncedSetQuery = useDebouncedCallback((value: string) => {
@@ -521,9 +521,6 @@ function CardsContent({
 
 export function DeckCardsPage() {
 	const { deckId } = useParams<{ deckId: string }>();
-	const [, startTransition] = useTransition();
-
-	const reloadCards = useSetAtom(cardsByDeckAtomFamily(deckId || ""));
 
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -533,9 +530,7 @@ export function DeckCardsPage() {
 	const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
 	const handleCardMutation = () => {
-		startTransition(() => {
-			reloadCards();
-		});
+		queryClient.invalidateQueries({ queryKey: ["decks", deckId, "cards"] });
 	};
 
 	if (!deckId) {
