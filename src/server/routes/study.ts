@@ -33,7 +33,7 @@ const cardIdParamSchema = z.object({
 	cardId: z.uuid(),
 });
 
-const f = fsrs();
+const f = fsrs({ enable_fuzz: true });
 
 export function createStudyRouter(deps: StudyDependencies) {
 	const { cardRepo, deckRepo, reviewLogRepo } = deps;
