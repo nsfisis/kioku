@@ -110,6 +110,7 @@ function StudySession({ deckId }: { deckId: string }) {
 					"2": 2,
 					"3": 3,
 					"4": 4,
+					" ": 3,
 				};
 
 				const rating = keyRatingMap[e.key];

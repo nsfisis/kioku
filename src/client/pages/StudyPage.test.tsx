@@ -518,6 +518,32 @@ describe("StudyPage", () => {
 			);
 		});
 
+		it("rates card as Good with Space key when card is flipped", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.keyboard(" "); // Flip
+			await user.keyboard(" "); // Rate as Good (Space)
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			expect(mockStudyPost).toHaveBeenCalledWith(
+				expect.objectContaining({
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 3 }),
+				}),
+			);
+		});
+
 		it("supports all rating keys (1, 2, 3, 4)", async () => {
 			const user = userEvent.setup();
 
