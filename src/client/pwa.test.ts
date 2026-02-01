@@ -33,9 +33,10 @@ describe("PWA Configuration", () => {
 				"utf-8",
 			);
 
-			expect(viteConfig).toContain('src: "icon.svg"');
-			expect(viteConfig).toContain('type: "image/svg+xml"');
-			expect(viteConfig).toContain('purpose: "any maskable"');
+			expect(viteConfig).toContain('src: "pwa-192x192.png"');
+			expect(viteConfig).toContain('src: "pwa-512x512.png"');
+			expect(viteConfig).toContain('type: "image/png"');
+			expect(viteConfig).toContain('purpose: "maskable"');
 		});
 
 		it("has registerType autoUpdate", () => {
