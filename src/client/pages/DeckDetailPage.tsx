@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue } from "jotai";
 import { Suspense } from "react";
 import { Link, useParams } from "wouter";
+import { getEndOfStudyDayBoundary } from "../../shared/date";
 import { cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -27,9 +28,9 @@ function DeckHeader({ deckId }: { deckId: string }) {
 function DeckStats({ deckId }: { deckId: string }) {
 	const { data: cards } = useAtomValue(cardsByDeckAtomFamily(deckId));
 
-	// Count cards due today
-	const now = new Date();
-	const dueCards = cards.filter((card) => new Date(card.due) <= now);
+	// Count cards due today (study day boundary is 3:00 AM)
+	const boundary = getEndOfStudyDayBoundary();
+	const dueCards = cards.filter((card) => new Date(card.due) < boundary);
 
 	return (
 		<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">

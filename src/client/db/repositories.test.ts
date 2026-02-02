@@ -299,7 +299,8 @@ describe("localCardRepository", () => {
 	describe("findDueCards", () => {
 		it("should return cards that are due", async () => {
 			const pastDue = new Date(Date.now() - 60000);
-			const future = new Date(Date.now() + 60000);
+			// Use a date far enough in the future to be beyond the next 3 AM boundary
+			const future = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
 			const card1 = await localCardRepository.create({
 				deckId,

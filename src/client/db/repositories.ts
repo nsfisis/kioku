@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { getEndOfStudyDayBoundary } from "../../shared/date";
 import {
 	CardState,
 	db,
@@ -140,11 +141,11 @@ export const localCardRepository = {
 	 * Get due cards for a deck
 	 */
 	async findDueCards(deckId: string, limit?: number): Promise<LocalCard[]> {
-		const now = new Date();
+		const boundary = getEndOfStudyDayBoundary();
 		const query = db.cards
 			.where("deckId")
 			.equals(deckId)
-			.filter((card) => card.deletedAt === null && card.due <= now);
+			.filter((card) => card.deletedAt === null && card.due < boundary);
 
 		const cards = await query.toArray();
 		// Sort by due date ascending
