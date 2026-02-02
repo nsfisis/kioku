@@ -1,4 +1,5 @@
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { getEndOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
 import {
 	CardState,
@@ -189,6 +190,7 @@ export const cardRepository: CardRepository = {
 		now: Date,
 		limit: number,
 	): Promise<Card[]> {
+		const boundary = getEndOfStudyDayBoundary(now);
 		const result = await db
 			.select()
 			.from(cards)
@@ -196,7 +198,7 @@ export const cardRepository: CardRepository = {
 				and(
 					eq(cards.deckId, deckId),
 					isNull(cards.deletedAt),
-					lte(cards.due, now),
+					lt(cards.due, boundary),
 				),
 			)
 			.orderBy(cards.due)
@@ -205,6 +207,7 @@ export const cardRepository: CardRepository = {
 	},
 
 	async countDueCards(deckId: string, now: Date): Promise<number> {
+		const boundary = getEndOfStudyDayBoundary(now);
 		const result = await db
 			.select({ count: sql<number>`count(*)::int` })
 			.from(cards)
@@ -212,7 +215,7 @@ export const cardRepository: CardRepository = {
 				and(
 					eq(cards.deckId, deckId),
 					isNull(cards.deletedAt),
-					lte(cards.due, now),
+					lt(cards.due, boundary),
 				),
 			);
 		return result[0]?.count ?? 0;
