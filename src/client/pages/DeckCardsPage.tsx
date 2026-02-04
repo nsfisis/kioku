@@ -84,9 +84,7 @@ function NoteGroupCard({
 						className="w-4 h-4 text-muted"
 						aria-hidden="true"
 					/>
-					<span className="text-sm font-medium text-slate">
-						Note ({cards.length} card{cards.length !== 1 ? "s" : ""})
-					</span>
+					<span className="text-sm font-medium text-slate">Note</span>
 				</div>
 				<div className="flex items-center gap-1">
 					<button

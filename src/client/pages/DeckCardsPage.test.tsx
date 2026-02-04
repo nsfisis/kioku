@@ -503,15 +503,6 @@ describe("DeckCardsPage", () => {
 			expect(screen.getByText("Reversed")).toBeDefined();
 		});
 
-		it("shows note card count in note group header", () => {
-			renderWithProviders({
-				initialDeck: mockDeck,
-				initialCards: mockNoteBasedCards,
-			});
-
-			expect(screen.getByText("Note (2 cards)")).toBeDefined();
-		});
-
 		it("shows edit note button for note groups", () => {
 			renderWithProviders({
 				initialDeck: mockDeck,
