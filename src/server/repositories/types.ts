@@ -158,6 +158,16 @@ export interface CardRepository {
 		now: Date,
 		limit: number,
 	): Promise<CardForStudy[]>;
+	findDueNewCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]>;
+	findDueReviewCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]>;
 	updateFSRSFields(
 		id: string,
 		deckId: string,
@@ -198,6 +208,7 @@ export interface ReviewLogRepository {
 		elapsedDays: number;
 		durationMs?: number | null;
 	}): Promise<ReviewLog>;
+	countTodayNewCardReviews(deckId: string, now: Date): Promise<number>;
 }
 
 export interface NoteType {

@@ -28,6 +28,8 @@ function createMockCardRepo(): CardRepository {
 		countDueCards: vi.fn(),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
+		findDueNewCardsForStudy: vi.fn(),
+		findDueReviewCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
@@ -45,6 +47,7 @@ function createMockDeckRepo(): DeckRepository {
 function createMockReviewLogRepo(): ReviewLogRepository {
 	return {
 		create: vi.fn(),
+		countTodayNewCardReviews: vi.fn().mockResolvedValue(0),
 	};
 }
 
@@ -170,7 +173,8 @@ describe("GET /api/decks/:deckId/study", () => {
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findDueCardsForStudy).mockResolvedValue([]);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue([]);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue([]);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
 			method: "GET",
@@ -184,7 +188,12 @@ describe("GET /api/decks/:deckId/study", () => {
 			DECK_ID,
 			"user-uuid-123",
 		);
-		expect(mockCardRepo.findDueCardsForStudy).toHaveBeenCalledWith(
+		expect(mockCardRepo.findDueNewCardsForStudy).toHaveBeenCalledWith(
+			DECK_ID,
+			expect.any(Date),
+			20,
+		);
+		expect(mockCardRepo.findDueReviewCardsForStudy).toHaveBeenCalledWith(
 			DECK_ID,
 			expect.any(Date),
 			100,
@@ -192,24 +201,31 @@ describe("GET /api/decks/:deckId/study", () => {
 	});
 
 	it("returns due cards", async () => {
-		const mockCards = [
+		const newCards = [
 			createMockCardForStudy({
 				id: "card-1",
 				front: "Q1",
 				back: "A1",
+				state: CardState.New,
 				fieldValuesMap: {},
 			}),
+		];
+		const reviewCards = [
 			createMockCardForStudy({
 				id: "card-2",
 				front: "Q2",
 				back: "A2",
+				state: CardState.Review,
 				fieldValuesMap: {},
 			}),
 		];
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findDueCardsForStudy).mockResolvedValue(mockCards);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue(newCards);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue(
+			reviewCards,
+		);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
 			method: "GET",
@@ -241,7 +257,10 @@ describe("GET /api/decks/:deckId/study", () => {
 		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
 			createMockDeck({ id: DECK_ID }),
 		);
-		vi.mocked(mockCardRepo.findDueCardsForStudy).mockResolvedValue(mockCards);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue(
+			mockCards,
+		);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue([]);
 
 		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
 			method: "GET",
@@ -253,6 +272,81 @@ describe("GET /api/decks/:deckId/study", () => {
 		expect(body.cards).toHaveLength(1);
 		expect(body.cards?.[0]?.noteType?.frontTemplate).toBe("{{Front}}");
 		expect(body.cards?.[0]?.fieldValuesMap?.Front).toBe("Question");
+	});
+
+	it("limits new cards based on newCardsPerDay", async () => {
+		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
+			createMockDeck({ id: DECK_ID, newCardsPerDay: 5 }),
+		);
+		vi.mocked(mockReviewLogRepo.countTodayNewCardReviews).mockResolvedValue(3);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue([]);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue([]);
+
+		await app.request(`/api/decks/${DECK_ID}/study`, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${authToken}` },
+		});
+
+		expect(mockCardRepo.findDueNewCardsForStudy).toHaveBeenCalledWith(
+			DECK_ID,
+			expect.any(Date),
+			2,
+		);
+	});
+
+	it("returns 0 new cards when daily limit is reached", async () => {
+		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
+			createMockDeck({ id: DECK_ID, newCardsPerDay: 5 }),
+		);
+		vi.mocked(mockReviewLogRepo.countTodayNewCardReviews).mockResolvedValue(5);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue([]);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue([]);
+
+		await app.request(`/api/decks/${DECK_ID}/study`, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${authToken}` },
+		});
+
+		expect(mockCardRepo.findDueNewCardsForStudy).toHaveBeenCalledWith(
+			DECK_ID,
+			expect.any(Date),
+			0,
+		);
+	});
+
+	it("places new cards before review cards in response", async () => {
+		const newCards = [
+			createMockCardForStudy({
+				id: "new-1",
+				state: CardState.New,
+				fieldValuesMap: {},
+			}),
+		];
+		const reviewCards = [
+			createMockCardForStudy({
+				id: "review-1",
+				state: CardState.Review,
+				fieldValuesMap: {},
+			}),
+		];
+		vi.mocked(mockDeckRepo.findById).mockResolvedValue(
+			createMockDeck({ id: DECK_ID }),
+		);
+		vi.mocked(mockCardRepo.findDueNewCardsForStudy).mockResolvedValue(newCards);
+		vi.mocked(mockCardRepo.findDueReviewCardsForStudy).mockResolvedValue(
+			reviewCards,
+		);
+
+		const res = await app.request(`/api/decks/${DECK_ID}/study`, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${authToken}` },
+		});
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as StudyResponse;
+		expect(body.cards).toHaveLength(2);
+		expect(body.cards?.[0]?.id).toBe("new-1");
+		expect(body.cards?.[1]?.id).toBe("review-1");
 	});
 
 	it("returns 404 for non-existent deck", async () => {

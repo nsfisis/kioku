@@ -51,9 +51,21 @@ export function createStudyRouter(deps: StudyDependencies) {
 			}
 
 			const now = new Date();
-			const dueCards = await cardRepo.findDueCardsForStudy(deckId, now, 100);
 
-			return c.json({ cards: dueCards }, 200);
+			// Calculate new card budget based on today's already-reviewed new cards
+			const reviewedNewCards = await reviewLogRepo.countTodayNewCardReviews(
+				deckId,
+				now,
+			);
+			const newCardBudget = Math.max(0, deck.newCardsPerDay - reviewedNewCards);
+
+			// Fetch new cards (limited) and review cards separately
+			const [newCards, reviewCards] = await Promise.all([
+				cardRepo.findDueNewCardsForStudy(deckId, now, newCardBudget),
+				cardRepo.findDueReviewCardsForStudy(deckId, now, 100),
+			]);
+
+			return c.json({ cards: [...newCards, ...reviewCards] }, 200);
 		})
 		.post(
 			"/:cardId",

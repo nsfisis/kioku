@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { getEndOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
 import {
@@ -263,69 +263,49 @@ export const cardRepository: CardRepository = {
 		limit: number,
 	): Promise<CardForStudy[]> {
 		const dueCards = await this.findDueCards(deckId, now, limit);
+		return enrichCardsForStudy(dueCards);
+	},
 
-		const cardsForStudy: CardForStudy[] = [];
+	async findDueNewCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]> {
+		const result = await db
+			.select()
+			.from(cards)
+			.where(
+				and(
+					eq(cards.deckId, deckId),
+					isNull(cards.deletedAt),
+					lte(cards.due, now),
+					eq(cards.state, CardState.New),
+				),
+			)
+			.orderBy(cards.due)
+			.limit(limit);
+		return enrichCardsForStudy(result);
+	},
 
-		for (const card of dueCards) {
-			// Fetch note to get noteTypeId
-			const noteResult = await db
-				.select()
-				.from(notes)
-				.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
-
-			const note = noteResult[0];
-			if (!note) {
-				// Note was deleted, skip this card
-				continue;
-			}
-
-			// Fetch note type for templates
-			const noteTypeResult = await db
-				.select({
-					frontTemplate: noteTypes.frontTemplate,
-					backTemplate: noteTypes.backTemplate,
-				})
-				.from(noteTypes)
-				.where(
-					and(eq(noteTypes.id, note.noteTypeId), isNull(noteTypes.deletedAt)),
-				);
-
-			const noteType = noteTypeResult[0];
-			if (!noteType) {
-				// Note type was deleted, skip this card
-				continue;
-			}
-
-			// Fetch field values with their field names
-			const fieldValuesWithNames = await db
-				.select({
-					fieldName: noteFieldTypes.name,
-					value: noteFieldValues.value,
-				})
-				.from(noteFieldValues)
-				.innerJoin(
-					noteFieldTypes,
-					eq(noteFieldValues.noteFieldTypeId, noteFieldTypes.id),
-				)
-				.where(eq(noteFieldValues.noteId, card.noteId));
-
-			// Convert to name-value map
-			const fieldValuesMap: Record<string, string> = {};
-			for (const fv of fieldValuesWithNames) {
-				fieldValuesMap[fv.fieldName] = fv.value;
-			}
-
-			cardsForStudy.push({
-				...card,
-				noteType: {
-					frontTemplate: noteType.frontTemplate,
-					backTemplate: noteType.backTemplate,
-				},
-				fieldValuesMap,
-			});
-		}
-
-		return cardsForStudy;
+	async findDueReviewCardsForStudy(
+		deckId: string,
+		now: Date,
+		limit: number,
+	): Promise<CardForStudy[]> {
+		const result = await db
+			.select()
+			.from(cards)
+			.where(
+				and(
+					eq(cards.deckId, deckId),
+					isNull(cards.deletedAt),
+					lte(cards.due, now),
+					ne(cards.state, CardState.New),
+				),
+			)
+			.orderBy(cards.due)
+			.limit(limit);
+		return enrichCardsForStudy(result);
 	},
 
 	async updateFSRSFields(
@@ -369,3 +349,62 @@ export const cardRepository: CardRepository = {
 		return result[0];
 	},
 };
+
+async function enrichCardsForStudy(dueCards: Card[]): Promise<CardForStudy[]> {
+	const cardsForStudy: CardForStudy[] = [];
+
+	for (const card of dueCards) {
+		const noteResult = await db
+			.select()
+			.from(notes)
+			.where(and(eq(notes.id, card.noteId), isNull(notes.deletedAt)));
+
+		const note = noteResult[0];
+		if (!note) {
+			continue;
+		}
+
+		const noteTypeResult = await db
+			.select({
+				frontTemplate: noteTypes.frontTemplate,
+				backTemplate: noteTypes.backTemplate,
+			})
+			.from(noteTypes)
+			.where(
+				and(eq(noteTypes.id, note.noteTypeId), isNull(noteTypes.deletedAt)),
+			);
+
+		const noteType = noteTypeResult[0];
+		if (!noteType) {
+			continue;
+		}
+
+		const fieldValuesWithNames = await db
+			.select({
+				fieldName: noteFieldTypes.name,
+				value: noteFieldValues.value,
+			})
+			.from(noteFieldValues)
+			.innerJoin(
+				noteFieldTypes,
+				eq(noteFieldValues.noteFieldTypeId, noteFieldTypes.id),
+			)
+			.where(eq(noteFieldValues.noteId, card.noteId));
+
+		const fieldValuesMap: Record<string, string> = {};
+		for (const fv of fieldValuesWithNames) {
+			fieldValuesMap[fv.fieldName] = fv.value;
+		}
+
+		cardsForStudy.push({
+			...card,
+			noteType: {
+				frontTemplate: noteType.frontTemplate,
+				backTemplate: noteType.backTemplate,
+			},
+			fieldValuesMap,
+		});
+	}
+
+	return cardsForStudy;
+}

@@ -28,6 +28,8 @@ function createMockCardRepo(): CardRepository {
 		countDueCards: vi.fn(),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
+		findDueNewCardsForStudy: vi.fn(),
+		findDueReviewCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
