@@ -1,4 +1,4 @@
-import { atomFamily } from "jotai/utils";
+import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { apiClient } from "../api/client";
 

@@ -56,6 +56,9 @@ importers:
       jotai:
         specifier: ^2.16.1
         version: 2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+      jotai-family:
+        specifier: ^1.0.1
+        version: 1.0.1(jotai@2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       jotai-tanstack-query:
         specifier: ^0.11.0
         version: 0.11.0(@tanstack/query-core@5.90.20)(jotai@2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)
@@ -2314,6 +2317,7 @@ packages:
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   globalthis@1.0.4:
@@ -2510,6 +2514,12 @@ packages:
   jiti@2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
+
+  jotai-family@1.0.1:
+    resolution: {integrity: sha512-Zb/79GNDhC/z82R+6qTTpeKW4l4H6ZCApfF5W8G4SH37E4mhbysU7r8DkP0KX94hWvjB/6lt/97nSr3wB+64Zg==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      jotai: '>=2.9.0'
 
   jotai-tanstack-query@0.11.0:
     resolution: {integrity: sha512-Ys0u0IuuS6/okUJOulFTdCVfVaeKbm1+lKVSN9zHhIxtrAXl9FM4yu7fNvxM6fSz/NCE9tZOKR0MQ3hvplaH8A==}
@@ -5704,6 +5714,10 @@ snapshots:
       picocolors: 1.1.1
 
   jiti@2.6.1: {}
+
+  jotai-family@1.0.1(jotai@2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+    dependencies:
+      jotai: 2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 
   jotai-tanstack-query@0.11.0(@tanstack/query-core@5.90.20)(jotai@2.16.1(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3):
     dependencies:
