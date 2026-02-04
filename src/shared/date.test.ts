@@ -1,5 +1,52 @@
 import { describe, expect, it } from "vitest";
-import { getEndOfStudyDayBoundary } from "./date";
+import { getEndOfStudyDayBoundary, getStartOfStudyDayBoundary } from "./date";
+
+describe("getStartOfStudyDayBoundary", () => {
+	it("should return today 3:00 AM when current time is after 3:00 AM", () => {
+		// Feb 2, 2026 10:00 AM
+		const now = new Date(2026, 1, 2, 10, 0, 0, 0);
+		const boundary = getStartOfStudyDayBoundary(now);
+
+		expect(boundary.getFullYear()).toBe(2026);
+		expect(boundary.getMonth()).toBe(1);
+		expect(boundary.getDate()).toBe(2);
+		expect(boundary.getHours()).toBe(3);
+		expect(boundary.getMinutes()).toBe(0);
+		expect(boundary.getSeconds()).toBe(0);
+	});
+
+	it("should return yesterday 3:00 AM when current time is before 3:00 AM", () => {
+		// Feb 2, 2026 1:30 AM
+		const now = new Date(2026, 1, 2, 1, 30, 0, 0);
+		const boundary = getStartOfStudyDayBoundary(now);
+
+		expect(boundary.getFullYear()).toBe(2026);
+		expect(boundary.getMonth()).toBe(1);
+		expect(boundary.getDate()).toBe(1);
+		expect(boundary.getHours()).toBe(3);
+		expect(boundary.getMinutes()).toBe(0);
+		expect(boundary.getSeconds()).toBe(0);
+	});
+
+	it("should return today 3:00 AM when current time is exactly 3:00 AM", () => {
+		// Feb 2, 2026 3:00 AM
+		const now = new Date(2026, 1, 2, 3, 0, 0, 0);
+		const boundary = getStartOfStudyDayBoundary(now);
+
+		expect(boundary.getDate()).toBe(2);
+		expect(boundary.getHours()).toBe(3);
+	});
+
+	it("should handle month boundaries correctly", () => {
+		// Feb 1, 2026 1:00 AM
+		const now = new Date(2026, 1, 1, 1, 0, 0, 0);
+		const boundary = getStartOfStudyDayBoundary(now);
+
+		expect(boundary.getMonth()).toBe(0); // January
+		expect(boundary.getDate()).toBe(31);
+		expect(boundary.getHours()).toBe(3);
+	});
+});
 
 describe("getEndOfStudyDayBoundary", () => {
 	it("should return next day 3:00 AM when current time is after 3:00 AM", () => {

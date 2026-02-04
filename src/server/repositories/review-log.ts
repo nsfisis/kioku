@@ -1,4 +1,5 @@
 import { and, eq, gte, sql } from "drizzle-orm";
+import { getStartOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
 import { CardState, cards, reviewLogs } from "../db/schema.js";
 import type { ReviewLog, ReviewLogRepository } from "./types.js";
@@ -32,8 +33,7 @@ export const reviewLogRepository: ReviewLogRepository = {
 	},
 
 	async countTodayNewCardReviews(deckId: string, now: Date): Promise<number> {
-		const startOfDay = new Date(now);
-		startOfDay.setHours(0, 0, 0, 0);
+		const startOfDay = getStartOfStudyDayBoundary(now);
 
 		const result = await db
 			.select({ count: sql<number>`count(distinct ${reviewLogs.cardId})::int` })
