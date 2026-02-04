@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, ne, sql } from "drizzle-orm";
 import { getEndOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
 import {
@@ -271,6 +271,7 @@ export const cardRepository: CardRepository = {
 		now: Date,
 		limit: number,
 	): Promise<CardForStudy[]> {
+		const boundary = getEndOfStudyDayBoundary(now);
 		const result = await db
 			.select()
 			.from(cards)
@@ -278,7 +279,7 @@ export const cardRepository: CardRepository = {
 				and(
 					eq(cards.deckId, deckId),
 					isNull(cards.deletedAt),
-					lte(cards.due, now),
+					lt(cards.due, boundary),
 					eq(cards.state, CardState.New),
 				),
 			)
@@ -292,6 +293,7 @@ export const cardRepository: CardRepository = {
 		now: Date,
 		limit: number,
 	): Promise<CardForStudy[]> {
+		const boundary = getEndOfStudyDayBoundary(now);
 		const result = await db
 			.select()
 			.from(cards)
@@ -299,7 +301,7 @@ export const cardRepository: CardRepository = {
 				and(
 					eq(cards.deckId, deckId),
 					isNull(cards.deletedAt),
-					lte(cards.due, now),
+					lt(cards.due, boundary),
 					ne(cards.state, CardState.New),
 				),
 			)
