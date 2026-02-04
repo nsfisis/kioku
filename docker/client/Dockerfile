@@ -18,6 +18,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # Copy source files needed for client build
 COPY tsconfig.json vite.config.ts index.html ./
 COPY src/client ./src/client
+COPY src/shared ./src/shared
 COPY public ./public
 
 # Build the client
