@@ -341,31 +341,6 @@ describe("localCardRepository", () => {
 		});
 	});
 
-	describe("findNewCards", () => {
-		it("should return only new cards", async () => {
-			await localCardRepository.create({
-				deckId,
-				noteId: "test-note-id",
-				isReversed: false,
-				front: "New",
-				back: "A",
-			});
-
-			const reviewedCard = await localCardRepository.create({
-				deckId,
-				noteId: "test-note-id-2",
-				isReversed: false,
-				front: "Reviewed",
-				back: "B",
-			});
-			await db.cards.update(reviewedCard.id, { state: CardState.Review });
-
-			const newCards = await localCardRepository.findNewCards(deckId);
-			expect(newCards).toHaveLength(1);
-			expect(newCards[0]?.front).toBe("New");
-		});
-	});
-
 	describe("update", () => {
 		it("should update card content", async () => {
 			const card = await localCardRepository.create({

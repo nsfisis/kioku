@@ -155,22 +155,6 @@ export const localCardRepository = {
 	},
 
 	/**
-	 * Get new cards for a deck (cards that haven't been reviewed yet)
-	 */
-	async findNewCards(deckId: string, limit?: number): Promise<LocalCard[]> {
-		const cards = await db.cards
-			.where("deckId")
-			.equals(deckId)
-			.filter((card) => card.deletedAt === null && card.state === CardState.New)
-			.toArray();
-
-		// Sort by creation date ascending
-		cards.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-		return limit ? cards.slice(0, limit) : cards;
-	},
-
-	/**
 	 * Create a new card
 	 */
 	async create(
