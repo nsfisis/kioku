@@ -30,7 +30,6 @@ import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ImportNotesModal } from "../components/ImportNotesModal";
-import { LoadingSpinner } from "../components/LoadingSpinner";
 import { queryClient } from "../queryClient";
 
 /** Combined type for display: note group */
@@ -440,7 +439,14 @@ function CardsContent({
 		<div className="animate-fade-in">
 			{/* Deck Header */}
 			<ErrorBoundary>
-				<Suspense fallback={<LoadingSpinner />}>
+				<Suspense
+					fallback={
+						<div className="mb-8">
+							<div className="h-9 w-48 bg-muted/20 rounded animate-pulse mb-2" />
+							<div className="h-5 w-64 bg-muted/20 rounded animate-pulse" />
+						</div>
+					}
+				>
 					<DeckHeader deckId={deckId} />
 				</Suspense>
 			</ErrorBoundary>
@@ -571,7 +577,48 @@ export function DeckCardsPage() {
 			{/* Main Content */}
 			<main className="max-w-4xl mx-auto px-4 py-8">
 				<ErrorBoundary>
-					<Suspense fallback={<LoadingSpinner />}>
+					<Suspense
+						fallback={
+							<div className="animate-fade-in">
+								<div className="mb-8">
+									<div className="h-9 w-48 bg-muted/20 rounded animate-pulse mb-2" />
+									<div className="h-5 w-64 bg-muted/20 rounded animate-pulse" />
+								</div>
+								<div className="flex items-center justify-between mb-4">
+									<div className="h-7 w-32 bg-muted/20 rounded animate-pulse" />
+									<div className="flex gap-2">
+										<div className="h-10 w-28 bg-muted/20 rounded-lg animate-pulse" />
+										<div className="h-10 w-24 bg-muted/20 rounded-lg animate-pulse" />
+									</div>
+								</div>
+								<div className="h-10 w-full bg-muted/20 rounded-lg animate-pulse mb-6" />
+								<div className="space-y-4">
+									{[0, 1, 2].map((i) => (
+										<div
+											key={i}
+											className="bg-white rounded-xl border border-border/50 overflow-hidden"
+										>
+											<div className="px-5 py-3 border-b border-border/30 bg-ivory/30">
+												<div className="h-4 w-28 bg-muted/20 rounded animate-pulse" />
+											</div>
+											<div className="p-5">
+												<div className="grid grid-cols-2 gap-4">
+													<div>
+														<div className="h-3 w-10 bg-muted/20 rounded animate-pulse mb-2" />
+														<div className="h-4 w-32 bg-muted/20 rounded animate-pulse" />
+													</div>
+													<div>
+														<div className="h-3 w-10 bg-muted/20 rounded animate-pulse mb-2" />
+														<div className="h-4 w-32 bg-muted/20 rounded animate-pulse" />
+													</div>
+												</div>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						}
+					>
 						<CardsContent
 							deckId={deckId}
 							onCreateNote={() => setIsCreateModalOpen(true)}

@@ -17,7 +17,6 @@ import { Link, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { studyDataAtomFamily } from "../atoms";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { LoadingSpinner } from "../components/LoadingSpinner";
 import { renderCard } from "../utils/templateRenderer";
 
 type Rating = 1 | 2 | 3 | 4;
@@ -373,7 +372,19 @@ export function StudyPage() {
 			{/* Main Content */}
 			<main className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 py-6">
 				<ErrorBoundary>
-					<Suspense fallback={<LoadingSpinner className="flex-1" />}>
+					<Suspense
+						fallback={
+							<div className="flex-1 flex flex-col">
+								<div className="flex items-center justify-between mb-6">
+									<div className="h-7 w-36 bg-muted/20 rounded animate-pulse" />
+									<div className="h-7 w-24 bg-muted/20 rounded-full animate-pulse" />
+								</div>
+								<div className="flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex items-center justify-center">
+									<div className="h-7 w-48 bg-muted/20 rounded animate-pulse" />
+								</div>
+							</div>
+						}
+					>
 						<StudySession deckId={deckId} />
 					</Suspense>
 				</ErrorBoundary>

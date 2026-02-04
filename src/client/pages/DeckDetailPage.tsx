@@ -55,14 +55,36 @@ function DeckContent({ deckId }: { deckId: string }) {
 		<div className="animate-fade-in">
 			{/* Deck Header */}
 			<ErrorBoundary>
-				<Suspense fallback={<LoadingSpinner />}>
+				<Suspense
+					fallback={
+						<div className="mb-8">
+							<div className="h-9 w-48 bg-muted/20 rounded animate-pulse mb-2" />
+							<div className="h-5 w-64 bg-muted/20 rounded animate-pulse" />
+						</div>
+					}
+				>
 					<DeckHeader deckId={deckId} />
 				</Suspense>
 			</ErrorBoundary>
 
 			{/* Deck Stats */}
 			<ErrorBoundary>
-				<Suspense fallback={<LoadingSpinner />}>
+				<Suspense
+					fallback={
+						<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">
+							<div className="grid grid-cols-2 gap-6">
+								<div>
+									<div className="h-4 w-20 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-12 bg-muted/20 rounded animate-pulse" />
+								</div>
+								<div>
+									<div className="h-4 w-20 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-12 bg-muted/20 rounded animate-pulse" />
+								</div>
+							</div>
+						</div>
+					}
+				>
 					<DeckStats deckId={deckId} />
 				</Suspense>
 			</ErrorBoundary>
