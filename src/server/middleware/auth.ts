@@ -44,6 +44,7 @@ export async function authMiddleware(c: Context, next: Next) {
 		const payload = (await verify(
 			token,
 			getJwtSecret(),
+			"HS256",
 		)) as unknown as JWTPayload;
 
 		const user: AuthUser = {
