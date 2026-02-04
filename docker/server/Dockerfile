@@ -18,6 +18,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # Copy source files
 COPY tsconfig.json esbuild.mjs ./
 COPY src/server ./src/server
+COPY src/shared ./src/shared
 
 # Build the server
 RUN pnpm build:server
