@@ -362,12 +362,21 @@ function StudySession({ deckId }: { deckId: string }) {
 							isFlipped ? "Card showing answer" : "Click to reveal answer"
 						}
 						disabled={isFlipped}
-						className={`flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex flex-col items-center justify-center text-center transition-all duration-300 ${
+						className={`relative flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex flex-col items-center justify-center text-center transition-all duration-300 ${
 							!isFlipped
 								? "cursor-pointer hover:shadow-lg hover:border-primary/30 active:scale-[0.99]"
 								: "bg-ivory/50"
 						}`}
 					>
+						{/* New card badge */}
+						{currentCard.state === 0 && (
+							<span
+								data-testid="new-card-badge"
+								className="absolute top-3 right-3 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
+							>
+								New
+							</span>
+						)}
 						{!isFlipped ? (
 							<>
 								<p
