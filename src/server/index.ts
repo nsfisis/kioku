@@ -11,6 +11,7 @@ import {
 	study,
 	sync,
 } from "./routes/index.js";
+import { startPurgeScheduler } from "./services/purge-scheduler.js";
 
 const app = new Hono();
 
@@ -43,5 +44,7 @@ serve({
 	fetch: app.fetch,
 	port,
 });
+
+startPurgeScheduler();
 
 export { app };

@@ -5,6 +5,8 @@ export {
 	noteFieldTypeRepository,
 	noteTypeRepository,
 } from "./noteType.js";
+export type { PurgeOptions, PurgeResult } from "./purge.js";
+export { purgeRepository } from "./purge.js";
 export { refreshTokenRepository } from "./refresh-token.js";
 export { reviewLogRepository } from "./review-log.js";
 export { syncRepository } from "./sync.js";
