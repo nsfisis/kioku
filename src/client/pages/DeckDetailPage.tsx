@@ -25,6 +25,14 @@ function DeckHeader({ deckId }: { deckId: string }) {
 	);
 }
 
+// CardState values from FSRS
+const CardState = {
+	New: 0,
+	Learning: 1,
+	Review: 2,
+	Relearning: 3,
+} as const;
+
 function DeckStats({ deckId }: { deckId: string }) {
 	const { data: cards } = useAtomValue(cardsByDeckAtomFamily(deckId));
 
@@ -32,17 +40,37 @@ function DeckStats({ deckId }: { deckId: string }) {
 	const boundary = getEndOfStudyDayBoundary();
 	const dueCards = cards.filter((card) => new Date(card.due) < boundary);
 
+	// Count by card state
+	const newCards = dueCards.filter((card) => card.state === CardState.New);
+	const learningCards = dueCards.filter(
+		(card) =>
+			card.state === CardState.Learning || card.state === CardState.Relearning,
+	);
+	const reviewCards = dueCards.filter(
+		(card) => card.state === CardState.Review,
+	);
+
 	return (
 		<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">
-			<div className="grid grid-cols-2 gap-6">
+			<div className="grid grid-cols-4 gap-4">
 				<div>
-					<p className="text-sm text-muted mb-1">Total Cards</p>
+					<p className="text-sm text-muted mb-1">Total</p>
 					<p className="text-2xl font-semibold text-ink">{cards.length}</p>
 				</div>
 				<div>
-					<p className="text-sm text-muted mb-1">Due Today</p>
-					<p className="text-2xl font-semibold text-primary">
-						{dueCards.length}
+					<p className="text-sm text-muted mb-1">New</p>
+					<p className="text-2xl font-semibold text-info">{newCards.length}</p>
+				</div>
+				<div>
+					<p className="text-sm text-muted mb-1">Learning</p>
+					<p className="text-2xl font-semibold text-warning">
+						{learningCards.length}
+					</p>
+				</div>
+				<div>
+					<p className="text-sm text-muted mb-1">Review</p>
+					<p className="text-2xl font-semibold text-success">
+						{reviewCards.length}
 					</p>
 				</div>
 			</div>
@@ -72,14 +100,22 @@ function DeckContent({ deckId }: { deckId: string }) {
 				<Suspense
 					fallback={
 						<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">
-							<div className="grid grid-cols-2 gap-6">
+							<div className="grid grid-cols-4 gap-4">
 								<div>
-									<div className="h-4 w-20 bg-muted/20 rounded animate-pulse mb-1" />
-									<div className="h-8 w-12 bg-muted/20 rounded animate-pulse" />
+									<div className="h-4 w-12 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />
 								</div>
 								<div>
-									<div className="h-4 w-20 bg-muted/20 rounded animate-pulse mb-1" />
-									<div className="h-8 w-12 bg-muted/20 rounded animate-pulse" />
+									<div className="h-4 w-12 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />
+								</div>
+								<div>
+									<div className="h-4 w-16 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />
+								</div>
+								<div>
+									<div className="h-4 w-14 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />
 								</div>
 							</div>
 						</div>

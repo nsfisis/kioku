@@ -249,7 +249,7 @@ describe("DeckDetailPage", () => {
 			initialCards: mockCards,
 		});
 
-		const totalCardsLabel = screen.getByText("Total Cards");
+		const totalCardsLabel = screen.getByText("Total");
 		expect(totalCardsLabel).toBeDefined();
 		// Find the count within the same container
 		const totalCardsContainer = totalCardsLabel.parentElement;
@@ -258,17 +258,33 @@ describe("DeckDetailPage", () => {
 		);
 	});
 
-	it("displays due card count", () => {
+	it("displays card counts by state", () => {
 		renderWithProviders({
 			initialDeck: mockDeck,
 			initialCards: mockCards,
 		});
 
-		const dueLabel = screen.getByText("Due Today");
-		expect(dueLabel).toBeDefined();
-		// Find the count within the same container (one card is due)
-		const dueContainer = dueLabel.parentElement;
-		expect(dueContainer?.querySelector(".text-primary")?.textContent).toBe("1");
+		// New cards (state=0, but card-1 is not due yet, so 0)
+		const newLabel = screen.getByText("New");
+		expect(newLabel).toBeDefined();
+		const newContainer = newLabel.parentElement;
+		expect(newContainer?.querySelector(".text-info")?.textContent).toBe("0");
+
+		// Learning cards (state=1 or 3, none in mockCards)
+		const learningLabel = screen.getByText("Learning");
+		expect(learningLabel).toBeDefined();
+		const learningContainer = learningLabel.parentElement;
+		expect(learningContainer?.querySelector(".text-warning")?.textContent).toBe(
+			"0",
+		);
+
+		// Review cards (state=2, card-2 is due now)
+		const reviewLabel = screen.getByText("Review");
+		expect(reviewLabel).toBeDefined();
+		const reviewContainer = reviewLabel.parentElement;
+		expect(reviewContainer?.querySelector(".text-success")?.textContent).toBe(
+			"1",
+		);
 	});
 
 	it("does not display card list (cards are hidden)", () => {
