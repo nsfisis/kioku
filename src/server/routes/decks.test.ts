@@ -6,6 +6,7 @@ import type {
 	CardRepository,
 	Deck,
 	DeckRepository,
+	ReviewLogRepository,
 } from "../repositories/index.js";
 import { createDecksRouter } from "./decks.js";
 
@@ -31,11 +32,20 @@ function createMockCardRepo(): CardRepository {
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		countDueCards: vi.fn().mockResolvedValue(0),
+		countDueNewCards: vi.fn().mockResolvedValue(0),
+		countDueReviewCards: vi.fn().mockResolvedValue(0),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
 		findDueNewCardsForStudy: vi.fn(),
 		findDueReviewCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
+	};
+}
+
+function createMockReviewLogRepo(): ReviewLogRepository {
+	return {
+		create: vi.fn(),
+		countTodayNewCardReviews: vi.fn().mockResolvedValue(0),
 	};
 }
 
@@ -82,15 +92,18 @@ describe("GET /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
+	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
+		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
+			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -142,15 +155,18 @@ describe("POST /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
+	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
+		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
+			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -255,15 +271,18 @@ describe("GET /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
+	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
+		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
+			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -325,15 +344,18 @@ describe("PUT /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
+	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
+		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
+			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -455,15 +477,18 @@ describe("DELETE /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
+	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
+		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
+			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);

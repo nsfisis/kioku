@@ -7,20 +7,25 @@ import {
 	cardRepository,
 	type DeckRepository,
 	deckRepository,
+	type ReviewLogRepository,
+	reviewLogRepository,
 } from "../repositories/index.js";
 import { createDeckSchema, updateDeckSchema } from "../schemas/index.js";
 
 export interface DeckDependencies {
 	deckRepo: DeckRepository;
 	cardRepo: CardRepository;
+	reviewLogRepo: ReviewLogRepository;
 }
 
 const deckIdParamSchema = z.object({
 	id: z.uuid(),
 });
 
+const REVIEW_CARDS_LIMIT = 100;
+
 export function createDecksRouter(deps: DeckDependencies) {
-	const { deckRepo, cardRepo } = deps;
+	const { deckRepo, cardRepo, reviewLogRepo } = deps;
 
 	return new Hono()
 		.use("*", authMiddleware)
@@ -30,7 +35,26 @@ export function createDecksRouter(deps: DeckDependencies) {
 			const now = new Date();
 			const decksWithDueCount = await Promise.all(
 				decks.map(async (deck) => {
-					const dueCardCount = await cardRepo.countDueCards(deck.id, now);
+					const [dueNewCards, dueReviewCards, reviewedNewCards] =
+						await Promise.all([
+							cardRepo.countDueNewCards(deck.id, now),
+							cardRepo.countDueReviewCards(deck.id, now),
+							reviewLogRepo.countTodayNewCardReviews(deck.id, now),
+						]);
+
+					// Apply the same limits as the study screen
+					const newCardBudget = Math.max(
+						0,
+						deck.newCardsPerDay - reviewedNewCards,
+					);
+					const newCardsToStudy = Math.min(dueNewCards, newCardBudget);
+					const reviewCardsToStudy = Math.min(
+						dueReviewCards,
+						REVIEW_CARDS_LIMIT,
+					);
+
+					const dueCardCount = newCardsToStudy + reviewCardsToStudy;
+
 					return { ...deck, dueCardCount };
 				}),
 			);
@@ -93,4 +117,5 @@ export function createDecksRouter(deps: DeckDependencies) {
 export const decks = createDecksRouter({
 	deckRepo: deckRepository,
 	cardRepo: cardRepository,
+	reviewLogRepo: reviewLogRepository,
 });

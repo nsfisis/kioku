@@ -221,6 +221,38 @@ export const cardRepository: CardRepository = {
 		return result[0]?.count ?? 0;
 	},
 
+	async countDueNewCards(deckId: string, now: Date): Promise<number> {
+		const boundary = getEndOfStudyDayBoundary(now);
+		const result = await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(cards)
+			.where(
+				and(
+					eq(cards.deckId, deckId),
+					isNull(cards.deletedAt),
+					lt(cards.due, boundary),
+					eq(cards.state, CardState.New),
+				),
+			);
+		return result[0]?.count ?? 0;
+	},
+
+	async countDueReviewCards(deckId: string, now: Date): Promise<number> {
+		const boundary = getEndOfStudyDayBoundary(now);
+		const result = await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(cards)
+			.where(
+				and(
+					eq(cards.deckId, deckId),
+					isNull(cards.deletedAt),
+					lt(cards.due, boundary),
+					ne(cards.state, CardState.New),
+				),
+			);
+		return result[0]?.count ?? 0;
+	},
+
 	async findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,

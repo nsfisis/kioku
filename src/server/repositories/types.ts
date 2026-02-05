@@ -168,6 +168,8 @@ export interface CardRepository {
 		now: Date,
 		limit: number,
 	): Promise<CardForStudy[]>;
+	countDueNewCards(deckId: string, now: Date): Promise<number>;
+	countDueReviewCards(deckId: string, now: Date): Promise<number>;
 	updateFSRSFields(
 		id: string,
 		deckId: string,
