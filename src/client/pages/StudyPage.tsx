@@ -2,6 +2,7 @@ import {
 	faCheck,
 	faChevronLeft,
 	faCircleCheck,
+	faRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue } from "jotai";
@@ -20,6 +21,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { renderCard } from "../utils/templateRenderer";
 
 type Rating = 1 | 2 | 3 | 4;
+type PendingReview = { cardId: string; rating: Rating; durationMs: number };
 
 const RatingLabels: Record<Rating, string> = {
 	1: "Again",
@@ -47,6 +49,15 @@ function StudySession({ deckId }: { deckId: string }) {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [completedCount, setCompletedCount] = useState(0);
 	const cardStartTimeRef = useRef<number>(Date.now());
+	const [pendingReview, setPendingReview] = useState<PendingReview | null>(
+		null,
+	);
+	const pendingReviewRef = useRef<PendingReview | null>(null);
+
+	// Keep ref in sync with state for cleanup effect
+	useEffect(() => {
+		pendingReviewRef.current = pendingReview;
+	}, [pendingReview]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reset timer when card changes
 	useEffect(() => {
@@ -56,6 +67,19 @@ function StudySession({ deckId }: { deckId: string }) {
 	const handleFlip = useCallback(() => {
 		setIsFlipped(true);
 	}, []);
+
+	const flushPendingReview = useCallback(
+		async (review: PendingReview) => {
+			const res = await apiClient.rpc.api.decks[":deckId"].study[
+				":cardId"
+			].$post({
+				param: { deckId, cardId: review.cardId },
+				json: { rating: review.rating, durationMs: review.durationMs },
+			});
+			await apiClient.handleResponse(res);
+		},
+		[deckId],
+	);
 
 	const handleRating = useCallback(
 		async (rating: Rating) => {
@@ -69,34 +93,66 @@ function StudySession({ deckId }: { deckId: string }) {
 
 			const durationMs = Date.now() - cardStartTimeRef.current;
 
-			try {
-				const res = await apiClient.rpc.api.decks[":deckId"].study[
-					":cardId"
-				].$post({
-					param: { deckId, cardId: currentCard.id },
-					json: { rating, durationMs },
-				});
-				await apiClient.handleResponse(res);
-
-				setCompletedCount((prev) => prev + 1);
-				setIsFlipped(false);
-				setCurrentIndex((prev) => prev + 1);
-			} catch (err) {
-				if (err instanceof ApiClientError) {
-					setSubmitError(err.message);
-				} else {
-					setSubmitError("Failed to submit review. Please try again.");
+			// Flush previous pending review first
+			if (pendingReview) {
+				try {
+					await flushPendingReview(pendingReview);
+				} catch (err) {
+					if (err instanceof ApiClientError) {
+						setSubmitError(err.message);
+					} else {
+						setSubmitError("Failed to submit review. Please try again.");
+					}
 				}
-			} finally {
-				setIsSubmitting(false);
 			}
+
+			// Save current review as pending (don't send yet)
+			setPendingReview({ cardId: currentCard.id, rating, durationMs });
+			setCompletedCount((prev) => prev + 1);
+			setIsFlipped(false);
+			setCurrentIndex((prev) => prev + 1);
+			setIsSubmitting(false);
 		},
-		[deckId, isSubmitting, cards, currentIndex],
+		[isSubmitting, cards, currentIndex, pendingReview, flushPendingReview],
 	);
+
+	const handleUndo = useCallback(() => {
+		if (!pendingReview) return;
+		setPendingReview(null);
+		setCurrentIndex((prev) => prev - 1);
+		setCompletedCount((prev) => prev - 1);
+		setIsFlipped(false);
+	}, [pendingReview]);
+
+	// Flush pending review on unmount (fire-and-forget)
+	useEffect(() => {
+		return () => {
+			const review = pendingReviewRef.current;
+			if (review) {
+				apiClient.rpc.api.decks[":deckId"].study[":cardId"]
+					.$post({
+						param: { deckId, cardId: review.cardId },
+						json: { rating: review.rating, durationMs: review.durationMs },
+					})
+					.then((res) => apiClient.handleResponse(res))
+					.catch(() => {});
+			}
+		};
+	}, [deckId]);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
 			if (isSubmitting) return;
+
+			// Undo: Ctrl+Z / Cmd+Z anytime, or z when card is not flipped
+			if (
+				(e.key === "z" && (e.ctrlKey || e.metaKey)) ||
+				(e.key === "z" && !e.ctrlKey && !e.metaKey && !isFlipped)
+			) {
+				e.preventDefault();
+				handleUndo();
+				return;
+			}
 
 			if (!isFlipped) {
 				if (e.key === " " || e.key === "Enter") {
@@ -119,7 +175,7 @@ function StudySession({ deckId }: { deckId: string }) {
 				}
 			}
 		},
-		[isFlipped, isSubmitting, handleFlip, handleRating],
+		[isFlipped, isSubmitting, handleFlip, handleRating, handleUndo],
 	);
 
 	useEffect(() => {
@@ -185,6 +241,28 @@ function StudySession({ deckId }: { deckId: string }) {
 				)}
 			</div>
 
+			{/* Undo Button */}
+			{pendingReview && !isFlipped && !isSessionComplete && (
+				<div className="flex justify-end mb-4">
+					<button
+						type="button"
+						data-testid="undo-button"
+						onClick={handleUndo}
+						className="inline-flex items-center gap-1.5 text-muted hover:text-slate text-sm transition-colors"
+					>
+						<FontAwesomeIcon
+							icon={faRotateLeft}
+							className="w-3.5 h-3.5"
+							aria-hidden="true"
+						/>
+						Undo
+						<kbd className="ml-1 px-1.5 py-0.5 bg-ivory rounded text-xs font-mono">
+							Z
+						</kbd>
+					</button>
+				</div>
+			)}
+
 			{/* No Cards State */}
 			{hasNoCards && (
 				<div
@@ -240,6 +318,21 @@ function StudySession({ deckId }: { deckId: string }) {
 							card{completedCount !== 1 ? "s" : ""}
 						</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
+							{pendingReview && (
+								<button
+									type="button"
+									data-testid="undo-button"
+									onClick={handleUndo}
+									className="inline-flex items-center justify-center gap-2 bg-ivory hover:bg-border text-slate font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+								>
+									<FontAwesomeIcon
+										icon={faRotateLeft}
+										className="w-4 h-4"
+										aria-hidden="true"
+									/>
+									Undo
+								</button>
+							)}
 							<Link
 								href={`/decks/${deckId}`}
 								className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200"

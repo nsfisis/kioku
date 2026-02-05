@@ -92,25 +92,41 @@ const mockFirstCard: StudyCard = {
 	fieldValuesMap: { Front: "Hello", Back: "こんにちは" },
 };
 
-const mockDueCards: StudyCard[] = [
-	mockFirstCard,
-	{
-		id: "card-2",
-		deckId: "deck-1",
-		noteId: "note-2",
-		isReversed: false,
-		front: "Goodbye",
-		back: "さようなら",
-		state: 0,
-		due: "2024-01-01T00:00:00Z",
-		stability: 0,
-		difficulty: 0,
-		reps: 0,
-		lapses: 0,
-		noteType: { frontTemplate: "{{Front}}", backTemplate: "{{Back}}" },
-		fieldValuesMap: { Front: "Goodbye", Back: "さようなら" },
-	},
-];
+const mockSecondCard: StudyCard = {
+	id: "card-2",
+	deckId: "deck-1",
+	noteId: "note-2",
+	isReversed: false,
+	front: "Goodbye",
+	back: "さようなら",
+	state: 0,
+	due: "2024-01-01T00:00:00Z",
+	stability: 0,
+	difficulty: 0,
+	reps: 0,
+	lapses: 0,
+	noteType: { frontTemplate: "{{Front}}", backTemplate: "{{Back}}" },
+	fieldValuesMap: { Front: "Goodbye", Back: "さようなら" },
+};
+
+const mockThirdCard: StudyCard = {
+	id: "card-3",
+	deckId: "deck-1",
+	noteId: "note-3",
+	isReversed: false,
+	front: "Thank you",
+	back: "ありがとう",
+	state: 0,
+	due: "2024-01-01T00:00:00Z",
+	stability: 0,
+	difficulty: 0,
+	reps: 0,
+	lapses: 0,
+	noteType: { frontTemplate: "{{Front}}", backTemplate: "{{Back}}" },
+	fieldValuesMap: { Front: "Thank you", Back: "ありがとう" },
+};
+
+const mockDueCards: StudyCard[] = [mockFirstCard, mockSecondCard];
 
 function renderWithProviders({
 	path = "/decks/deck-1/study",
@@ -157,6 +173,9 @@ describe("StudyPage", () => {
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});
+
+		// Default: studyPost returns a resolved promise (needed for unmount flush)
+		mockStudyPost.mockResolvedValue({});
 
 		// handleResponse: just pass through whatever it receives
 		mockHandleResponse.mockImplementation((res) => Promise.resolve(res));
@@ -313,12 +332,8 @@ describe("StudyPage", () => {
 	});
 
 	describe("Rating Submission", () => {
-		it("submits review and moves to next card", async () => {
+		it("moves to next card after rating (API deferred)", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: mockDueCards },
@@ -330,12 +345,49 @@ describe("StudyPage", () => {
 			// Rate as Good
 			await user.click(screen.getByTestId("rating-3"));
 
-			// Should move to next card
+			// Should move to next card without API call
 			await waitFor(() => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
 
-			// Verify API was called with correct params
+			// API should NOT have been called yet (deferred)
+			expect(mockStudyPost).not.toHaveBeenCalled();
+		});
+
+		it("flushes previous pending review when rating next card", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			renderWithProviders({
+				initialStudyData: {
+					deck: mockDeck,
+					cards: [mockFirstCard, mockSecondCard, mockThirdCard],
+				},
+			});
+
+			// Rate first card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// API not called yet
+			expect(mockStudyPost).not.toHaveBeenCalled();
+
+			// Rate second card — should flush the first
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-4"));
+
+			await waitFor(() => {
+				expect(mockStudyPost).toHaveBeenCalledTimes(1);
+			});
+
+			// Verify the flushed review was for card-1
 			expect(mockStudyPost).toHaveBeenCalledWith(
 				expect.objectContaining({
 					param: { deckId: "deck-1", cardId: "card-1" },
@@ -346,10 +398,6 @@ describe("StudyPage", () => {
 
 		it("updates remaining count after review", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: mockDueCards },
@@ -369,7 +417,7 @@ describe("StudyPage", () => {
 			});
 		});
 
-		it("shows error when rating submission fails", async () => {
+		it("shows error when flush of previous review fails", async () => {
 			const user = userEvent.setup();
 
 			mockStudyPost.mockRejectedValue(
@@ -377,27 +425,38 @@ describe("StudyPage", () => {
 			);
 
 			renderWithProviders({
-				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+				initialStudyData: {
+					deck: mockDeck,
+					cards: [mockFirstCard, mockSecondCard, mockThirdCard],
+				},
 			});
 
+			// Rate first card
 			await user.click(screen.getByTestId("card-container"));
 			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// Rate second card — flush fails
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-4"));
 
 			await waitFor(() => {
 				expect(screen.getByRole("alert").textContent).toContain(
 					"Failed to submit review",
 				);
 			});
+
+			// Should still move to the third card
+			expect(screen.getByTestId("card-front").textContent).toBe("Thank you");
 		});
 	});
 
 	describe("Session Complete", () => {
 		it("shows session complete screen after all cards reviewed", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
@@ -430,7 +489,7 @@ describe("StudyPage", () => {
 			await user.click(screen.getByTestId("card-container"));
 			await user.click(screen.getByTestId("rating-3"));
 
-			// Review second card
+			// Review second card (flushes first)
 			await waitFor(() => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
@@ -446,10 +505,6 @@ describe("StudyPage", () => {
 
 		it("provides navigation links after session complete", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
@@ -495,10 +550,6 @@ describe("StudyPage", () => {
 		it("rates card with number keys", async () => {
 			const user = userEvent.setup();
 
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
-
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: mockDueCards },
 			});
@@ -510,20 +561,12 @@ describe("StudyPage", () => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
 
-			expect(mockStudyPost).toHaveBeenCalledWith(
-				expect.objectContaining({
-					param: { deckId: "deck-1", cardId: "card-1" },
-					json: expect.objectContaining({ rating: 3 }),
-				}),
-			);
+			// API not called yet (deferred)
+			expect(mockStudyPost).not.toHaveBeenCalled();
 		});
 
 		it("rates card as Good with Space key when card is flipped", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: mockDueCards },
@@ -536,20 +579,12 @@ describe("StudyPage", () => {
 				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
 			});
 
-			expect(mockStudyPost).toHaveBeenCalledWith(
-				expect.objectContaining({
-					param: { deckId: "deck-1", cardId: "card-1" },
-					json: expect.objectContaining({ rating: 3 }),
-				}),
-			);
+			// API not called yet (deferred)
+			expect(mockStudyPost).not.toHaveBeenCalled();
 		});
 
 		it("supports all rating keys (1, 2, 3, 4)", async () => {
 			const user = userEvent.setup();
-
-			mockStudyPost.mockResolvedValue({
-				card: { ...mockFirstCard, reps: 1 },
-			});
 
 			renderWithProviders({
 				initialStudyData: { deck: mockDeck, cards: mockDueCards },
@@ -558,10 +593,230 @@ describe("StudyPage", () => {
 			await user.keyboard(" "); // Flip
 			await user.keyboard("1"); // Rate as Again
 
+			// API not called yet (deferred), but should move to next card
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+			expect(mockStudyPost).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("Undo", () => {
+		it("does not show undo button before any rating", () => {
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			expect(screen.queryByTestId("undo-button")).toBeNull();
+		});
+
+		it("shows undo button after rating (when not flipped)", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			expect(screen.getByTestId("undo-button")).toBeDefined();
+		});
+
+		it("undoes the last rating and returns to previous card", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Rate first card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// Click undo
+			await user.click(screen.getByTestId("undo-button"));
+
+			// Should return to the first card
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Hello");
+			});
+
+			// API should NOT have been called
+			expect(mockStudyPost).not.toHaveBeenCalled();
+
+			// Undo button should be gone
+			expect(screen.queryByTestId("undo-button")).toBeNull();
+		});
+
+		it("decrements completed count on undo", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			renderWithProviders({
+				initialStudyData: {
+					deck: mockDeck,
+					cards: [mockFirstCard, mockSecondCard, mockThirdCard],
+				},
+			});
+
+			// Rate first card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			// Rate second card (flushes first)
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-4"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("remaining-count").textContent).toBe(
+					"1 remaining",
+				);
+			});
+
+			// Undo
+			await user.click(screen.getByTestId("undo-button"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("remaining-count").textContent).toBe(
+					"2 remaining",
+				);
+			});
+		});
+
+		it("undoes with z key when card is not flipped", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Rate first card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// Press z to undo
+			await user.keyboard("z");
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Hello");
+			});
+		});
+
+		it("undoes with Ctrl+Z", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Rate first card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// Press Ctrl+Z to undo
+			await user.keyboard("{Control>}z{/Control}");
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Hello");
+			});
+		});
+
+		it("shows undo button on session complete screen", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
+			});
+
+			// Review the only card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("session-complete")).toBeDefined();
+			});
+
+			// Undo button should be visible on complete screen
+			expect(screen.getByTestId("undo-button")).toBeDefined();
+		});
+
+		it("undoes from session complete screen back to last card", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
+			});
+
+			// Review the only card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("session-complete")).toBeDefined();
+			});
+
+			// Click undo on session complete screen
+			await user.click(screen.getByTestId("undo-button"));
+
+			// Should go back to the card
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Hello");
+			});
+			expect(screen.queryByTestId("session-complete")).toBeNull();
+		});
+
+		it("flushes pending review on unmount", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			const { unmount } = renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Rate first card (pending, not sent)
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			expect(mockStudyPost).not.toHaveBeenCalled();
+
+			// Unmount triggers flush
+			unmount();
+
+			expect(mockStudyPost).toHaveBeenCalledTimes(1);
 			expect(mockStudyPost).toHaveBeenCalledWith(
 				expect.objectContaining({
 					param: { deckId: "deck-1", cardId: "card-1" },
-					json: expect.objectContaining({ rating: 1 }),
+					json: expect.objectContaining({ rating: 3 }),
 				}),
 			);
 		});
