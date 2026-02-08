@@ -188,23 +188,15 @@ function StudySession({ deckId }: { deckId: string }) {
 	const hasNoCards = cards.length === 0;
 	const remainingCards = cards.length - currentIndex;
 
-	// Compute rendered card content for both legacy and note-based cards
 	const cardContent = useMemo(() => {
 		if (!currentCard) return null;
 
-		// Note-based card: use template rendering
-		if (currentCard.noteType && currentCard.fieldValuesMap) {
-			const rendered = renderCard({
-				frontTemplate: currentCard.noteType.frontTemplate,
-				backTemplate: currentCard.noteType.backTemplate,
-				fieldValues: currentCard.fieldValuesMap,
-				isReversed: currentCard.isReversed ?? false,
-			});
-			return { front: rendered.front, back: rendered.back };
-		}
-
-		// Legacy card: use front/back directly
-		return { front: currentCard.front, back: currentCard.back };
+		return renderCard({
+			frontTemplate: currentCard.noteType.frontTemplate,
+			backTemplate: currentCard.noteType.backTemplate,
+			fieldValues: currentCard.fieldValuesMap,
+			isReversed: currentCard.isReversed ?? false,
+		});
 	}, [currentCard]);
 
 	return (
