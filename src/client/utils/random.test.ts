@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shuffle } from "./shuffle";
+import { createSeededRandom, shuffle } from "./random";
 
 describe("shuffle", () => {
 	it("returns an array of the same length", () => {
@@ -34,6 +34,21 @@ describe("shuffle", () => {
 		const result = shuffle(input);
 		expect(result).toHaveLength(3);
 		expect(result.map((x) => x.id).sort()).toEqual([1, 2, 3]);
+	});
+
+	it("produces deterministic result with seeded random", () => {
+		const input = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+		const seed = 12345;
+		const result1 = shuffle(input, createSeededRandom(seed));
+		const result2 = shuffle(input, createSeededRandom(seed));
+		expect(result1).toEqual(result2);
+	});
+
+	it("produces different results with different seeds", () => {
+		const input = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+		const result1 = shuffle(input, createSeededRandom(1));
+		const result2 = shuffle(input, createSeededRandom(2));
+		expect(result1).not.toEqual(result2);
 	});
 
 	it("actually shuffles (statistical test)", () => {

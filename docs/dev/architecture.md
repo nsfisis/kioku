@@ -378,6 +378,23 @@ GET  /api/sync/pull   - Pull server changes
 4. Client pulls server changes
 5. Mark synced items with `_synced = true`
 
+## Study
+
+### Date Boundary
+
+The "study day" rolls over at **3:00 AM local time**, not midnight. A study day spans from 3:00 AM to the next day's 3:00 AM. This boundary is used for:
+
+- Determining which cards are due (`card.due < endOfStudyDay`)
+- Counting today's new card reviews (budget calculation)
+- Seeding the card shuffle order (see below)
+
+### Card Shuffle Order
+
+Cards fetched for a study session are shuffled client-side using the Fisher-Yates algorithm with a **seeded PRNG** (mulberry32). The seed is derived from `getStartOfStudyDayBoundary().getTime()`, which means:
+
+- The shuffle order is **deterministic within the same study day** — reopening the study screen produces the same card order.
+- The order **changes when the study day rolls over** (at 3:00 AM).
+
 ## Authentication
 
 - **Hash**: Argon2 for password hashing

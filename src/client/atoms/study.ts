@@ -1,7 +1,8 @@
 import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
+import { getStartOfStudyDayBoundary } from "../../shared/date";
 import { apiClient } from "../api/client";
-import { shuffle } from "../utils/shuffle";
+import { createSeededRandom, shuffle } from "../utils/random";
 
 export interface StudyCard {
 	id: string;
@@ -54,9 +55,10 @@ export const studyDataAtomFamily = atomFamily((deckId: string) =>
 				cards: StudyCard[];
 			}>(cardsRes);
 
+			const seed = getStartOfStudyDayBoundary().getTime();
 			return {
 				deck: deckData.deck,
-				cards: shuffle(cardsData.cards),
+				cards: shuffle(cardsData.cards, createSeededRandom(seed)),
 			};
 		},
 	})),
