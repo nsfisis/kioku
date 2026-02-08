@@ -62,7 +62,7 @@ export function createStudyRouter(deps: StudyDependencies) {
 			// Fetch new cards (limited) and review cards separately
 			const [newCards, reviewCards] = await Promise.all([
 				cardRepo.findDueNewCardsForStudy(deckId, now, newCardBudget),
-				cardRepo.findDueReviewCardsForStudy(deckId, now, 100),
+				cardRepo.findDueReviewCardsForStudy(deckId, now, 80),
 			]);
 
 			return c.json({ cards: [...newCards, ...reviewCards] }, 200);

@@ -198,7 +198,7 @@ describe("GET /api/decks/:deckId/study", () => {
 		expect(mockCardRepo.findDueReviewCardsForStudy).toHaveBeenCalledWith(
 			DECK_ID,
 			expect.any(Date),
-			100,
+			80,
 		);
 	});
 
