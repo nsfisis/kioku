@@ -22,7 +22,7 @@ const deckIdParamSchema = z.object({
 	id: z.uuid(),
 });
 
-const REVIEW_CARDS_LIMIT = 100;
+const REVIEW_CARDS_LIMIT = 80;
 
 export function createDecksRouter(deps: DeckDependencies) {
 	const { deckRepo, cardRepo, reviewLogRepo } = deps;
@@ -82,7 +82,21 @@ export function createDecksRouter(deps: DeckDependencies) {
 				throw Errors.notFound("Deck not found", "DECK_NOT_FOUND");
 			}
 
-			return c.json({ deck }, 200);
+			const now = new Date();
+			const [dueNewCards, dueReviewCards, reviewedNewCards] = await Promise.all(
+				[
+					cardRepo.countDueNewCards(deck.id, now),
+					cardRepo.countDueReviewCards(deck.id, now),
+					reviewLogRepo.countTodayNewCardReviews(deck.id, now),
+				],
+			);
+
+			const newCardBudget = Math.max(0, deck.newCardsPerDay - reviewedNewCards);
+			const newCardsToStudy = Math.min(dueNewCards, newCardBudget);
+			const reviewCardsToStudy = Math.min(dueReviewCards, REVIEW_CARDS_LIMIT);
+			const dueCardCount = newCardsToStudy + reviewCardsToStudy;
+
+			return c.json({ deck: { ...deck, dueCardCount } }, 200);
 		})
 		.put(
 			"/:id",
