@@ -48,7 +48,6 @@ export const deckSchema = z.object({
 	userId: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().max(1000).nullable(),
-	newCardsPerDay: z.number().int().min(0).default(20),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	deletedAt: z.coerce.date().nullable(),
@@ -59,14 +58,12 @@ export const deckSchema = z.object({
 export const createDeckSchema = z.object({
 	name: z.string().min(1).max(255),
 	description: z.string().max(1000).nullable().optional(),
-	newCardsPerDay: z.number().int().min(0).default(20),
 });
 
 // Deck update input schema
 export const updateDeckSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
 	description: z.string().max(1000).nullable().optional(),
-	newCardsPerDay: z.number().int().min(0).optional(),
 });
 
 // Card schema

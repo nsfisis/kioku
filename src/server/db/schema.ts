@@ -101,7 +101,6 @@ export const decks = pgTable("decks", {
 		.references(() => users.id),
 	name: varchar("name", { length: 255 }).notNull(),
 	description: text("description"),
-	newCardsPerDay: integer("new_cards_per_day").notNull().default(20),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),

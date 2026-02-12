@@ -53,7 +53,6 @@ export interface SyncDeckData {
 	id: string;
 	name: string;
 	description: string | null;
-	newCardsPerDay: number;
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
@@ -224,7 +223,6 @@ export const syncRepository: SyncRepository = {
 						userId,
 						name: deckData.name,
 						description: deckData.description,
-						newCardsPerDay: deckData.newCardsPerDay,
 						createdAt: new Date(deckData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: deckData.deletedAt ? new Date(deckData.deletedAt) : null,
@@ -248,7 +246,6 @@ export const syncRepository: SyncRepository = {
 						.set({
 							name: deckData.name,
 							description: deckData.description,
-							newCardsPerDay: deckData.newCardsPerDay,
 							updatedAt: clientUpdatedAt,
 							deletedAt: deckData.deletedAt
 								? new Date(deckData.deletedAt)

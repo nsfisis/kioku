@@ -51,7 +51,6 @@ describe("createDocument", () => {
 				userId: "user-1",
 				name: "My Deck",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: Date.now(),
 				deletedAt: null,
 			},
@@ -154,7 +153,6 @@ describe("saveDocument and loadDocument", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A test deck",
-				newCardsPerDay: 15,
 				createdAt: 1234567890,
 				deletedAt: null,
 			},
@@ -168,7 +166,6 @@ describe("saveDocument and loadDocument", () => {
 		const loaded = loadDocument<CrdtDeckDocument>(binary);
 		expect(loaded.meta.entityId).toBe("deck-123");
 		expect(loaded.data.name).toBe("Test Deck");
-		expect(loaded.data.newCardsPerDay).toBe(15);
 	});
 });
 
@@ -195,7 +192,6 @@ describe("createEmptyDocument", () => {
 		expect(doc.meta.entityId).toBe("");
 		expect(doc.meta.deleted).toBe(false);
 		expect(doc.data.name).toBe("");
-		expect(doc.data.newCardsPerDay).toBe(20);
 	});
 
 	it("should create empty card document", () => {
@@ -226,7 +222,6 @@ describe("deckToCrdtDocument and crdtDocumentToDeck", () => {
 			userId: "user-1",
 			name: "My Deck",
 			description: "A deck for testing",
-			newCardsPerDay: 25,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,
@@ -240,7 +235,6 @@ describe("deckToCrdtDocument and crdtDocumentToDeck", () => {
 		expect(crdtDoc.meta.deleted).toBe(false);
 		expect(crdtDoc.data.name).toBe("My Deck");
 		expect(crdtDoc.data.description).toBe("A deck for testing");
-		expect(crdtDoc.data.newCardsPerDay).toBe(25);
 		expect(crdtDoc.data.createdAt).toBe(now.getTime());
 	});
 
@@ -252,7 +246,6 @@ describe("deckToCrdtDocument and crdtDocumentToDeck", () => {
 			userId: "user-1",
 			name: "Deleted Deck",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: deletedAt,
 			deletedAt: deletedAt,
@@ -278,7 +271,6 @@ describe("deckToCrdtDocument and crdtDocumentToDeck", () => {
 				userId: "user-2",
 				name: "Converted Deck",
 				description: "Converted from CRDT",
-				newCardsPerDay: 30,
 				createdAt: now - 10000,
 				deletedAt: null,
 			},
@@ -289,7 +281,6 @@ describe("deckToCrdtDocument and crdtDocumentToDeck", () => {
 		expect(localDeck.id).toBe("deck-3");
 		expect(localDeck.userId).toBe("user-2");
 		expect(localDeck.name).toBe("Converted Deck");
-		expect(localDeck.newCardsPerDay).toBe(30);
 		expect(localDeck.deletedAt).toBeNull();
 		expect(localDeck.syncVersion).toBe(0); // Set by sync layer
 	});
@@ -465,7 +456,6 @@ describe("createDocumentFromEntity", () => {
 			userId: "user-1",
 			name: "Test",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,
@@ -546,7 +536,6 @@ describe("getLastModified", () => {
 				userId: "user-1",
 				name: "Test",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: timestamp,
 				deletedAt: null,
 			},
@@ -569,7 +558,6 @@ describe("isDeleted", () => {
 				userId: "user-1",
 				name: "Test",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: Date.now(),
 				deletedAt: null,
 			},
@@ -590,7 +578,6 @@ describe("isDeleted", () => {
 				userId: "user-1",
 				name: "Test",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: Date.now(),
 				deletedAt: Date.now(),
 			},

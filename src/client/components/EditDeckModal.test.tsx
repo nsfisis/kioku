@@ -42,7 +42,6 @@ describe("EditDeckModal", () => {
 		id: "deck-123",
 		name: "Test Deck",
 		description: "Test description",
-		newCardsPerDay: 20,
 	};
 
 	const defaultProps = {
@@ -60,7 +59,6 @@ describe("EditDeckModal", () => {
 				id: "deck-123",
 				name: "Test Deck",
 				description: "Test description",
-				newCardsPerDay: 20,
 			},
 		});
 	});

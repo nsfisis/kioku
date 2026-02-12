@@ -1,7 +1,5 @@
-import { and, eq, gte, sql } from "drizzle-orm";
-import { getStartOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
-import { CardState, cards, reviewLogs } from "../db/schema.js";
+import { reviewLogs } from "../db/schema.js";
 import type { ReviewLog, ReviewLogRepository } from "./types.js";
 
 export const reviewLogRepository: ReviewLogRepository = {
@@ -30,22 +28,5 @@ export const reviewLogRepository: ReviewLogRepository = {
 			throw new Error("Failed to create review log");
 		}
 		return reviewLog;
-	},
-
-	async countTodayNewCardReviews(deckId: string, now: Date): Promise<number> {
-		const startOfDay = getStartOfStudyDayBoundary(now);
-
-		const result = await db
-			.select({ count: sql<number>`count(distinct ${reviewLogs.cardId})::int` })
-			.from(reviewLogs)
-			.innerJoin(cards, eq(reviewLogs.cardId, cards.id))
-			.where(
-				and(
-					eq(cards.deckId, deckId),
-					eq(reviewLogs.state, CardState.New),
-					gte(reviewLogs.reviewedAt, startOfDay),
-				),
-			);
-		return result[0]?.count ?? 0;
 	},
 };

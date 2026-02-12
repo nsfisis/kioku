@@ -68,7 +68,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const changes = await syncQueue.getPendingChanges();
@@ -81,7 +80,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
@@ -101,7 +99,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -130,7 +127,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -145,7 +141,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
@@ -179,7 +174,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const hasPending = await syncQueue.hasPendingChanges();
@@ -304,7 +298,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			await syncQueue.markSynced({
@@ -327,7 +320,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -357,7 +349,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -417,7 +408,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Server Deck",
 				description: null,
-				newCardsPerDay: 15,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -445,7 +435,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -492,7 +481,6 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,

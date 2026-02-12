@@ -7,25 +7,20 @@ import {
 	cardRepository,
 	type DeckRepository,
 	deckRepository,
-	type ReviewLogRepository,
-	reviewLogRepository,
 } from "../repositories/index.js";
 import { createDeckSchema, updateDeckSchema } from "../schemas/index.js";
 
 export interface DeckDependencies {
 	deckRepo: DeckRepository;
 	cardRepo: CardRepository;
-	reviewLogRepo: ReviewLogRepository;
 }
 
 const deckIdParamSchema = z.object({
 	id: z.uuid(),
 });
 
-const REVIEW_CARDS_LIMIT = 80;
-
 export function createDecksRouter(deps: DeckDependencies) {
-	const { deckRepo, cardRepo, reviewLogRepo } = deps;
+	const { deckRepo, cardRepo } = deps;
 
 	return new Hono()
 		.use("*", authMiddleware)
@@ -35,26 +30,7 @@ export function createDecksRouter(deps: DeckDependencies) {
 			const now = new Date();
 			const decksWithDueCount = await Promise.all(
 				decks.map(async (deck) => {
-					const [dueNewCards, dueReviewCards, reviewedNewCards] =
-						await Promise.all([
-							cardRepo.countDueNewCards(deck.id, now),
-							cardRepo.countDueReviewCards(deck.id, now),
-							reviewLogRepo.countTodayNewCardReviews(deck.id, now),
-						]);
-
-					// Apply the same limits as the study screen
-					const newCardBudget = Math.max(
-						0,
-						deck.newCardsPerDay - reviewedNewCards,
-					);
-					const newCardsToStudy = Math.min(dueNewCards, newCardBudget);
-					const reviewCardsToStudy = Math.min(
-						dueReviewCards,
-						REVIEW_CARDS_LIMIT,
-					);
-
-					const dueCardCount = newCardsToStudy + reviewCardsToStudy;
-
+					const dueCardCount = await cardRepo.countDueCards(deck.id, now);
 					return { ...deck, dueCardCount };
 				}),
 			);
@@ -68,7 +44,6 @@ export function createDecksRouter(deps: DeckDependencies) {
 				userId: user.id,
 				name: data.name,
 				description: data.description,
-				newCardsPerDay: data.newCardsPerDay,
 			});
 
 			return c.json({ deck }, 201);
@@ -83,18 +58,7 @@ export function createDecksRouter(deps: DeckDependencies) {
 			}
 
 			const now = new Date();
-			const [dueNewCards, dueReviewCards, reviewedNewCards] = await Promise.all(
-				[
-					cardRepo.countDueNewCards(deck.id, now),
-					cardRepo.countDueReviewCards(deck.id, now),
-					reviewLogRepo.countTodayNewCardReviews(deck.id, now),
-				],
-			);
-
-			const newCardBudget = Math.max(0, deck.newCardsPerDay - reviewedNewCards);
-			const newCardsToStudy = Math.min(dueNewCards, newCardBudget);
-			const reviewCardsToStudy = Math.min(dueReviewCards, REVIEW_CARDS_LIMIT);
-			const dueCardCount = newCardsToStudy + reviewCardsToStudy;
+			const dueCardCount = await cardRepo.countDueCards(deck.id, now);
 
 			return c.json({ deck: { ...deck, dueCardCount } }, 200);
 		})
@@ -131,5 +95,4 @@ export function createDecksRouter(deps: DeckDependencies) {
 export const decks = createDecksRouter({
 	deckRepo: deckRepository,
 	cardRepo: cardRepository,
-	reviewLogRepo: reviewLogRepository,
 });

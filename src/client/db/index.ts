@@ -77,7 +77,6 @@ export interface LocalDeck {
 	userId: string;
 	name: string;
 	description: string | null;
-	newCardsPerDay: number;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;

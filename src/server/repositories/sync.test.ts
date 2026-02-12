@@ -16,7 +16,6 @@ function createMockDeck(overrides: Partial<Deck> = {}): Deck {
 		userId: "user-uuid-123",
 		name: "Test Deck",
 		description: null,
-		newCardsPerDay: 20,
 		createdAt: new Date("2024-01-01"),
 		updatedAt: new Date("2024-01-01"),
 		deletedAt: null,

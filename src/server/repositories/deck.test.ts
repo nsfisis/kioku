@@ -7,7 +7,6 @@ function createMockDeck(overrides: Partial<Deck> = {}): Deck {
 		userId: "user-uuid-123",
 		name: "Test Deck",
 		description: null,
-		newCardsPerDay: 20,
 		createdAt: new Date("2024-01-01"),
 		updatedAt: new Date("2024-01-01"),
 		deletedAt: null,
@@ -35,7 +34,6 @@ describe("DeckRepository mock factory", () => {
 			expect(deck.userId).toBe("user-uuid-123");
 			expect(deck.name).toBe("Test Deck");
 			expect(deck.description).toBeNull();
-			expect(deck.newCardsPerDay).toBe(20);
 			expect(deck.deletedAt).toBeNull();
 			expect(deck.syncVersion).toBe(0);
 		});
@@ -45,13 +43,11 @@ describe("DeckRepository mock factory", () => {
 				id: "custom-id",
 				name: "Custom Deck",
 				description: "A description",
-				newCardsPerDay: 50,
 			});
 
 			expect(deck.id).toBe("custom-id");
 			expect(deck.name).toBe("Custom Deck");
 			expect(deck.description).toBe("A description");
-			expect(deck.newCardsPerDay).toBe(50);
 		});
 	});
 
@@ -130,7 +126,6 @@ describe("Deck interface contracts", () => {
 
 		expect(deck).toHaveProperty("name");
 		expect(deck).toHaveProperty("description");
-		expect(deck).toHaveProperty("newCardsPerDay");
 	});
 });
 
