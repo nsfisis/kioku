@@ -57,7 +57,7 @@ function DeckList({
 					style={{ animationDelay: `${index * 50}ms` }}
 				>
 					<div className="flex items-start justify-between gap-4">
-						<div className="flex-1 min-w-0">
+						<div className="flex-1 min-w-0 my-auto">
 							<div className="flex items-center gap-3">
 								<Link
 									href={`/decks/${deck.id}`}
