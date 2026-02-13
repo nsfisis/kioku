@@ -33,7 +33,6 @@ export interface Deck {
 	userId: string;
 	name: string;
 	description: string | null;
-	newCardsPerDay: number;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;

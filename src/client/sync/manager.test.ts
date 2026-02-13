@@ -83,7 +83,6 @@ describe("SyncManager", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 		});
 	}
 
@@ -412,7 +411,6 @@ describe("SyncManager", () => {
 						userId: "user-1",
 						name: "Server Deck",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,

@@ -6,7 +6,6 @@ import type {
 	CardRepository,
 	Deck,
 	DeckRepository,
-	ReviewLogRepository,
 } from "../repositories/index.js";
 import { createDecksRouter } from "./decks.js";
 
@@ -32,20 +31,9 @@ function createMockCardRepo(): CardRepository {
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		countDueCards: vi.fn().mockResolvedValue(0),
-		countDueNewCards: vi.fn().mockResolvedValue(0),
-		countDueReviewCards: vi.fn().mockResolvedValue(0),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
-		findDueNewCardsForStudy: vi.fn(),
-		findDueReviewCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
-	};
-}
-
-function createMockReviewLogRepo(): ReviewLogRepository {
-	return {
-		create: vi.fn(),
-		countTodayNewCardReviews: vi.fn().mockResolvedValue(0),
 	};
 }
 
@@ -69,7 +57,6 @@ function createMockDeck(overrides: Partial<Deck> = {}): Deck {
 		userId: "user-uuid-123",
 		name: "Test Deck",
 		description: "Test description",
-		newCardsPerDay: 20,
 		createdAt: new Date("2024-01-01"),
 		updatedAt: new Date("2024-01-01"),
 		deletedAt: null,
@@ -92,18 +79,15 @@ describe("GET /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
-	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
-		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
-			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -155,18 +139,15 @@ describe("POST /api/decks", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
-	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
-		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
-			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -194,7 +175,6 @@ describe("POST /api/decks", () => {
 			userId: "user-uuid-123",
 			name: "New Deck",
 			description: undefined,
-			newCardsPerDay: 20,
 		});
 	});
 
@@ -202,7 +182,6 @@ describe("POST /api/decks", () => {
 		const newDeck = createMockDeck({
 			name: "Full Deck",
 			description: "Full description",
-			newCardsPerDay: 30,
 		});
 		vi.mocked(mockDeckRepo.create).mockResolvedValue(newDeck);
 
@@ -215,7 +194,6 @@ describe("POST /api/decks", () => {
 			body: JSON.stringify({
 				name: "Full Deck",
 				description: "Full description",
-				newCardsPerDay: 30,
 			}),
 		});
 
@@ -226,7 +204,6 @@ describe("POST /api/decks", () => {
 			userId: "user-uuid-123",
 			name: "Full Deck",
 			description: "Full description",
-			newCardsPerDay: 30,
 		});
 	});
 
@@ -271,18 +248,15 @@ describe("GET /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
-	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
-		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
-			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -344,18 +318,15 @@ describe("PUT /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
-	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
-		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
-			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);
@@ -403,27 +374,6 @@ describe("PUT /api/decks/:id", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as DeckResponse;
 		expect(body.deck?.description).toBe("New description");
-	});
-
-	it("updates newCardsPerDay", async () => {
-		const updatedDeck = createMockDeck({ newCardsPerDay: 50 });
-		vi.mocked(mockDeckRepo.update).mockResolvedValue(updatedDeck);
-
-		const res = await app.request(
-			"/api/decks/00000000-0000-0000-0000-000000000000",
-			{
-				method: "PUT",
-				headers: {
-					Authorization: `Bearer ${authToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ newCardsPerDay: 50 }),
-			},
-		);
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as DeckResponse;
-		expect(body.deck?.newCardsPerDay).toBe(50);
 	});
 
 	it("returns 404 for non-existent deck", async () => {
@@ -477,18 +427,15 @@ describe("DELETE /api/decks/:id", () => {
 	let app: Hono;
 	let mockDeckRepo: ReturnType<typeof createMockDeckRepo>;
 	let mockCardRepo: ReturnType<typeof createMockCardRepo>;
-	let mockReviewLogRepo: ReturnType<typeof createMockReviewLogRepo>;
 	let authToken: string;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		mockDeckRepo = createMockDeckRepo();
 		mockCardRepo = createMockCardRepo();
-		mockReviewLogRepo = createMockReviewLogRepo();
 		const decksRouter = createDecksRouter({
 			deckRepo: mockDeckRepo,
 			cardRepo: mockCardRepo,
-			reviewLogRepo: mockReviewLogRepo,
 		});
 		app = new Hono();
 		app.onError(errorHandler);

@@ -109,7 +109,6 @@ describe("migration", () => {
 		userId: "user-1",
 		name: "Test Deck",
 		description: null,
-		newCardsPerDay: 20,
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		deletedAt: null,

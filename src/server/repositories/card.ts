@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { getEndOfStudyDayBoundary } from "../../shared/date.js";
 import { db } from "../db/index.js";
 import {
@@ -185,11 +185,7 @@ export const cardRepository: CardRepository = {
 		return result.length > 0;
 	},
 
-	async findDueCards(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<Card[]> {
+	async findDueCards(deckId: string, now: Date): Promise<Card[]> {
 		const boundary = getEndOfStudyDayBoundary(now);
 		const result = await db
 			.select()
@@ -201,8 +197,7 @@ export const cardRepository: CardRepository = {
 					lt(cards.due, boundary),
 				),
 			)
-			.orderBy(cards.due)
-			.limit(limit);
+			.orderBy(cards.due);
 		return result;
 	},
 
@@ -221,44 +216,11 @@ export const cardRepository: CardRepository = {
 		return result[0]?.count ?? 0;
 	},
 
-	async countDueNewCards(deckId: string, now: Date): Promise<number> {
-		const boundary = getEndOfStudyDayBoundary(now);
-		const result = await db
-			.select({ count: sql<number>`count(*)::int` })
-			.from(cards)
-			.where(
-				and(
-					eq(cards.deckId, deckId),
-					isNull(cards.deletedAt),
-					lt(cards.due, boundary),
-					eq(cards.state, CardState.New),
-				),
-			);
-		return result[0]?.count ?? 0;
-	},
-
-	async countDueReviewCards(deckId: string, now: Date): Promise<number> {
-		const boundary = getEndOfStudyDayBoundary(now);
-		const result = await db
-			.select({ count: sql<number>`count(*)::int` })
-			.from(cards)
-			.where(
-				and(
-					eq(cards.deckId, deckId),
-					isNull(cards.deletedAt),
-					lt(cards.due, boundary),
-					ne(cards.state, CardState.New),
-				),
-			);
-		return result[0]?.count ?? 0;
-	},
-
 	async findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,
-		limit: number,
 	): Promise<CardWithNoteData[]> {
-		const dueCards = await this.findDueCards(deckId, now, limit);
+		const dueCards = await this.findDueCards(deckId, now);
 
 		const cardsWithNoteData: CardWithNoteData[] = [];
 
@@ -292,54 +254,9 @@ export const cardRepository: CardRepository = {
 	async findDueCardsForStudy(
 		deckId: string,
 		now: Date,
-		limit: number,
 	): Promise<CardForStudy[]> {
-		const dueCards = await this.findDueCards(deckId, now, limit);
+		const dueCards = await this.findDueCards(deckId, now);
 		return enrichCardsForStudy(dueCards);
-	},
-
-	async findDueNewCardsForStudy(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<CardForStudy[]> {
-		const boundary = getEndOfStudyDayBoundary(now);
-		const result = await db
-			.select()
-			.from(cards)
-			.where(
-				and(
-					eq(cards.deckId, deckId),
-					isNull(cards.deletedAt),
-					lt(cards.due, boundary),
-					eq(cards.state, CardState.New),
-				),
-			)
-			.orderBy(cards.due)
-			.limit(limit);
-		return enrichCardsForStudy(result);
-	},
-
-	async findDueReviewCardsForStudy(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<CardForStudy[]> {
-		const boundary = getEndOfStudyDayBoundary(now);
-		const result = await db
-			.select()
-			.from(cards)
-			.where(
-				and(
-					eq(cards.deckId, deckId),
-					isNull(cards.deletedAt),
-					lt(cards.due, boundary),
-					ne(cards.state, CardState.New),
-				),
-			)
-			.orderBy(cards.due)
-			.limit(limit);
-		return enrichCardsForStudy(result);
 	},
 
 	async updateFSRSFields(

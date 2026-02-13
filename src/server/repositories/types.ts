@@ -50,7 +50,6 @@ export interface Deck {
 	userId: string;
 	name: string;
 	description: string | null;
-	newCardsPerDay: number;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;
@@ -64,7 +63,6 @@ export interface DeckRepository {
 		userId: string;
 		name: string;
 		description?: string | null;
-		newCardsPerDay?: number;
 	}): Promise<Deck>;
 	update(
 		id: string,
@@ -72,7 +70,6 @@ export interface DeckRepository {
 		data: {
 			name?: string;
 			description?: string | null;
-			newCardsPerDay?: number;
 		},
 	): Promise<Deck | undefined>;
 	softDelete(id: string, userId: string): Promise<boolean>;
@@ -146,30 +143,13 @@ export interface CardRepository {
 	): Promise<Card | undefined>;
 	softDelete(id: string, deckId: string): Promise<boolean>;
 	softDeleteByNoteId(noteId: string): Promise<boolean>;
-	findDueCards(deckId: string, now: Date, limit: number): Promise<Card[]>;
+	findDueCards(deckId: string, now: Date): Promise<Card[]>;
 	countDueCards(deckId: string, now: Date): Promise<number>;
 	findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,
-		limit: number,
 	): Promise<CardWithNoteData[]>;
-	findDueCardsForStudy(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<CardForStudy[]>;
-	findDueNewCardsForStudy(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<CardForStudy[]>;
-	findDueReviewCardsForStudy(
-		deckId: string,
-		now: Date,
-		limit: number,
-	): Promise<CardForStudy[]>;
-	countDueNewCards(deckId: string, now: Date): Promise<number>;
-	countDueReviewCards(deckId: string, now: Date): Promise<number>;
+	findDueCardsForStudy(deckId: string, now: Date): Promise<CardForStudy[]>;
 	updateFSRSFields(
 		id: string,
 		deckId: string,
@@ -210,7 +190,6 @@ export interface ReviewLogRepository {
 		elapsedDays: number;
 		durationMs?: number | null;
 	}): Promise<ReviewLog>;
-	countTodayNewCardReviews(deckId: string, now: Date): Promise<number>;
 }
 
 export interface NoteType {

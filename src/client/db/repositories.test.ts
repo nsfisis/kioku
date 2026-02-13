@@ -33,14 +33,12 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A test deck",
-				newCardsPerDay: 20,
 			});
 
 			expect(deck.id).toBeDefined();
 			expect(deck.userId).toBe("user-1");
 			expect(deck.name).toBe("Test Deck");
 			expect(deck.description).toBe("A test deck");
-			expect(deck.newCardsPerDay).toBe(20);
 			expect(deck.createdAt).toBeInstanceOf(Date);
 			expect(deck.updatedAt).toBeInstanceOf(Date);
 			expect(deck.deletedAt).toBeNull();
@@ -53,7 +51,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const found = await db.decks.get(created.id);
@@ -67,7 +64,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const found = await localDeckRepository.findById(created.id);
@@ -86,19 +82,16 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Deck 1",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.create({
 				userId: "user-1",
 				name: "Deck 2",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.create({
 				userId: "user-2",
 				name: "Other User Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const decks = await localDeckRepository.findByUserId("user-1");
@@ -111,7 +104,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.delete(deck.id);
 
@@ -126,7 +118,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Original Name",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const updated = await localDeckRepository.update(deck.id, {
@@ -156,7 +147,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const result = await localDeckRepository.delete(deck.id);
@@ -179,13 +169,11 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Unsynced",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			const deck2 = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Synced",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck2.id, 1);
 
@@ -201,7 +189,6 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			await localDeckRepository.markSynced(deck.id, 5);
@@ -225,7 +212,6 @@ describe("localCardRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 		});
 		deckId = deck.id;
 	});
@@ -425,7 +411,6 @@ describe("localReviewLogRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 		});
 		deckId = deck.id;
 
@@ -950,7 +935,6 @@ describe("localNoteRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 		});
 		deckId = deck.id;
 
@@ -1110,7 +1094,6 @@ describe("localNoteFieldValueRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 		});
 
 		const noteType = await localNoteTypeRepository.create({

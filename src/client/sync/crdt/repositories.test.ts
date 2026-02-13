@@ -35,7 +35,6 @@ describe("crdtDeckRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A test deck",
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,
@@ -77,14 +76,14 @@ describe("crdtDeckRepository", () => {
 			d.data.name = "Updated Name";
 		});
 		const updated2 = Automerge.change(doc2, (d) => {
-			d.data.newCardsPerDay = 30;
+			d.data.description = "Updated Description";
 		});
 
 		const result = crdtDeckRepository.merge(updated1, updated2);
 
 		expect(result.hasChanges).toBe(true);
 		expect(result.merged.data.name).toBe("Updated Name");
-		expect(result.merged.data.newCardsPerDay).toBe(30);
+		expect(result.merged.data.description).toBe("Updated Description");
 	});
 
 	it("should convert CRDT document to local entity", () => {
@@ -379,7 +378,6 @@ describe("entitiesToCrdtDocuments", () => {
 				userId: "user-1",
 				name: "Deck 1",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: now,
 				updatedAt: now,
 				deletedAt: null,
@@ -391,7 +389,6 @@ describe("entitiesToCrdtDocuments", () => {
 				userId: "user-1",
 				name: "Deck 2",
 				description: "Second deck",
-				newCardsPerDay: 15,
 				createdAt: now,
 				updatedAt: now,
 				deletedAt: null,
@@ -418,7 +415,6 @@ describe("mergeAndConvert", () => {
 			userId: "user-1",
 			name: "Remote Deck",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,
@@ -440,7 +436,6 @@ describe("mergeAndConvert", () => {
 			userId: "user-1",
 			name: "Original",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,
@@ -452,7 +447,7 @@ describe("mergeAndConvert", () => {
 
 		// Create remote with different changes
 		const remoteDoc = Automerge.change(Automerge.clone(localDoc), (d) => {
-			d.data.newCardsPerDay = 30;
+			d.data.description = "Remote Description";
 		});
 		const remoteBinary = saveDocument(remoteDoc);
 
@@ -471,7 +466,7 @@ describe("mergeAndConvert", () => {
 		expect(result.hasChanges).toBe(true);
 		// Both changes should be merged
 		expect(result.entity.name).toBe("Updated Local");
-		expect(result.entity.newCardsPerDay).toBe(30);
+		expect(result.entity.description).toBe("Remote Description");
 	});
 
 	it("should detect no changes when documents are identical", () => {
@@ -481,7 +476,6 @@ describe("mergeAndConvert", () => {
 			userId: "user-1",
 			name: "Same",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: now,
 			updatedAt: now,
 			deletedAt: null,

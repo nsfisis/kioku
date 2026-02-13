@@ -149,7 +149,6 @@ describe("CRDT Document type structures", () => {
 				userId: "user-1",
 				name: "My Deck",
 				description: "A test deck",
-				newCardsPerDay: 20,
 				createdAt: now,
 				deletedAt: null,
 			},
@@ -157,7 +156,6 @@ describe("CRDT Document type structures", () => {
 
 		expect(doc.meta.entityId).toBe("deck-1");
 		expect(doc.data.name).toBe("My Deck");
-		expect(doc.data.newCardsPerDay).toBe(20);
 	});
 
 	it("should allow creating a valid CrdtNoteTypeDocument", () => {
@@ -305,7 +303,6 @@ describe("CRDT Document type structures", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: now - 86400000,
 				deletedAt: now,
 			},

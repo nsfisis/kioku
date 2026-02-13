@@ -67,7 +67,6 @@ function serverDeckToLocal(deck: ServerDeck): LocalDeck {
 		userId: deck.userId,
 		name: deck.name,
 		description: deck.description,
-		newCardsPerDay: deck.newCardsPerDay,
 		createdAt: new Date(deck.createdAt),
 		updatedAt: new Date(deck.updatedAt),
 		deletedAt: deck.deletedAt ? new Date(deck.deletedAt) : null,

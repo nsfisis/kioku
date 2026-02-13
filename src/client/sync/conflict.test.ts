@@ -155,7 +155,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: "Local description",
-				newCardsPerDay: 10,
 			});
 
 			const serverDeck = {
@@ -163,7 +162,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: "Server description",
-				newCardsPerDay: 20,
 				createdAt: new Date("2024-01-01"),
 				updatedAt: new Date("2024-01-03"),
 				deletedAt: null,
@@ -178,7 +176,6 @@ describe("ConflictResolver", () => {
 			const updatedDeck = await localDeckRepository.findById(localDeck.id);
 			expect(updatedDeck?.name).toBe("Server Name");
 			expect(updatedDeck?.description).toBe("Server description");
-			expect(updatedDeck?.newCardsPerDay).toBe(20);
 			expect(updatedDeck?._synced).toBe(true);
 		});
 	});
@@ -189,7 +186,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const localCard = await localCardRepository.create({
@@ -240,13 +236,11 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Deck 1",
 				description: null,
-				newCardsPerDay: 10,
 			});
 			const deck2 = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Deck 2",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -273,7 +267,6 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck 1",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -284,7 +277,6 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck 2",
 						description: null,
-						newCardsPerDay: 25,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -314,7 +306,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 
 			const card = await localCardRepository.create({
@@ -397,7 +388,6 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -425,7 +415,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Only Deck",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -462,7 +451,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -483,7 +471,6 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Name",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -514,7 +501,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Deck Name",
 				description: "Local description",
-				newCardsPerDay: 10,
 			});
 
 			// Store local CRDT document
@@ -532,7 +518,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Deck Name",
 				description: "Server description",
-				newCardsPerDay: 20,
 				createdAt: localDeck.createdAt,
 				updatedAt: new Date(Date.now() + 1000),
 				deletedAt: null,
@@ -590,7 +575,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const serverDeck = {
@@ -598,7 +582,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -649,7 +632,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const serverDeck = {
@@ -657,7 +639,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -699,7 +680,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const serverDeck = {
@@ -707,7 +687,6 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
-				newCardsPerDay: 20,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,

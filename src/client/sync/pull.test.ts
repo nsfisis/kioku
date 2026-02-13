@@ -48,7 +48,6 @@ describe("pullResultToLocalData", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A description",
-				newCardsPerDay: 20,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-02T15:30:00Z"),
 				deletedAt: null,
@@ -69,7 +68,6 @@ describe("pullResultToLocalData", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A description",
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -85,7 +83,6 @@ describe("pullResultToLocalData", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
-				newCardsPerDay: 10,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-03T12:00:00Z"),
 				deletedAt: new Date("2024-01-03T12:00:00Z"),
@@ -538,7 +535,6 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Server Deck",
 						description: "From server",
-						newCardsPerDay: 15,
 						createdAt: new Date("2024-01-01T10:00:00Z"),
 						updatedAt: new Date("2024-01-02T10:00:00Z"),
 						deletedAt: null,
@@ -571,7 +567,6 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -673,7 +668,6 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Old Name",
 				description: null,
-				newCardsPerDay: 10,
 			});
 
 			const pullFromServer = vi.fn().mockResolvedValue({
@@ -683,7 +677,6 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Updated Name",
 						description: "Updated description",
-						newCardsPerDay: 25,
 						createdAt: existingDeck.createdAt,
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -705,7 +698,6 @@ describe("PullService", () => {
 			const updatedDeck = await localDeckRepository.findById(existingDeck.id);
 			expect(updatedDeck?.name).toBe("Updated Name");
 			expect(updatedDeck?.description).toBe("Updated description");
-			expect(updatedDeck?.newCardsPerDay).toBe(25);
 			expect(updatedDeck?._synced).toBe(true);
 		});
 
@@ -717,7 +709,6 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Deck",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -874,7 +865,6 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -929,7 +919,6 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
-				newCardsPerDay: 20,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -999,7 +988,6 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Deck",
 						description: null,
-						newCardsPerDay: 20,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -1179,7 +1167,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A test description",
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1212,7 +1199,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Local Deck",
 			description: "Local description",
-			newCardsPerDay: 10,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-01T12:00:00Z"),
 			deletedAt: null,
@@ -1235,7 +1221,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Remote Deck",
 			description: "Remote description",
-			newCardsPerDay: 25,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"), // Later timestamp
 			deletedAt: null,
@@ -1266,7 +1251,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Deck 1",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1278,7 +1262,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Deck 2",
 			description: "Second deck",
-			newCardsPerDay: 15,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1317,7 +1300,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1372,7 +1354,6 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1470,7 +1451,6 @@ describe("PullService with CRDT changes", () => {
 			userId: "user-1",
 			name: "CRDT Deck",
 			description: null,
-			newCardsPerDay: 20,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1521,7 +1501,6 @@ describe("PullService with CRDT changes", () => {
 					userId: "user-1",
 					name: "Test Deck",
 					description: null,
-					newCardsPerDay: 20,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,
@@ -1598,7 +1577,6 @@ describe("PullService with CRDT changes", () => {
 					userId: "user-1",
 					name: "Regular Deck",
 					description: null,
-					newCardsPerDay: 20,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,

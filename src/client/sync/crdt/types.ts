@@ -36,7 +36,6 @@ export interface CrdtDeckDocument {
 		userId: string;
 		name: string;
 		description: string | null;
-		newCardsPerDay: number;
 		createdAt: number; // Unix timestamp in ms
 		deletedAt: number | null;
 	};

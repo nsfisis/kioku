@@ -26,12 +26,8 @@ function createMockCardRepo(): CardRepository {
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		countDueCards: vi.fn(),
-		countDueNewCards: vi.fn(),
-		countDueReviewCards: vi.fn(),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
-		findDueNewCardsForStudy: vi.fn(),
-		findDueReviewCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),
 	};
 }
@@ -66,7 +62,6 @@ function createMockDeck(overrides: Partial<Deck> = {}): Deck {
 		userId: "user-uuid-123",
 		name: "Test Deck",
 		description: "Test description",
-		newCardsPerDay: 20,
 		createdAt: new Date("2024-01-01"),
 		updatedAt: new Date("2024-01-01"),
 		deletedAt: null,

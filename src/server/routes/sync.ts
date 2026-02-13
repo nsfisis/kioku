@@ -18,7 +18,6 @@ const syncDeckSchema = z.object({
 	id: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().nullable(),
-	newCardsPerDay: z.number().int().min(0).max(1000),
 	createdAt: z.string().datetime(),
 	updatedAt: z.string().datetime(),
 	deletedAt: z.string().datetime().nullable(),

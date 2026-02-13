@@ -5,7 +5,6 @@ interface Deck {
 	id: string;
 	name: string;
 	description: string | null;
-	newCardsPerDay: number;
 }
 
 interface EditDeckModalProps {

@@ -34,7 +34,6 @@ function createTestDeck(overrides: Partial<LocalDeck> = {}): LocalDeck {
 		userId: "user-1",
 		name: "Test Deck",
 		description: null,
-		newCardsPerDay: 20,
 		createdAt: now,
 		updatedAt: now,
 		deletedAt: null,
@@ -89,10 +88,10 @@ describe("Concurrent edit scenarios", () => {
 				d.meta.lastModified = Date.now();
 			});
 
-			// Device B: Offline edit - change newCardsPerDay
+			// Device B: Offline edit - change description
 			const deviceBDoc = Automerge.clone(serverDoc);
 			const deviceBEdited = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 30;
+				d.data.description = "Updated by Device B";
 				d.meta.lastModified = Date.now();
 			});
 
@@ -101,7 +100,7 @@ describe("Concurrent edit scenarios", () => {
 
 			// Both changes should be present
 			expect(mergeResult.merged.data.name).toBe("Updated by Device A");
-			expect(mergeResult.merged.data.newCardsPerDay).toBe(30);
+			expect(mergeResult.merged.data.description).toBe("Updated by Device B");
 			expect(mergeResult.hasChanges).toBe(true);
 		});
 
@@ -120,7 +119,7 @@ describe("Concurrent edit scenarios", () => {
 
 			const deviceBDoc = Automerge.clone(serverDoc);
 			const deviceBEdited = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 50;
+				d.data.userId = "user-updated";
 				d.meta.lastModified = Date.now();
 			});
 
@@ -129,7 +128,7 @@ describe("Concurrent edit scenarios", () => {
 
 			expect(mergedDeck.name).toBe("New Name");
 			expect(mergedDeck.description).toBe("Added by Device A");
-			expect(mergedDeck.newCardsPerDay).toBe(50);
+			expect(mergedDeck.userId).toBe("user-updated");
 		});
 	});
 
@@ -342,7 +341,7 @@ describe("Concurrent edit scenarios", () => {
 
 			// Device B makes a different edit
 			const deviceBEdited = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 100;
+				d.data.description = "Description from B";
 				d.meta.lastModified = Date.now();
 			});
 
@@ -354,7 +353,7 @@ describe("Concurrent edit scenarios", () => {
 
 			// Both changes should be present
 			expect(serverWithB.data.name).toBe("Edit 1 from A");
-			expect(serverWithB.data.newCardsPerDay).toBe(100);
+			expect(serverWithB.data.description).toBe("Description from B");
 		});
 
 		it("should handle three-way merge correctly", () => {
@@ -377,7 +376,7 @@ describe("Concurrent edit scenarios", () => {
 			});
 
 			const deviceCEdited = updateDocument(deviceCDoc, (d) => {
-				d.data.newCardsPerDay = 75;
+				d.data.userId = "user-from-C";
 			});
 
 			// Sequential merge: A + B
@@ -389,7 +388,7 @@ describe("Concurrent edit scenarios", () => {
 			// All three changes should be present
 			expect(mergeABC.merged.data.name).toBe("Name from A");
 			expect(mergeABC.merged.data.description).toBe("Description from B");
-			expect(mergeABC.merged.data.newCardsPerDay).toBe(75);
+			expect(mergeABC.merged.data.userId).toBe("user-from-C");
 		});
 	});
 
@@ -575,7 +574,7 @@ describe("Concurrent edit scenarios", () => {
 			// Edit 3
 			const beforeEdit3 = Automerge.clone(deviceADoc);
 			deviceADoc = updateDocument(deviceADoc, (d) => {
-				d.data.newCardsPerDay = 42;
+				d.data.userId = "user-offline";
 			});
 			offlineEdits.push(getChanges(beforeEdit3, deviceADoc));
 
@@ -588,7 +587,7 @@ describe("Concurrent edit scenarios", () => {
 			// Verify all offline edits are applied
 			expect(currentServer.data.name).toBe("Offline edit 1");
 			expect(currentServer.data.description).toBe("Offline edit 2");
-			expect(currentServer.data.newCardsPerDay).toBe(42);
+			expect(currentServer.data.userId).toBe("user-offline");
 		});
 
 		it("should handle two devices syncing after extended offline periods", () => {
@@ -612,22 +611,22 @@ describe("Concurrent edit scenarios", () => {
 			// Device B: Different offline edits
 			let deviceBDoc = Automerge.clone(serverDoc);
 			deviceBDoc = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 50;
+				d.data.userId = "B: First user";
 			});
 			deviceBDoc = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 60;
+				d.data.userId = "B: Second user";
 			});
 			deviceBDoc = updateDocument(deviceBDoc, (d) => {
-				d.data.newCardsPerDay = 100;
+				d.data.userId = "B: Final user";
 			});
 
 			// Both devices come online and sync
 			const mergeResult = mergeDocuments(deviceADoc, deviceBDoc);
 
-			// Device A's content edits and Device B's card setting
+			// Device A's content edits and Device B's user edits
 			expect(mergeResult.merged.data.name).toBe("A: Final name");
 			expect(mergeResult.merged.data.description).toBe("A: Added description");
-			expect(mergeResult.merged.data.newCardsPerDay).toBe(100);
+			expect(mergeResult.merged.data.userId).toBe("B: Final user");
 		});
 	});
 });
