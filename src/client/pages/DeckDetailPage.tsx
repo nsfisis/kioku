@@ -2,14 +2,17 @@ import {
 	faChevronLeft,
 	faCirclePlay,
 	faLayerGroup,
+	faPlus,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue } from "jotai";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Link, useParams } from "wouter";
 import { cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
+import { CreateNoteModal } from "../components/CreateNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { queryClient } from "../queryClient";
 
 function DeckHeader({ deckId }: { deckId: string }) {
 	const { data: deck } = useAtomValue(deckByIdAtomFamily(deckId));
@@ -46,7 +49,13 @@ function DeckStats({ deckId }: { deckId: string }) {
 	);
 }
 
-function DeckContent({ deckId }: { deckId: string }) {
+function DeckContent({
+	deckId,
+	onCreateNote,
+}: {
+	deckId: string;
+	onCreateNote: () => void;
+}) {
 	return (
 		<div className="animate-fade-in">
 			{/* Deck Header */}
@@ -100,6 +109,20 @@ function DeckContent({ deckId }: { deckId: string }) {
 					<span className="text-lg">Study Now</span>
 				</Link>
 
+				{/* Add Note Button */}
+				<button
+					type="button"
+					onClick={onCreateNote}
+					className="flex items-center justify-center gap-3 w-full bg-primary hover:bg-primary/90 text-white font-medium py-4 px-6 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
+				>
+					<FontAwesomeIcon
+						icon={faPlus}
+						className="w-5 h-5"
+						aria-hidden="true"
+					/>
+					<span className="text-lg">Add Note</span>
+				</button>
+
 				{/* View Cards Link */}
 				<Link
 					href={`/decks/${deckId}/cards`}
@@ -119,6 +142,7 @@ function DeckContent({ deckId }: { deckId: string }) {
 
 export function DeckDetailPage() {
 	const { deckId } = useParams<{ deckId: string }>();
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
 	if (!deckId) {
 		return (
@@ -159,10 +183,24 @@ export function DeckDetailPage() {
 			<main className="max-w-4xl mx-auto px-4 py-8">
 				<ErrorBoundary>
 					<Suspense fallback={<LoadingSpinner />}>
-						<DeckContent deckId={deckId} />
+						<DeckContent
+							deckId={deckId}
+							onCreateNote={() => setIsCreateModalOpen(true)}
+						/>
 					</Suspense>
 				</ErrorBoundary>
 			</main>
+
+			<CreateNoteModal
+				isOpen={isCreateModalOpen}
+				deckId={deckId}
+				onClose={() => setIsCreateModalOpen(false)}
+				onNoteCreated={() => {
+					queryClient.invalidateQueries({
+						queryKey: ["decks", deckId, "cards"],
+					});
+				}}
+			/>
 		</div>
 	);
 }
