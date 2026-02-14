@@ -601,6 +601,120 @@ describe("StudyPage", () => {
 		});
 	});
 
+	describe("Navigation flushes pending review", () => {
+		function getSessionCompleteButton(name: string) {
+			const container = screen.getByTestId("session-complete");
+			const buttons = container.querySelectorAll("button");
+			for (const button of buttons) {
+				if (button.textContent?.includes(name)) return button;
+			}
+			throw new Error(`Button "${name}" not found in session-complete`);
+		}
+
+		it("flushes pending review when clicking 'Back to Deck' on session complete", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
+			});
+
+			// Review the only card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("session-complete")).toBeDefined();
+			});
+
+			// API should NOT have been called yet (still pending)
+			expect(mockStudyPost).not.toHaveBeenCalled();
+
+			// Click "Back to Deck" in session complete area
+			await user.click(getSessionCompleteButton("Back to Deck"));
+
+			// Now the pending review should have been flushed
+			await waitFor(() => {
+				expect(mockStudyPost).toHaveBeenCalledTimes(1);
+			});
+			expect(mockStudyPost).toHaveBeenCalledWith(
+				expect.objectContaining({
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 3 }),
+				}),
+			);
+		});
+
+		it("flushes pending review when clicking 'All Decks' on session complete", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockResolvedValue({
+				card: { ...mockFirstCard, reps: 1 },
+			});
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
+			});
+
+			// Review the only card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("session-complete")).toBeDefined();
+			});
+
+			expect(mockStudyPost).not.toHaveBeenCalled();
+
+			// Click "All Decks"
+			await user.click(getSessionCompleteButton("All Decks"));
+
+			// Pending review should have been flushed
+			await waitFor(() => {
+				expect(mockStudyPost).toHaveBeenCalledTimes(1);
+			});
+			expect(mockStudyPost).toHaveBeenCalledWith(
+				expect.objectContaining({
+					param: { deckId: "deck-1", cardId: "card-1" },
+					json: expect.objectContaining({ rating: 3 }),
+				}),
+			);
+		});
+
+		it("navigates even if flush fails", async () => {
+			const user = userEvent.setup();
+
+			mockStudyPost.mockRejectedValue(new Error("Network error"));
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: [mockFirstCard] },
+			});
+
+			// Review the only card
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("session-complete")).toBeDefined();
+			});
+
+			// Click "Back to Deck" — flush will fail but navigation should still happen
+			await user.click(getSessionCompleteButton("Back to Deck"));
+
+			await waitFor(() => {
+				expect(mockStudyPost).toHaveBeenCalledTimes(1);
+			});
+
+			// Buttons should be disabled during navigation (isNavigating = true)
+			await waitFor(() => {
+				expect(getSessionCompleteButton("Back to Deck").disabled).toBe(true);
+			});
+		});
+	});
+
 	describe("Undo", () => {
 		it("does not show undo button before any rating", () => {
 			renderWithProviders({

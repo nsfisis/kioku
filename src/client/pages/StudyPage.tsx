@@ -14,10 +14,11 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { studyDataAtomFamily } from "../atoms";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { queryClient } from "../queryClient";
 import { renderCard } from "../utils/templateRenderer";
 
 type Rating = 1 | 2 | 3 | 4;
@@ -37,7 +38,13 @@ const RatingStyles: Record<Rating, string> = {
 	4: "bg-easy hover:bg-easy/90 focus:ring-easy/30",
 };
 
-function StudySession({ deckId }: { deckId: string }) {
+function StudySession({
+	deckId,
+	onNavigate,
+}: {
+	deckId: string;
+	onNavigate: (href: string) => void;
+}) {
 	const {
 		data: { deck, cards },
 	} = useAtomValue(studyDataAtomFamily(deckId));
@@ -124,6 +131,27 @@ function StudySession({ deckId }: { deckId: string }) {
 		setIsFlipped(false);
 	}, [pendingReview]);
 
+	const [isNavigating, setIsNavigating] = useState(false);
+
+	const handleNavigateAway = useCallback(
+		async (href: string) => {
+			if (isNavigating) return;
+			setIsNavigating(true);
+			const review = pendingReviewRef.current;
+			if (review) {
+				try {
+					await flushPendingReview(review);
+					setPendingReview(null);
+				} catch {
+					// Continue navigation even on error
+				}
+			}
+			await queryClient.invalidateQueries({ queryKey: ["decks"] });
+			onNavigate(href);
+		},
+		[isNavigating, flushPendingReview, onNavigate],
+	);
+
 	// Flush pending review on unmount (fire-and-forget)
 	useEffect(() => {
 		return () => {
@@ -135,7 +163,10 @@ function StudySession({ deckId }: { deckId: string }) {
 						json: { rating: review.rating, durationMs: review.durationMs },
 					})
 					.then((res) => apiClient.handleResponse(res))
+					.then(() => queryClient.invalidateQueries({ queryKey: ["decks"] }))
 					.catch(() => {});
+			} else {
+				queryClient.invalidateQueries({ queryKey: ["decks"] });
 			}
 		};
 	}, [deckId]);
@@ -325,18 +356,22 @@ function StudySession({ deckId }: { deckId: string }) {
 									Undo
 								</button>
 							)}
-							<Link
-								href={`/decks/${deckId}`}
-								className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+							<button
+								type="button"
+								disabled={isNavigating}
+								onClick={() => handleNavigateAway(`/decks/${deckId}`)}
+								className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200 disabled:opacity-50"
 							>
 								Back to Deck
-							</Link>
-							<Link
-								href="/"
-								className="inline-flex items-center justify-center gap-2 bg-ivory hover:bg-border text-slate font-medium py-2.5 px-5 rounded-lg transition-all duration-200"
+							</button>
+							<button
+								type="button"
+								disabled={isNavigating}
+								onClick={() => handleNavigateAway("/")}
+								className="inline-flex items-center justify-center gap-2 bg-ivory hover:bg-border text-slate font-medium py-2.5 px-5 rounded-lg transition-all duration-200 disabled:opacity-50"
 							>
 								All Decks
-							</Link>
+							</button>
 						</div>
 					</div>
 				</div>
@@ -427,6 +462,7 @@ function StudySession({ deckId }: { deckId: string }) {
 
 export function StudyPage() {
 	const { deckId } = useParams<{ deckId: string }>();
+	const [, navigate] = useLocation();
 
 	if (!deckId) {
 		return (
@@ -479,7 +515,7 @@ export function StudyPage() {
 							</div>
 						}
 					>
-						<StudySession deckId={deckId} />
+						<StudySession deckId={deckId} onNavigate={navigate} />
 					</Suspense>
 				</ErrorBoundary>
 			</main>
