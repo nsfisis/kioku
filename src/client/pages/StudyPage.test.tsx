@@ -27,6 +27,49 @@ vi.mock("../utils/shuffle", () => ({
 	shuffle: <T,>(array: T[]): T[] => [...array],
 }));
 
+const mockEditNoteModalOnClose = vi.fn();
+const mockEditNoteModalOnNoteUpdated = vi.fn();
+
+vi.mock("../components/EditNoteModal", () => ({
+	EditNoteModal: ({
+		isOpen,
+		deckId,
+		noteId,
+		onClose,
+		onNoteUpdated,
+	}: {
+		isOpen: boolean;
+		deckId: string;
+		noteId: string | null;
+		onClose: () => void;
+		onNoteUpdated: () => void;
+	}) => {
+		// Store callbacks so tests can call them
+		mockEditNoteModalOnClose.mockImplementation(onClose);
+		mockEditNoteModalOnNoteUpdated.mockImplementation(onNoteUpdated);
+
+		if (!isOpen) return null;
+		return (
+			<div
+				data-testid="edit-note-modal"
+				data-deck-id={deckId}
+				data-note-id={noteId}
+			>
+				<button type="button" data-testid="edit-modal-close" onClick={onClose}>
+					Cancel
+				</button>
+				<button
+					type="button"
+					data-testid="edit-modal-save"
+					onClick={onNoteUpdated}
+				>
+					Save Changes
+				</button>
+			</div>
+		);
+	},
+}));
+
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
@@ -933,6 +976,184 @@ describe("StudyPage", () => {
 					json: expect.objectContaining({ rating: 3 }),
 				}),
 			);
+		});
+	});
+
+	describe("Edit Card", () => {
+		it("shows edit button on card", () => {
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			expect(screen.getByTestId("edit-card-button")).toBeDefined();
+		});
+
+		it("opens edit modal when edit button is clicked", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			expect(screen.queryByTestId("edit-note-modal")).toBeNull();
+
+			await user.click(screen.getByTestId("edit-card-button"));
+
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+			expect(
+				screen.getByTestId("edit-note-modal").getAttribute("data-note-id"),
+			).toBe("note-1");
+			expect(
+				screen.getByTestId("edit-note-modal").getAttribute("data-deck-id"),
+			).toBe("deck-1");
+		});
+
+		it("does not flip card when edit button is clicked", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.click(screen.getByTestId("edit-card-button"));
+
+			// Card should still show front, not back
+			expect(screen.getByTestId("card-front")).toBeDefined();
+			expect(screen.queryByTestId("card-back")).toBeNull();
+		});
+
+		it("closes edit modal when close button is clicked", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.click(screen.getByTestId("edit-card-button"));
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+
+			await user.click(screen.getByTestId("edit-modal-close"));
+
+			expect(screen.queryByTestId("edit-note-modal")).toBeNull();
+		});
+
+		it("closes edit modal when save button is clicked", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.click(screen.getByTestId("edit-card-button"));
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+
+			await user.click(screen.getByTestId("edit-modal-save"));
+
+			expect(screen.queryByTestId("edit-note-modal")).toBeNull();
+		});
+
+		it("opens edit modal with E key", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.keyboard("e");
+
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+			expect(
+				screen.getByTestId("edit-note-modal").getAttribute("data-note-id"),
+			).toBe("note-1");
+		});
+
+		it("opens edit modal with E key when card is flipped", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Flip card first
+			await user.keyboard(" ");
+			expect(screen.getByTestId("card-back")).toBeDefined();
+
+			await user.keyboard("e");
+
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+		});
+
+		it("disables keyboard shortcuts while edit modal is open", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Open edit modal
+			await user.keyboard("e");
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+
+			// Space should not flip the card
+			await user.keyboard(" ");
+			expect(screen.getByTestId("card-front")).toBeDefined();
+			expect(screen.queryByTestId("card-back")).toBeNull();
+		});
+
+		it("disables rating shortcuts while edit modal is open", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Flip card, then open edit modal via E key
+			await user.keyboard(" ");
+			expect(screen.getByTestId("card-back")).toBeDefined();
+
+			await user.keyboard("e");
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+
+			// Number keys should not rate the card
+			await user.keyboard("3");
+
+			// Card should still be showing (not moved to next)
+			expect(screen.getByTestId("card-back")).toBeDefined();
+			expect(screen.getByTestId("remaining-count").textContent).toBe(
+				"2 remaining",
+			);
+		});
+
+		it("re-enables keyboard shortcuts after edit modal is closed", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			// Open and close edit modal
+			await user.keyboard("e");
+			expect(screen.getByTestId("edit-note-modal")).toBeDefined();
+
+			await user.click(screen.getByTestId("edit-modal-close"));
+			expect(screen.queryByTestId("edit-note-modal")).toBeNull();
+
+			// Space should now flip the card
+			await user.keyboard(" ");
+			expect(screen.getByTestId("card-back")).toBeDefined();
+		});
+
+		it("shows edit button when card is flipped", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			await user.click(screen.getByTestId("card-container"));
+
+			expect(screen.getByTestId("card-back")).toBeDefined();
+			expect(screen.getByTestId("edit-card-button")).toBeDefined();
 		});
 	});
 });

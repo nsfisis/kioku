@@ -2,6 +2,7 @@ import {
 	faCheck,
 	faChevronLeft,
 	faCircleCheck,
+	faPen,
 	faRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -17,6 +18,7 @@ import {
 import { Link, useLocation, useParams } from "wouter";
 import { ApiClientError, apiClient } from "../api";
 import { studyDataAtomFamily } from "../atoms";
+import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { queryClient } from "../queryClient";
 import { renderCard } from "../utils/templateRenderer";
@@ -60,6 +62,7 @@ function StudySession({
 		null,
 	);
 	const pendingReviewRef = useRef<PendingReview | null>(null);
+	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
 	// Keep ref in sync with state for cleanup effect
 	useEffect(() => {
@@ -174,6 +177,14 @@ function StudySession({
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
 			if (isSubmitting) return;
+			if (editingNoteId) return;
+
+			// Edit: E key to open edit modal
+			if (e.key === "e" && cards[currentIndex]) {
+				e.preventDefault();
+				setEditingNoteId(cards[currentIndex].noteId);
+				return;
+			}
 
 			// Undo: Ctrl+Z / Cmd+Z anytime, or z when card is not flipped
 			if (
@@ -206,7 +217,16 @@ function StudySession({
 				}
 			}
 		},
-		[isFlipped, isSubmitting, handleFlip, handleRating, handleUndo],
+		[
+			isFlipped,
+			isSubmitting,
+			editingNoteId,
+			cards,
+			currentIndex,
+			handleFlip,
+			handleRating,
+			handleUndo,
+		],
 	);
 
 	useEffect(() => {
@@ -395,11 +415,37 @@ function StudySession({
 								: "bg-ivory/50"
 						}`}
 					>
+						{/* Edit button */}
+						{/* biome-ignore lint/a11y/useSemanticElements: Cannot nest <button> inside parent <button>, using span with role="button" instead */}
+						<span
+							role="button"
+							tabIndex={0}
+							data-testid="edit-card-button"
+							onClick={(e) => {
+								e.stopPropagation();
+								setEditingNoteId(currentCard.noteId);
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.stopPropagation();
+									e.preventDefault();
+									setEditingNoteId(currentCard.noteId);
+								}
+							}}
+							className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-slate transition-colors rounded-lg hover:bg-ivory"
+							aria-label="Edit card"
+						>
+							<FontAwesomeIcon
+								icon={faPen}
+								className="w-3.5 h-3.5"
+								aria-hidden="true"
+							/>
+						</span>
 						{/* New card badge */}
 						{currentCard.state === 0 && (
 							<span
 								data-testid="new-card-badge"
-								className="absolute top-3 right-3 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
+								className="absolute top-3 right-10 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
 							>
 								New
 							</span>
@@ -456,6 +502,15 @@ function StudySession({
 					)}
 				</div>
 			)}
+
+			{/* Edit Note Modal */}
+			<EditNoteModal
+				isOpen={!!editingNoteId}
+				deckId={deckId}
+				noteId={editingNoteId}
+				onClose={() => setEditingNoteId(null)}
+				onNoteUpdated={() => setEditingNoteId(null)}
+			/>
 		</div>
 	);
 }
