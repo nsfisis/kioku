@@ -13,7 +13,9 @@ pnpm test                 # Run tests (Vitest)
 pnpm check                # Run all checks (TypeScript + lint)
 pnpm check:ts             # TypeScript type checking
 pnpm check:lint           # Lint with Biome
-pnpm format               # Format with Biome
+pnpm fix                  # Auto-fix lint and format
+pnpm fix:lint             # Auto-fix lint issues with Biome
+pnpm fix:format           # Auto-format with Biome
 pnpm db:generate          # Generate database migrations
 pnpm db:migrate           # Run database migrations
 pnpm db:push              # Push schema changes to DB
@@ -25,7 +27,7 @@ See [docs/dev/architecture.md](docs/dev/architecture.md) for details.
 
 ## Code Style
 
-- **Formatter/Linter**: Biome (run `pnpm check:lint` to check, `pnpm format` to auto-format)
+- **Formatter/Linter**: Biome (run `pnpm check:lint` to check, `pnpm fix` to auto-fix)
 - **Indentation**: Tabs
 - **Quotes**: Double quotes for JS/TS
 - **Imports**: Organized by Biome (auto-sorted)
