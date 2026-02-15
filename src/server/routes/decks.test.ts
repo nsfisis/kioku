@@ -31,6 +31,7 @@ function createMockCardRepo(): CardRepository {
 		softDeleteByNoteId: vi.fn(),
 		findDueCards: vi.fn(),
 		countDueCards: vi.fn().mockResolvedValue(0),
+		countNewCards: vi.fn().mockResolvedValue(0),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),

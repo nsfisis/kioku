@@ -33,10 +33,16 @@ function DeckStats({ deckId }: { deckId: string }) {
 
 	return (
 		<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">
-			<div className="grid grid-cols-2 gap-4">
+			<div className="grid grid-cols-3 gap-4">
 				<div>
 					<p className="text-sm text-muted mb-1">Total</p>
 					<p className="text-2xl font-semibold text-ink">{cards.length}</p>
+				</div>
+				<div>
+					<p className="text-sm text-muted mb-1">New</p>
+					<p className="text-2xl font-semibold text-info">
+						{deck.newCardCount}
+					</p>
 				</div>
 				<div>
 					<p className="text-sm text-muted mb-1">Due</p>
@@ -77,7 +83,11 @@ function DeckContent({
 				<Suspense
 					fallback={
 						<div className="bg-white rounded-xl border border-border/50 p-6 mb-6">
-							<div className="grid grid-cols-2 gap-4">
+							<div className="grid grid-cols-3 gap-4">
+								<div>
+									<div className="h-4 w-12 bg-muted/20 rounded animate-pulse mb-1" />
+									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />
+								</div>
 								<div>
 									<div className="h-4 w-12 bg-muted/20 rounded animate-pulse mb-1" />
 									<div className="h-8 w-10 bg-muted/20 rounded animate-pulse" />

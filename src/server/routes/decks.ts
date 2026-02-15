@@ -30,8 +30,11 @@ export function createDecksRouter(deps: DeckDependencies) {
 			const now = new Date();
 			const decksWithDueCount = await Promise.all(
 				decks.map(async (deck) => {
-					const dueCardCount = await cardRepo.countDueCards(deck.id, now);
-					return { ...deck, dueCardCount };
+					const [dueCardCount, newCardCount] = await Promise.all([
+						cardRepo.countDueCards(deck.id, now),
+						cardRepo.countNewCards(deck.id),
+					]);
+					return { ...deck, dueCardCount, newCardCount };
 				}),
 			);
 			return c.json({ decks: decksWithDueCount }, 200);
@@ -58,9 +61,12 @@ export function createDecksRouter(deps: DeckDependencies) {
 			}
 
 			const now = new Date();
-			const dueCardCount = await cardRepo.countDueCards(deck.id, now);
+			const [dueCardCount, newCardCount] = await Promise.all([
+				cardRepo.countDueCards(deck.id, now),
+				cardRepo.countNewCards(deck.id),
+			]);
 
-			return c.json({ deck: { ...deck, dueCardCount } }, 200);
+			return c.json({ deck: { ...deck, dueCardCount, newCardCount } }, 200);
 		})
 		.put(
 			"/:id",

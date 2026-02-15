@@ -7,6 +7,7 @@ export interface Deck {
 	name: string;
 	description: string | null;
 	dueCardCount: number;
+	newCardCount: number;
 	createdAt: string;
 	updatedAt: string;
 }

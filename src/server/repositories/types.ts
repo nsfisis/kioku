@@ -145,6 +145,7 @@ export interface CardRepository {
 	softDeleteByNoteId(noteId: string): Promise<boolean>;
 	findDueCards(deckId: string, now: Date): Promise<Card[]>;
 	countDueCards(deckId: string, now: Date): Promise<number>;
+	countNewCards(deckId: string): Promise<number>;
 	findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,

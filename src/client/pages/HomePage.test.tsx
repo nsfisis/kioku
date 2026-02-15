@@ -93,6 +93,7 @@ const mockDecks = [
 		name: "Japanese Vocabulary",
 		description: "Common Japanese words",
 		dueCardCount: 5,
+		newCardCount: 0,
 		createdAt: "2024-01-01T00:00:00Z",
 		updatedAt: "2024-01-01T00:00:00Z",
 	},
@@ -101,6 +102,7 @@ const mockDecks = [
 		name: "Spanish Verbs",
 		description: null,
 		dueCardCount: 0,
+		newCardCount: 0,
 		createdAt: "2024-01-02T00:00:00Z",
 		updatedAt: "2024-01-02T00:00:00Z",
 	},
@@ -253,6 +255,7 @@ describe("HomePage", () => {
 			name: "No Description Deck",
 			description: null,
 			dueCardCount: 0,
+			newCardCount: 0,
 			createdAt: "2024-01-01T00:00:00Z",
 			updatedAt: "2024-01-01T00:00:00Z",
 		};
@@ -332,6 +335,7 @@ describe("HomePage", () => {
 				name: "New Deck",
 				description: "A new deck",
 				dueCardCount: 0,
+				newCardCount: 0,
 				createdAt: "2024-01-03T00:00:00Z",
 				updatedAt: "2024-01-03T00:00:00Z",
 			};

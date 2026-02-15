@@ -216,6 +216,20 @@ export const cardRepository: CardRepository = {
 		return result[0]?.count ?? 0;
 	},
 
+	async countNewCards(deckId: string): Promise<number> {
+		const result = await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(cards)
+			.where(
+				and(
+					eq(cards.deckId, deckId),
+					isNull(cards.deletedAt),
+					eq(cards.state, CardState.New),
+				),
+			);
+		return result[0]?.count ?? 0;
+	},
+
 	async findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,
