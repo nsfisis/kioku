@@ -445,7 +445,7 @@ function StudySession({
 						{currentCard.state === 0 && (
 							<span
 								data-testid="new-card-badge"
-								className="absolute top-3 right-10 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
+								className="absolute top-3 left-3 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
 							>
 								New
 							</span>
