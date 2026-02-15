@@ -27,11 +27,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Check
+        run: pnpm check
 
       - name: Test
         run: POSTGRES_USER=test POSTGRES_PASSWORD=test POSTGRES_DB=test POSTGRES_HOST=localhost POSTGRES_PORT=5432 pnpm test

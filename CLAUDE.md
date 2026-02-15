@@ -10,9 +10,9 @@ pnpm dev                  # Start backend server (hot reload)
 pnpm dev:client           # Start frontend dev server (port 5173)
 pnpm build                # Build both server and client
 pnpm test                 # Run tests (Vitest)
-pnpm typecheck            # TypeScript type checking
-pnpm lint                 # Lint with Biome
-pnpm lint:fix             # Auto-fix lint issues
+pnpm check                # Run all checks (TypeScript + lint)
+pnpm check:ts             # TypeScript type checking
+pnpm check:lint           # Lint with Biome
 pnpm format               # Format with Biome
 pnpm db:generate          # Generate database migrations
 pnpm db:migrate           # Run database migrations
@@ -25,7 +25,7 @@ See [docs/dev/architecture.md](docs/dev/architecture.md) for details.
 
 ## Code Style
 
-- **Formatter/Linter**: Biome (run `pnpm lint` to check, `pnpm lint:fix` to auto-fix)
+- **Formatter/Linter**: Biome (run `pnpm check:lint` to check, `pnpm format` to auto-format)
 - **Indentation**: Tabs
 - **Quotes**: Double quotes for JS/TS
 - **Imports**: Organized by Biome (auto-sorted)
@@ -51,4 +51,4 @@ Test environment uses `JWT_SECRET=test-secret-key` and mock factories for test d
 
 ## CI Pipeline
 
-Lint → Typecheck → Test → Build (see `.github/workflows/ci.yaml`)
+Check (lint + typecheck) → Test → Build (see `.github/workflows/ci.yaml`)

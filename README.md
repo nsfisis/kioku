@@ -65,9 +65,9 @@ pnpm dev:client   # Frontend dev server (port 5173)
 | `pnpm build` | Build both server and client |
 | `pnpm start` | Start production server |
 | `pnpm test` | Run tests |
-| `pnpm typecheck` | Run TypeScript type checking |
-| `pnpm lint` | Lint code with Biome |
-| `pnpm lint:fix` | Lint and auto-fix issues |
+| `pnpm check` | Run all checks (TypeScript + lint) |
+| `pnpm check:ts` | Run TypeScript type checking |
+| `pnpm check:lint` | Lint code with Biome |
 | `pnpm db:migrate` | Run database migrations |
 | `pnpm db:studio` | Open Drizzle Studio (database GUI) |
 | `pnpm user:add` | Add a new user (interactive) |
