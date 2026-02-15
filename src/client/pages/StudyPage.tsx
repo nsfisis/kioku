@@ -40,6 +40,13 @@ const RatingStyles: Record<Rating, string> = {
 	4: "bg-easy hover:bg-easy/90 focus:ring-easy/30",
 };
 
+const CardStateBadge: Record<number, { label: string; className: string }> = {
+	0: { label: "New", className: "bg-info/10 text-info" },
+	1: { label: "Learning", className: "bg-warning/10 text-warning" },
+	2: { label: "Review", className: "bg-success/10 text-success" },
+	3: { label: "Relearning", className: "bg-error/10 text-error" },
+};
+
 function StudySession({
 	deckId,
 	onNavigate,
@@ -441,13 +448,13 @@ function StudySession({
 								aria-hidden="true"
 							/>
 						</span>
-						{/* New card badge */}
-						{currentCard.state === 0 && (
+						{/* Card state badge */}
+						{CardStateBadge[currentCard.state] && (
 							<span
-								data-testid="new-card-badge"
-								className="absolute top-3 left-3 bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
+								data-testid="card-state-badge"
+								className={`absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full ${CardStateBadge[currentCard.state].className}`}
 							>
-								New
+								{CardStateBadge[currentCard.state].label}
 							</span>
 						)}
 						{!isFlipped ? (
