@@ -415,7 +415,6 @@ function StudySession({
 						aria-label={
 							isFlipped ? "Card showing answer" : "Click to reveal answer"
 						}
-						disabled={isFlipped}
 						className={`relative flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex flex-col items-center justify-center text-center transition-all duration-300 ${
 							!isFlipped
 								? "cursor-pointer hover:shadow-lg hover:border-primary/30 active:scale-[0.99]"
