@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { authLoadingAtom, type Card, type Deck } from "../atoms";
+import { CardState } from "../db";
 import { DeckCardsPage } from "./DeckCardsPage";
 
 const mockDeckGet = vi.fn();
@@ -87,7 +88,7 @@ const mockBasicCards = [
 		isReversed: false,
 		front: "Hello",
 		back: "こんにちは",
-		state: 0,
+		state: CardState.New,
 		due: "2024-01-01T00:00:00Z",
 		stability: 0,
 		difficulty: 0,
@@ -108,7 +109,7 @@ const mockBasicCards = [
 		isReversed: false,
 		front: "Goodbye",
 		back: "さようなら",
-		state: 2,
+		state: CardState.Review,
 		due: "2024-01-02T00:00:00Z",
 		stability: 5.5,
 		difficulty: 5.0,
@@ -133,7 +134,7 @@ const mockNoteBasedCards = [
 		isReversed: false,
 		front: "Apple",
 		back: "りんご",
-		state: 0,
+		state: CardState.New,
 		due: "2024-01-01T00:00:00Z",
 		stability: 0,
 		difficulty: 0,
@@ -154,7 +155,7 @@ const mockNoteBasedCards = [
 		isReversed: true,
 		front: "りんご",
 		back: "Apple",
-		state: 0,
+		state: CardState.New,
 		due: "2024-01-01T00:00:00Z",
 		stability: 0,
 		difficulty: 0,

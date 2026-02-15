@@ -1,6 +1,7 @@
 import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { apiClient } from "../api/client";
+import type { CardStateType } from "../db";
 
 export interface Card {
 	id: string;
@@ -9,12 +10,19 @@ export interface Card {
 	isReversed: boolean;
 	front: string;
 	back: string;
-	state: number;
+	state: CardStateType;
 	due: string;
+	stability: number;
+	difficulty: number;
+	elapsedDays: number;
+	scheduledDays: number;
 	reps: number;
 	lapses: number;
+	lastReview: string | null;
 	createdAt: string;
 	updatedAt: string;
+	deletedAt: string | null;
+	syncVersion: number;
 }
 
 // =====================

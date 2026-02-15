@@ -30,6 +30,7 @@ import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ImportNotesModal } from "../components/ImportNotesModal";
+import type { CardStateType } from "../db";
 import { queryClient } from "../queryClient";
 
 /** Combined type for display: note group */
@@ -37,14 +38,14 @@ type CardDisplayItem = { type: "note"; noteId: string; cards: Card[] };
 
 const CARDS_PER_PAGE = 50;
 
-const CardStateLabels: Record<number, string> = {
+const CardStateLabels: Record<CardStateType, string> = {
 	0: "New",
 	1: "Learning",
 	2: "Review",
 	3: "Relearning",
 };
 
-const CardStateColors: Record<number, string> = {
+const CardStateColors: Record<CardStateType, string> = {
 	0: "bg-info/10 text-info",
 	1: "bg-warning/10 text-warning",
 	2: "bg-success/10 text-success",

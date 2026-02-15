@@ -20,6 +20,7 @@ import { ApiClientError, apiClient } from "../api";
 import { studyDataAtomFamily } from "../atoms";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import type { CardStateType } from "../db";
 import { queryClient } from "../queryClient";
 import { renderCard } from "../utils/templateRenderer";
 
@@ -40,7 +41,10 @@ const RatingStyles: Record<Rating, string> = {
 	4: "bg-easy hover:bg-easy/90 focus:ring-easy/30",
 };
 
-const CardStateBadge: Record<number, { label: string; className: string }> = {
+const CardStateBadge: Record<
+	CardStateType,
+	{ label: string; className: string }
+> = {
 	0: { label: "New", className: "bg-info/10 text-info" },
 	1: { label: "Learning", className: "bg-warning/10 text-warning" },
 	2: { label: "Review", className: "bg-success/10 text-success" },
@@ -448,14 +452,12 @@ function StudySession({
 							/>
 						</span>
 						{/* Card state badge */}
-						{CardStateBadge[currentCard.state] && (
-							<span
-								data-testid="card-state-badge"
-								className={`absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full ${CardStateBadge[currentCard.state].className}`}
-							>
-								{CardStateBadge[currentCard.state].label}
-							</span>
-						)}
+						<span
+							data-testid="card-state-badge"
+							className={`absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full ${CardStateBadge[currentCard.state].className}`}
+						>
+							{CardStateBadge[currentCard.state].label}
+						</span>
 						{!isFlipped ? (
 							<>
 								<p

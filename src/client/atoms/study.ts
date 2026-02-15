@@ -2,6 +2,7 @@ import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { getStartOfStudyDayBoundary } from "../../shared/date";
 import { apiClient } from "../api/client";
+import type { CardStateType } from "../db";
 import { createSeededRandom, shuffle } from "../utils/random";
 
 export interface StudyCard {
@@ -11,7 +12,7 @@ export interface StudyCard {
 	isReversed: boolean;
 	front: string;
 	back: string;
-	state: number;
+	state: CardStateType;
 	due: string;
 	stability: number;
 	difficulty: number;
