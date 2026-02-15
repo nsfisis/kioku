@@ -2,6 +2,13 @@ import type { ConflictResolver } from "./conflict";
 import {
 	CrdtEntityType,
 	type CrdtSyncStateManager,
+	crdtCardRepository,
+	crdtDeckRepository,
+	crdtNoteFieldTypeRepository,
+	crdtNoteFieldValueRepository,
+	crdtNoteRepository,
+	crdtNoteTypeRepository,
+	crdtReviewLogRepository,
 	crdtSyncStateManager as defaultCrdtSyncStateManager,
 } from "./crdt";
 import type { PullService, SyncPullResult } from "./pull";
@@ -342,17 +349,6 @@ export class SyncManager {
 		): number | undefined => {
 			return results.find((r) => r.id === id)?.syncVersion;
 		};
-
-		// Import CRDT repositories dynamically to avoid circular dependencies
-		const {
-			crdtDeckRepository,
-			crdtNoteTypeRepository,
-			crdtNoteFieldTypeRepository,
-			crdtNoteRepository,
-			crdtNoteFieldValueRepository,
-			crdtCardRepository,
-			crdtReviewLogRepository,
-		} = await import("./crdt");
 
 		// Process pushed decks
 		for (const deck of pendingChanges.decks) {
