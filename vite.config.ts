@@ -6,6 +6,9 @@ import topLevelAwait from "vite-plugin-top-level-await";
 import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
+	define: {
+		__APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+	},
 	plugins: [
 		wasm(),
 		topLevelAwait(),
