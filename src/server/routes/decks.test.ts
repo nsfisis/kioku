@@ -32,6 +32,8 @@ function createMockCardRepo(): CardRepository {
 		findDueCards: vi.fn(),
 		countDueCards: vi.fn().mockResolvedValue(0),
 		countNewCards: vi.fn().mockResolvedValue(0),
+		countTotalCards: vi.fn().mockResolvedValue(0),
+		countReviewStateCards: vi.fn().mockResolvedValue(0),
 		findDueCardsWithNoteData: vi.fn(),
 		findDueCardsForStudy: vi.fn(),
 		updateFSRSFields: vi.fn(),

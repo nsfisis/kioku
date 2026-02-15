@@ -8,6 +8,8 @@ export interface Deck {
 	description: string | null;
 	dueCardCount: number;
 	newCardCount: number;
+	totalCardCount: number;
+	reviewCardCount: number;
 	createdAt: string;
 	updatedAt: string;
 }

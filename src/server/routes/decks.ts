@@ -30,11 +30,20 @@ export function createDecksRouter(deps: DeckDependencies) {
 			const now = new Date();
 			const decksWithDueCount = await Promise.all(
 				decks.map(async (deck) => {
-					const [dueCardCount, newCardCount] = await Promise.all([
-						cardRepo.countDueCards(deck.id, now),
-						cardRepo.countNewCards(deck.id),
-					]);
-					return { ...deck, dueCardCount, newCardCount };
+					const [dueCardCount, newCardCount, totalCardCount, reviewCardCount] =
+						await Promise.all([
+							cardRepo.countDueCards(deck.id, now),
+							cardRepo.countNewCards(deck.id),
+							cardRepo.countTotalCards(deck.id),
+							cardRepo.countReviewStateCards(deck.id),
+						]);
+					return {
+						...deck,
+						dueCardCount,
+						newCardCount,
+						totalCardCount,
+						reviewCardCount,
+					};
 				}),
 			);
 			return c.json({ decks: decksWithDueCount }, 200);
@@ -61,12 +70,26 @@ export function createDecksRouter(deps: DeckDependencies) {
 			}
 
 			const now = new Date();
-			const [dueCardCount, newCardCount] = await Promise.all([
-				cardRepo.countDueCards(deck.id, now),
-				cardRepo.countNewCards(deck.id),
-			]);
+			const [dueCardCount, newCardCount, totalCardCount, reviewCardCount] =
+				await Promise.all([
+					cardRepo.countDueCards(deck.id, now),
+					cardRepo.countNewCards(deck.id),
+					cardRepo.countTotalCards(deck.id),
+					cardRepo.countReviewStateCards(deck.id),
+				]);
 
-			return c.json({ deck: { ...deck, dueCardCount, newCardCount } }, 200);
+			return c.json(
+				{
+					deck: {
+						...deck,
+						dueCardCount,
+						newCardCount,
+						totalCardCount,
+						reviewCardCount,
+					},
+				},
+				200,
+			);
 		})
 		.put(
 			"/:id",

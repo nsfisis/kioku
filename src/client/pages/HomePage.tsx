@@ -78,6 +78,21 @@ function DeckList({
 									{deck.description}
 								</p>
 							)}
+							{deck.totalCardCount > 0 && (
+								<div className="flex items-center gap-2 mt-2">
+									<div className="flex-1 h-1.5 bg-ivory rounded-full overflow-hidden">
+										<div
+											className="h-full bg-primary rounded-full transition-all duration-300"
+											style={{
+												width: `${(deck.reviewCardCount / deck.totalCardCount) * 100}%`,
+											}}
+										/>
+									</div>
+									<span className="text-xs text-muted shrink-0">
+										{deck.reviewCardCount}/{deck.totalCardCount}
+									</span>
+								</div>
+							)}
 						</div>
 						<div className="flex items-center gap-2 shrink-0">
 							<button

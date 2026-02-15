@@ -146,6 +146,8 @@ export interface CardRepository {
 	findDueCards(deckId: string, now: Date): Promise<Card[]>;
 	countDueCards(deckId: string, now: Date): Promise<number>;
 	countNewCards(deckId: string): Promise<number>;
+	countTotalCards(deckId: string): Promise<number>;
+	countReviewStateCards(deckId: string): Promise<number>;
 	findDueCardsWithNoteData(
 		deckId: string,
 		now: Date,
