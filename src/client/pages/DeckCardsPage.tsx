@@ -162,6 +162,11 @@ function NoteGroupCard({
 							{card.lapses > 0 && (
 								<span className="text-muted">{card.lapses} lapses</span>
 							)}
+							{card.difficulty > 0 && (
+								<span className="text-muted">
+									D: {card.difficulty.toFixed(1)}
+								</span>
+							)}
 						</div>
 					))}
 				</div>
