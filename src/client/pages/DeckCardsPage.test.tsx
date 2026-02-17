@@ -327,6 +327,24 @@ describe("DeckCardsPage", () => {
 		expect(screen.getByText("1 lapses")).toBeDefined();
 	});
 
+	it("displays difficulty for reviewed cards", () => {
+		renderWithProviders({
+			initialDeck: mockDeck,
+			initialCards: mockCards,
+		});
+
+		expect(screen.getByText("D: 5.0")).toBeDefined();
+	});
+
+	it("does not show difficulty for new cards", () => {
+		renderWithProviders({
+			initialDeck: mockDeck,
+			initialCards: mockCards,
+		});
+
+		expect(screen.queryByText("D: 0.0")).toBeNull();
+	});
+
 	it("does not show description if deck has none", () => {
 		const deckWithoutDescription = { ...mockDeck, description: null };
 		renderWithProviders({
