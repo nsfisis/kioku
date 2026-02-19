@@ -45,7 +45,7 @@ export function App() {
 					<Route component={NotFoundPage} />
 				</Switch>
 			</div>
-			<footer className="py-2 text-center text-xs text-muted">
+			<footer className="hidden py-2 text-center text-xs text-muted sm:block">
 				v{__APP_VERSION__}
 			</footer>
 		</div>
