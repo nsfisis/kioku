@@ -188,6 +188,7 @@ export function createNoteTypesRouter(deps: NoteTypeDependencies) {
 				async (c) => {
 					const user = getAuthUser(c);
 					const { id, fieldId } = c.req.valid("param");
+					const force = c.req.query("force") === "true";
 
 					// Verify note type exists and belongs to user
 					const noteType = await noteTypeRepo.findById(id, user.id);
@@ -197,10 +198,17 @@ export function createNoteTypesRouter(deps: NoteTypeDependencies) {
 
 					// Check if there are note field values referencing this field
 					const hasValues = await noteFieldTypeRepo.hasNoteFieldValues(fieldId);
-					if (hasValues) {
-						throw Errors.conflict(
-							"Cannot delete field with existing values",
-							"FIELD_HAS_VALUES",
+					if (hasValues && !force) {
+						const cardCount = await noteTypeRepo.countCards(id);
+						return c.json(
+							{
+								error: {
+									message: "Cannot delete field with existing values",
+									code: "FIELD_HAS_VALUES",
+								},
+								cardCount,
+							},
+							409,
 						);
 					}
 

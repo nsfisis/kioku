@@ -12,6 +12,7 @@ const mockFieldPut = vi.fn();
 const mockFieldDelete = vi.fn();
 const mockFieldsReorder = vi.fn();
 const mockHandleResponse = vi.fn();
+const mockAuthenticatedFetch = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -36,6 +37,8 @@ vi.mock("../api/client", () => ({
 			},
 		},
 		handleResponse: (res: unknown) => mockHandleResponse(res),
+		authenticatedFetch: (input: unknown, init: unknown) =>
+			mockAuthenticatedFetch(input, init),
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -91,7 +94,7 @@ describe("NoteTypeEditor", () => {
 		mockNoteTypePut.mockResolvedValue({ ok: true });
 		mockFieldPost.mockResolvedValue({ ok: true });
 		mockFieldPut.mockResolvedValue({ ok: true });
-		mockFieldDelete.mockResolvedValue({ ok: true });
+		mockFieldDelete.mockResolvedValue({ ok: true, status: 200 });
 		mockFieldsReorder.mockResolvedValue({ ok: true });
 	});
 
@@ -305,9 +308,9 @@ describe("NoteTypeEditor", () => {
 	it("deletes a field", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockResolvedValueOnce({ success: true });
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
+		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
@@ -330,14 +333,24 @@ describe("NoteTypeEditor", () => {
 		});
 	});
 
-	it("displays error when field deletion fails", async () => {
+	it("shows confirmation when deleting field with values", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockRejectedValueOnce(
-				new ApiClientError("Cannot delete field with existing values", 409),
-			);
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
+		});
+		mockFieldDelete.mockResolvedValueOnce({
+			ok: false,
+			status: 409,
+			json: () =>
+				Promise.resolve({
+					error: {
+						message: "Cannot delete field with existing values",
+						code: "FIELD_HAS_VALUES",
+					},
+					cardCount: 5,
+				}),
+		});
 
 		render(<NoteTypeEditor {...defaultProps} />);
 
@@ -345,9 +358,7 @@ describe("NoteTypeEditor", () => {
 			expect(screen.getByText("Front")).toBeDefined();
 		});
 
-		// Find the delete button for the "Front" field (first delete button)
 		const deleteButtons = screen.getAllByTitle("Delete field");
-		expect(deleteButtons.length).toBeGreaterThan(0);
 		const deleteButton = deleteButtons.at(0);
 		if (!deleteButton) throw new Error("Delete button not found");
 
@@ -356,13 +367,197 @@ describe("NoteTypeEditor", () => {
 		await waitFor(() => {
 			const alerts = screen.getAllByRole("alert");
 			expect(
-				alerts.some((alert) =>
-					alert.textContent?.includes(
-						"Cannot delete field with existing values",
-					),
-				),
+				alerts.some((alert) => alert.textContent?.includes("5 card(s)")),
+			).toBe(true);
+			expect(alerts.some((alert) => alert.textContent?.includes("Front"))).toBe(
+				true,
+			);
+		});
+	});
+
+	it("shows second confirmation after first is accepted", async () => {
+		const user = userEvent.setup();
+
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
+		});
+		mockFieldDelete.mockResolvedValueOnce({
+			ok: false,
+			status: 409,
+			json: () =>
+				Promise.resolve({
+					error: {
+						message: "Cannot delete field with existing values",
+						code: "FIELD_HAS_VALUES",
+					},
+					cardCount: 3,
+				}),
+		});
+
+		render(<NoteTypeEditor {...defaultProps} />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Front")).toBeDefined();
+		});
+
+		// Click delete
+		const deleteButtons = screen.getAllByTitle("Delete field");
+		const deleteButton = deleteButtons.at(0);
+		if (!deleteButton) throw new Error("Delete button not found");
+		await user.click(deleteButton);
+
+		// First confirmation should appear
+		await waitFor(() => {
+			expect(
+				screen
+					.getAllByRole("alert")
+					.some((a) => a.textContent?.includes("3 card(s)")),
 			).toBe(true);
 		});
+
+		// Click Delete on first confirmation
+		const confirmDeleteButton = screen.getByRole("button", { name: "Delete" });
+		await user.click(confirmDeleteButton);
+
+		// Second confirmation should appear
+		await waitFor(() => {
+			expect(
+				screen
+					.getAllByRole("alert")
+					.some((a) => a.textContent?.includes("cannot be undone")),
+			).toBe(true);
+		});
+	});
+
+	it("force deletes field after two confirmations", async () => {
+		const user = userEvent.setup();
+
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
+		});
+		mockFieldDelete.mockResolvedValueOnce({
+			ok: false,
+			status: 409,
+			json: () =>
+				Promise.resolve({
+					error: {
+						message: "Cannot delete field with existing values",
+						code: "FIELD_HAS_VALUES",
+					},
+					cardCount: 2,
+				}),
+		});
+		mockAuthenticatedFetch.mockResolvedValueOnce({
+			ok: true,
+			status: 200,
+			json: () => Promise.resolve({ success: true }),
+		});
+
+		render(<NoteTypeEditor {...defaultProps} />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Front")).toBeDefined();
+		});
+
+		// Click delete
+		const deleteButtons = screen.getAllByTitle("Delete field");
+		const deleteButton = deleteButtons.at(0);
+		if (!deleteButton) throw new Error("Delete button not found");
+		await user.click(deleteButton);
+
+		// First confirmation
+		await waitFor(() => {
+			expect(
+				screen
+					.getAllByRole("alert")
+					.some((a) => a.textContent?.includes("2 card(s)")),
+			).toBe(true);
+		});
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		// Second confirmation
+		await waitFor(() => {
+			expect(
+				screen
+					.getAllByRole("alert")
+					.some((a) => a.textContent?.includes("cannot be undone")),
+			).toBe(true);
+		});
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		// Force delete should be called
+		await waitFor(() => {
+			expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+				"/api/note-types/note-type-123/fields/field-1?force=true",
+				{ method: "DELETE" },
+			);
+		});
+
+		// Field should be removed from the list
+		await waitFor(() => {
+			expect(screen.queryByText("Front")).toBeNull();
+		});
+	});
+
+	it("cancels deletion when Cancel is clicked on confirmation", async () => {
+		const user = userEvent.setup();
+
+		mockHandleResponse.mockResolvedValueOnce({
+			noteType: mockNoteTypeWithFields,
+		});
+		mockFieldDelete.mockResolvedValueOnce({
+			ok: false,
+			status: 409,
+			json: () =>
+				Promise.resolve({
+					error: {
+						message: "Cannot delete field with existing values",
+						code: "FIELD_HAS_VALUES",
+					},
+					cardCount: 5,
+				}),
+		});
+
+		render(<NoteTypeEditor {...defaultProps} />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Front")).toBeDefined();
+		});
+
+		// Click delete
+		const deleteButtons = screen.getAllByTitle("Delete field");
+		const deleteButton = deleteButtons.at(0);
+		if (!deleteButton) throw new Error("Delete button not found");
+		await user.click(deleteButton);
+
+		// Confirmation should appear
+		await waitFor(() => {
+			expect(
+				screen
+					.getAllByRole("alert")
+					.some((a) => a.textContent?.includes("5 card(s)")),
+			).toBe(true);
+		});
+
+		// Click Cancel
+		const cancelButtons = screen.getAllByRole("button", { name: "Cancel" });
+		// The confirmation Cancel button (not the main dialog Cancel)
+		const confirmCancelButton = cancelButtons.find((btn) =>
+			btn.closest(".bg-amber-50"),
+		);
+		if (!confirmCancelButton) throw new Error("Cancel button not found");
+		await user.click(confirmCancelButton);
+
+		// Confirmation should disappear
+		await waitFor(() => {
+			const alerts = screen.queryAllByRole("alert");
+			expect(alerts.some((a) => a.textContent?.includes("5 card(s)"))).toBe(
+				false,
+			);
+		});
+
+		// Field should still be there
+		expect(screen.getByText("Front")).toBeDefined();
 	});
 
 	it("moves a field up", async () => {

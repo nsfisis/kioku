@@ -20,6 +20,7 @@ function createMockNoteTypeRepo(): NoteTypeRepository {
 		update: vi.fn(),
 		softDelete: vi.fn(),
 		hasNotes: vi.fn(),
+		countCards: vi.fn(),
 	};
 }
 
@@ -835,13 +836,14 @@ describe("DELETE /api/note-types/:id/fields/:fieldId", () => {
 		);
 	});
 
-	it("returns 409 when field has values", async () => {
+	it("returns 409 with card count when field has values", async () => {
 		const noteTypeId = "a0000000-0000-4000-8000-000000000001";
 		const fieldId = "b0000000-0000-4000-8000-000000000002";
 		const mockNoteType = createMockNoteType({ id: noteTypeId });
 
 		vi.mocked(mockNoteTypeRepo.findById).mockResolvedValue(mockNoteType);
 		vi.mocked(mockNoteFieldTypeRepo.hasNoteFieldValues).mockResolvedValue(true);
+		vi.mocked(mockNoteTypeRepo.countCards).mockResolvedValue(5);
 
 		const res = await app.request(
 			`/api/note-types/${noteTypeId}/fields/${fieldId}`,
@@ -852,8 +854,39 @@ describe("DELETE /api/note-types/:id/fields/:fieldId", () => {
 		);
 
 		expect(res.status).toBe(409);
-		const body = (await res.json()) as NoteTypeResponse;
+		const body = (await res.json()) as NoteTypeResponse & {
+			cardCount?: number;
+		};
 		expect(body.error?.code).toBe("FIELD_HAS_VALUES");
+		expect(body.cardCount).toBe(5);
+		expect(mockNoteTypeRepo.countCards).toHaveBeenCalledWith(noteTypeId);
+	});
+
+	it("deletes field with values when force=true", async () => {
+		const noteTypeId = "a0000000-0000-4000-8000-000000000001";
+		const fieldId = "b0000000-0000-4000-8000-000000000002";
+		const mockNoteType = createMockNoteType({ id: noteTypeId });
+
+		vi.mocked(mockNoteTypeRepo.findById).mockResolvedValue(mockNoteType);
+		vi.mocked(mockNoteFieldTypeRepo.hasNoteFieldValues).mockResolvedValue(true);
+		vi.mocked(mockNoteFieldTypeRepo.softDelete).mockResolvedValue(true);
+
+		const res = await app.request(
+			`/api/note-types/${noteTypeId}/fields/${fieldId}?force=true`,
+			{
+				method: "DELETE",
+				headers: { Authorization: `Bearer ${authToken}` },
+			},
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as NoteTypeResponse;
+		expect(body.success).toBe(true);
+		expect(mockNoteFieldTypeRepo.softDelete).toHaveBeenCalledWith(
+			fieldId,
+			noteTypeId,
+		);
+		expect(mockNoteTypeRepo.countCards).not.toHaveBeenCalled();
 	});
 
 	it("returns 404 when note type not found", async () => {

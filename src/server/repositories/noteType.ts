@@ -143,6 +143,24 @@ export const noteTypeRepository: NoteTypeRepository = {
 
 		return result.length > 0;
 	},
+
+	async countCards(noteTypeId: string): Promise<number> {
+		const { cards } = await import("../db/schema.js");
+
+		const result = await db
+			.select({ count: sql<number>`cast(count(*) as int)` })
+			.from(cards)
+			.innerJoin(notes, eq(cards.noteId, notes.id))
+			.where(
+				and(
+					eq(notes.noteTypeId, noteTypeId),
+					isNull(notes.deletedAt),
+					isNull(cards.deletedAt),
+				),
+			);
+
+		return Number(result[0]?.count ?? 0);
+	},
 };
 
 export const noteFieldTypeRepository: NoteFieldTypeRepository = {

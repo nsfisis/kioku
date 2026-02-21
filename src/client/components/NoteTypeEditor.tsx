@@ -42,6 +42,12 @@ interface NoteTypeEditorProps {
 	onNoteTypeUpdated: () => void;
 }
 
+interface DeleteConfirmation {
+	fieldId: string;
+	cardCount: number;
+	step: 1 | 2;
+}
+
 export function NoteTypeEditor({
 	isOpen,
 	noteTypeId,
@@ -62,6 +68,9 @@ export function NoteTypeEditor({
 	const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
 	const [editingFieldName, setEditingFieldName] = useState("");
 	const [fieldError, setFieldError] = useState<string | null>(null);
+	const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmation | null>(
+		null,
+	);
 	const editInputRef = useRef<HTMLInputElement>(null);
 
 	const fetchNoteType = useCallback(async () => {
@@ -114,6 +123,7 @@ export function NoteTypeEditor({
 		setIsAddingField(false);
 		setEditingFieldId(null);
 		setNoteType(null);
+		setDeleteConfirm(null);
 		onClose();
 	};
 
@@ -212,19 +222,50 @@ export function NoteTypeEditor({
 		}
 	};
 
-	const handleDeleteField = async (fieldId: string) => {
+	const handleDeleteField = async (fieldId: string, force = false) => {
 		if (!noteType) return;
 
 		setFieldError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].fields[
-				":fieldId"
-			].$delete({
-				param: { id: noteType.id, fieldId },
-			});
-			await apiClient.handleResponse(res);
-			setFields(fields.filter((f) => f.id !== fieldId));
+			let res: Response;
+			if (force) {
+				res = await apiClient.authenticatedFetch(
+					`/api/note-types/${noteType.id}/fields/${fieldId}?force=true`,
+					{ method: "DELETE" },
+				);
+			} else {
+				res = await apiClient.rpc.api["note-types"][":id"].fields[
+					":fieldId"
+				].$delete({
+					param: { id: noteType.id, fieldId },
+				});
+			}
+
+			if (res.ok) {
+				setFields(fields.filter((f) => f.id !== fieldId));
+				setDeleteConfirm(null);
+				return;
+			}
+
+			const body = (await res.json()) as {
+				error?: { message?: string; code?: string };
+				cardCount?: number;
+			};
+			if (
+				res.status === 409 &&
+				body.error?.code === "FIELD_HAS_VALUES" &&
+				body.cardCount !== undefined
+			) {
+				setDeleteConfirm({ fieldId, cardCount: body.cardCount, step: 1 });
+				return;
+			}
+
+			throw new ApiClientError(
+				body.error?.message || `Request failed with status ${res.status}`,
+				res.status,
+				body.error?.code,
+			);
 		} catch (err) {
 			if (err instanceof ApiClientError) {
 				setFieldError(err.message);
@@ -289,6 +330,10 @@ export function NoteTypeEditor({
 	if (!isOpen) {
 		return null;
 	}
+
+	const confirmFieldName = deleteConfirm
+		? fields.find((f) => f.id === deleteConfirm.fieldId)?.name
+		: null;
 
 	return (
 		<div
@@ -387,6 +432,70 @@ export function NoteTypeEditor({
 										className="bg-error/5 text-error text-sm px-4 py-3 rounded-lg border border-error/20 mb-3"
 									>
 										{fieldError}
+									</div>
+								)}
+
+								{deleteConfirm && (
+									<div
+										role="alert"
+										className="bg-amber-50 text-amber-800 text-sm px-4 py-3 rounded-lg border border-amber-200 mb-3"
+									>
+										{deleteConfirm.step === 1 ? (
+											<>
+												<p>
+													This note type has{" "}
+													<strong>{deleteConfirm.cardCount} card(s)</strong>.
+													Deleting the field &ldquo;{confirmFieldName}
+													&rdquo; will remove its values from all cards.
+												</p>
+												<div className="flex gap-2 mt-2">
+													<button
+														type="button"
+														onClick={() =>
+															setDeleteConfirm({
+																...deleteConfirm,
+																step: 2,
+															})
+														}
+														className="px-3 py-1.5 bg-error hover:bg-error/90 text-white text-xs font-medium rounded-lg transition-colors"
+													>
+														Delete
+													</button>
+													<button
+														type="button"
+														onClick={() => setDeleteConfirm(null)}
+														className="px-3 py-1.5 text-slate hover:bg-ivory text-xs font-medium rounded-lg transition-colors"
+													>
+														Cancel
+													</button>
+												</div>
+											</>
+										) : (
+											<>
+												<p>
+													This action cannot be undone. Are you sure you want to
+													delete the field &ldquo;{confirmFieldName}&rdquo;?
+												</p>
+												<div className="flex gap-2 mt-2">
+													<button
+														type="button"
+														onClick={() =>
+															handleDeleteField(deleteConfirm.fieldId, true)
+														}
+														className="px-3 py-1.5 bg-error hover:bg-error/90 text-white text-xs font-medium rounded-lg transition-colors"
+													>
+														Delete
+													</button>
+													<button
+														type="button"
+														onClick={() => setDeleteConfirm(null)}
+														className="px-3 py-1.5 text-slate hover:bg-ivory text-xs font-medium rounded-lg transition-colors"
+													>
+														Cancel
+													</button>
+												</div>
+											</>
+										)}
 									</div>
 								)}
 

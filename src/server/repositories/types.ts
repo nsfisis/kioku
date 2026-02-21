@@ -250,6 +250,7 @@ export interface NoteTypeRepository {
 	): Promise<NoteType | undefined>;
 	softDelete(id: string, userId: string): Promise<boolean>;
 	hasNotes(id: string, userId: string): Promise<boolean>;
+	countCards(noteTypeId: string): Promise<number>;
 }
 
 export interface NoteFieldTypeRepository {

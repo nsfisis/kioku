@@ -66,6 +66,7 @@ function createMockNoteTypeRepo(): NoteTypeRepository {
 		update: vi.fn(),
 		softDelete: vi.fn(),
 		hasNotes: vi.fn(),
+		countCards: vi.fn(),
 	};
 }
 
