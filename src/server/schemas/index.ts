@@ -48,6 +48,7 @@ export const deckSchema = z.object({
 	userId: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().max(1000).nullable(),
+	defaultNoteTypeId: z.uuid().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	deletedAt: z.coerce.date().nullable(),
@@ -58,12 +59,14 @@ export const deckSchema = z.object({
 export const createDeckSchema = z.object({
 	name: z.string().min(1).max(255),
 	description: z.string().max(1000).nullable().optional(),
+	defaultNoteTypeId: z.uuid().nullable().optional(),
 });
 
 // Deck update input schema
 export const updateDeckSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
 	description: z.string().max(1000).nullable().optional(),
+	defaultNoteTypeId: z.uuid().nullable().optional(),
 });
 
 // Card schema

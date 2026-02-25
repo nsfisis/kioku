@@ -109,6 +109,7 @@ describe("migration", () => {
 		userId: "user-1",
 		name: "Test Deck",
 		description: null,
+		defaultNoteTypeId: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		deletedAt: null,

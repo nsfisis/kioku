@@ -64,6 +64,7 @@ describe("KiokuDatabase", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A test deck",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01"),
 			updatedAt: new Date("2024-01-01"),
 			deletedAt: null,

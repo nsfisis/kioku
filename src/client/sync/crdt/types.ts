@@ -36,6 +36,7 @@ export interface CrdtDeckDocument {
 		userId: string;
 		name: string;
 		description: string | null;
+		defaultNoteTypeId: string | null;
 		createdAt: number; // Unix timestamp in ms
 		deletedAt: number | null;
 	};

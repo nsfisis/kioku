@@ -34,6 +34,7 @@ function createTestDeck(overrides: Partial<LocalDeck> = {}): LocalDeck {
 		userId: "user-1",
 		name: "Test Deck",
 		description: null,
+		defaultNoteTypeId: null,
 		createdAt: now,
 		updatedAt: now,
 		deletedAt: null,

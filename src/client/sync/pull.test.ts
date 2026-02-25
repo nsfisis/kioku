@@ -48,6 +48,7 @@ describe("pullResultToLocalData", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A description",
+				defaultNoteTypeId: null,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-02T15:30:00Z"),
 				deletedAt: null,
@@ -68,6 +69,7 @@ describe("pullResultToLocalData", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A description",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -83,6 +85,7 @@ describe("pullResultToLocalData", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-03T12:00:00Z"),
 				deletedAt: new Date("2024-01-03T12:00:00Z"),
@@ -535,6 +538,7 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Server Deck",
 						description: "From server",
+						defaultNoteTypeId: null,
 						createdAt: new Date("2024-01-01T10:00:00Z"),
 						updatedAt: new Date("2024-01-02T10:00:00Z"),
 						deletedAt: null,
@@ -567,6 +571,7 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -668,6 +673,7 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Old Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pullFromServer = vi.fn().mockResolvedValue({
@@ -677,6 +683,7 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Updated Name",
 						description: "Updated description",
+						defaultNoteTypeId: null,
 						createdAt: existingDeck.createdAt,
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -709,6 +716,7 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Deck",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -865,6 +873,7 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -919,6 +928,7 @@ describe("PullService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -988,6 +998,7 @@ describe("PullService", () => {
 						userId: "user-1",
 						name: "Deck",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -1167,6 +1178,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: "A test description",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1199,6 +1211,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Local Deck",
 			description: "Local description",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-01T12:00:00Z"),
 			deletedAt: null,
@@ -1221,6 +1234,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Remote Deck",
 			description: "Remote description",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"), // Later timestamp
 			deletedAt: null,
@@ -1251,6 +1265,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Deck 1",
 			description: null,
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1262,6 +1277,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Deck 2",
 			description: "Second deck",
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1300,6 +1316,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1354,6 +1371,7 @@ describe("applyCrdtChanges", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1451,6 +1469,7 @@ describe("PullService with CRDT changes", () => {
 			userId: "user-1",
 			name: "CRDT Deck",
 			description: null,
+			defaultNoteTypeId: null,
 			createdAt: new Date("2024-01-01T10:00:00Z"),
 			updatedAt: new Date("2024-01-02T15:30:00Z"),
 			deletedAt: null,
@@ -1501,6 +1520,7 @@ describe("PullService with CRDT changes", () => {
 					userId: "user-1",
 					name: "Test Deck",
 					description: null,
+					defaultNoteTypeId: null,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,
@@ -1577,6 +1597,7 @@ describe("PullService with CRDT changes", () => {
 					userId: "user-1",
 					name: "Regular Deck",
 					description: null,
+					defaultNoteTypeId: null,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,

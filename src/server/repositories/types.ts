@@ -50,6 +50,7 @@ export interface Deck {
 	userId: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;
@@ -63,6 +64,7 @@ export interface DeckRepository {
 		userId: string;
 		name: string;
 		description?: string | null;
+		defaultNoteTypeId?: string | null;
 	}): Promise<Deck>;
 	update(
 		id: string,
@@ -70,6 +72,7 @@ export interface DeckRepository {
 		data: {
 			name?: string;
 			description?: string | null;
+			defaultNoteTypeId?: string | null;
 		},
 	): Promise<Deck | undefined>;
 	softDelete(id: string, userId: string): Promise<boolean>;

@@ -56,6 +56,7 @@ export function createDecksRouter(deps: DeckDependencies) {
 				userId: user.id,
 				name: data.name,
 				description: data.description,
+				defaultNoteTypeId: data.defaultNoteTypeId,
 			});
 
 			return c.json({ deck }, 201);

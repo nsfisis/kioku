@@ -22,7 +22,12 @@ import {
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Link, useParams } from "wouter";
-import { type Card, cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
+import {
+	type Card,
+	cardsByDeckAtomFamily,
+	type Deck,
+	deckByIdAtomFamily,
+} from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
 import { DeleteCardModal } from "../components/DeleteCardModal";
 import { DeleteNoteModal } from "../components/DeleteNoteModal";
@@ -638,6 +643,9 @@ export function DeckCardsPage() {
 			<CreateNoteModal
 				isOpen={isCreateModalOpen}
 				deckId={deckId}
+				defaultNoteTypeId={
+					queryClient.getQueryData<Deck>(["decks", deckId])?.defaultNoteTypeId
+				}
 				onClose={() => setIsCreateModalOpen(false)}
 				onNoteCreated={handleCardMutation}
 			/>

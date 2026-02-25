@@ -31,6 +31,7 @@ export const deckRepository: DeckRepository = {
 		userId: string;
 		name: string;
 		description?: string | null;
+		defaultNoteTypeId?: string | null;
 	}): Promise<Deck> {
 		const [deck] = await db
 			.insert(decks)
@@ -38,6 +39,7 @@ export const deckRepository: DeckRepository = {
 				userId: data.userId,
 				name: data.name,
 				description: data.description ?? null,
+				defaultNoteTypeId: data.defaultNoteTypeId ?? null,
 			})
 			.returning();
 		if (!deck) {
@@ -52,6 +54,7 @@ export const deckRepository: DeckRepository = {
 		data: {
 			name?: string;
 			description?: string | null;
+			defaultNoteTypeId?: string | null;
 		},
 	): Promise<Deck | undefined> {
 		const result = await db

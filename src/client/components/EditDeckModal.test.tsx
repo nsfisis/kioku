@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockPut = vi.fn();
 const mockHandleResponse = vi.fn();
 
+const mockGetNoteTypes = vi.fn();
+
 vi.mock("../api/client", () => ({
 	apiClient: {
 		rpc: {
@@ -16,6 +18,9 @@ vi.mock("../api/client", () => ({
 					":id": {
 						$put: (args: unknown) => mockPut(args),
 					},
+				},
+				"note-types": {
+					$get: () => mockGetNoteTypes(),
 				},
 			},
 		},
@@ -42,6 +47,7 @@ describe("EditDeckModal", () => {
 		id: "deck-123",
 		name: "Test Deck",
 		description: "Test description",
+		defaultNoteTypeId: null as string | null,
 	};
 
 	const defaultProps = {
@@ -51,15 +57,25 @@ describe("EditDeckModal", () => {
 		onDeckUpdated: vi.fn(),
 	};
 
+	const noteTypesResponse = { ok: true, _type: "noteTypes" };
+	const putResponse = { ok: true, _type: "put" };
+
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockPut.mockResolvedValue({ ok: true });
-		mockHandleResponse.mockResolvedValue({
-			deck: {
-				id: "deck-123",
-				name: "Test Deck",
-				description: "Test description",
-			},
+		mockPut.mockResolvedValue(putResponse);
+		mockGetNoteTypes.mockResolvedValue(noteTypesResponse);
+		mockHandleResponse.mockImplementation((res: unknown) => {
+			if (res === noteTypesResponse) {
+				return Promise.resolve({ noteTypes: [] });
+			}
+			return Promise.resolve({
+				deck: {
+					id: "deck-123",
+					name: "Test Deck",
+					description: "Test description",
+					defaultNoteTypeId: null,
+				},
+			});
 		});
 	});
 
@@ -187,6 +203,7 @@ describe("EditDeckModal", () => {
 				json: {
 					name: "Updated Deck",
 					description: "Test description",
+					defaultNoteTypeId: null,
 				},
 			});
 		});
@@ -220,6 +237,7 @@ describe("EditDeckModal", () => {
 				json: {
 					name: "Test Deck",
 					description: "New description",
+					defaultNoteTypeId: null,
 				},
 			});
 		});
@@ -243,6 +261,7 @@ describe("EditDeckModal", () => {
 				json: {
 					name: "Test Deck",
 					description: null,
+					defaultNoteTypeId: null,
 				},
 			});
 		});
@@ -266,6 +285,7 @@ describe("EditDeckModal", () => {
 				json: {
 					name: "Deck",
 					description: "Description",
+					defaultNoteTypeId: null,
 				},
 			});
 		});
@@ -299,11 +319,15 @@ describe("EditDeckModal", () => {
 	it("displays API error message", async () => {
 		const user = userEvent.setup();
 
+		render(<EditDeckModal {...defaultProps} />);
+
+		// Wait for note types to load, then override handleResponse for the PUT
+		await waitFor(() => {
+			expect(mockGetNoteTypes).toHaveBeenCalled();
+		});
 		mockHandleResponse.mockRejectedValue(
 			new ApiClientError("Deck name already exists", 400),
 		);
-
-		render(<EditDeckModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
@@ -333,11 +357,15 @@ describe("EditDeckModal", () => {
 	it("displays error when handleResponse throws", async () => {
 		const user = userEvent.setup();
 
+		render(<EditDeckModal {...defaultProps} />);
+
+		// Wait for note types to load, then override handleResponse for the PUT
+		await waitFor(() => {
+			expect(mockGetNoteTypes).toHaveBeenCalled();
+		});
 		mockHandleResponse.mockRejectedValue(
 			new ApiClientError("Not authenticated", 401),
 		);
-
-		render(<EditDeckModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
@@ -374,11 +402,15 @@ describe("EditDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 400));
-
 		const { rerender } = render(
 			<EditDeckModal {...defaultProps} onClose={onClose} />,
 		);
+
+		// Wait for note types to load, then override handleResponse for the PUT
+		await waitFor(() => {
+			expect(mockGetNoteTypes).toHaveBeenCalled();
+		});
+		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 400));
 
 		// Trigger error
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));

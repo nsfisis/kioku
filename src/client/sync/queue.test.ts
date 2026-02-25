@@ -68,6 +68,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const changes = await syncQueue.getPendingChanges();
@@ -80,6 +81,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
@@ -99,6 +101,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -127,6 +130,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -141,6 +145,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localCardRepository.create({
 				deckId: deck.id,
@@ -174,6 +179,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const hasPending = await syncQueue.hasPendingChanges();
@@ -298,6 +304,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			await syncQueue.markSynced({
@@ -320,6 +327,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -349,6 +357,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,
@@ -408,6 +417,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Server Deck",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -435,6 +445,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -481,6 +492,7 @@ describe("SyncQueue", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const card = await localCardRepository.create({
 				deckId: deck.id,

@@ -101,6 +101,9 @@ export const decks = pgTable("decks", {
 		.references(() => users.id),
 	name: varchar("name", { length: 255 }).notNull(),
 	description: text("description"),
+	defaultNoteTypeId: uuid("default_note_type_id").references(
+		() => noteTypes.id,
+	),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),

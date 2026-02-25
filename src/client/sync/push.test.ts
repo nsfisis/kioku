@@ -81,6 +81,7 @@ describe("pendingChangesToPushData", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A description",
+				defaultNoteTypeId: null,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-02T15:30:00Z"),
 				deletedAt: null,
@@ -101,6 +102,7 @@ describe("pendingChangesToPushData", () => {
 			id: "deck-1",
 			name: "Test Deck",
 			description: "A description",
+			defaultNoteTypeId: null,
 			createdAt: "2024-01-01T10:00:00.000Z",
 			updatedAt: "2024-01-02T15:30:00.000Z",
 			deletedAt: null,
@@ -114,6 +116,7 @@ describe("pendingChangesToPushData", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date("2024-01-01T10:00:00Z"),
 				updatedAt: new Date("2024-01-03T12:00:00Z"),
 				deletedAt: new Date("2024-01-03T12:00:00Z"),
@@ -527,6 +530,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushToServer = vi.fn().mockResolvedValue({
@@ -565,6 +569,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -611,6 +616,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -668,6 +674,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushToServer = vi.fn().mockResolvedValue({
@@ -695,6 +702,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushToServer = vi.fn().mockResolvedValue({
@@ -720,6 +728,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushToServer = vi
@@ -739,6 +748,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const card = await localCardRepository.create({
@@ -884,6 +894,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -931,6 +942,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck.id, 1);
 
@@ -994,6 +1006,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const noteType = await localNoteTypeRepository.create({
@@ -1080,6 +1093,7 @@ describe("PushService", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushService = new PushService({
@@ -1102,6 +1116,7 @@ describe("generateCrdtChanges", () => {
 					userId: "user-1",
 					name: "Test Deck",
 					description: null,
+					defaultNoteTypeId: null,
 					createdAt: new Date("2024-01-01T10:00:00Z"),
 					updatedAt: new Date("2024-01-02T15:30:00Z"),
 					deletedAt: null,
@@ -1339,6 +1354,7 @@ describe("generateCrdtChanges", () => {
 					userId: "user-1",
 					name: "Test Deck",
 					description: null,
+					defaultNoteTypeId: null,
 					createdAt: new Date("2024-01-01T10:00:00Z"),
 					updatedAt: new Date("2024-01-02T15:30:00Z"),
 					deletedAt: null,
@@ -1480,6 +1496,7 @@ describe("pendingChangesToPushData with crdtChanges", () => {
 					userId: "user-1",
 					name: "Test Deck",
 					description: null,
+					defaultNoteTypeId: null,
 					createdAt: new Date("2024-01-01T10:00:00Z"),
 					updatedAt: new Date("2024-01-02T15:30:00Z"),
 					deletedAt: null,

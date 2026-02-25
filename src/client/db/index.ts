@@ -77,6 +77,7 @@ export interface LocalDeck {
 	userId: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;
@@ -243,6 +244,17 @@ export class KiokuDatabase extends Dexie {
 
 		// Version 3: noteId and isReversed are now required (NOT NULL)
 		this.version(3).stores({
+			decks: "id, userId, updatedAt",
+			cards: "id, deckId, noteId, updatedAt, due, state",
+			reviewLogs: "id, cardId, userId, reviewedAt",
+			noteTypes: "id, userId, updatedAt",
+			noteFieldTypes: "id, noteTypeId, updatedAt",
+			notes: "id, deckId, noteTypeId, updatedAt",
+			noteFieldValues: "id, noteId, noteFieldTypeId, updatedAt",
+		});
+
+		// Version 4: Add defaultNoteTypeId to decks (no index change needed)
+		this.version(4).stores({
 			decks: "id, userId, updatedAt",
 			cards: "id, deckId, noteId, updatedAt, due, state",
 			reviewLogs: "id, cardId, userId, reviewedAt",

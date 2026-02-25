@@ -27,6 +27,7 @@ interface NoteTypeSummary {
 interface CreateNoteModalProps {
 	isOpen: boolean;
 	deckId: string;
+	defaultNoteTypeId?: string | null;
 	onClose: () => void;
 	onNoteCreated: () => void;
 }
@@ -34,6 +35,7 @@ interface CreateNoteModalProps {
 export function CreateNoteModal({
 	isOpen,
 	deckId,
+	defaultNoteTypeId,
 	onClose,
 	onNoteCreated,
 }: CreateNoteModalProps) {
@@ -88,10 +90,13 @@ export function CreateNoteModal({
 			setNoteTypes(data.noteTypes);
 			setHasLoadedNoteTypes(true);
 
-			// Auto-select first note type if available
-			const firstNoteType = data.noteTypes[0];
-			if (firstNoteType) {
-				await fetchNoteTypeDetails(firstNoteType.id);
+			// Auto-select default note type if specified, otherwise first
+			const targetNoteType =
+				(defaultNoteTypeId &&
+					data.noteTypes.find((nt) => nt.id === defaultNoteTypeId)) ||
+				data.noteTypes[0];
+			if (targetNoteType) {
+				await fetchNoteTypeDetails(targetNoteType.id);
 			}
 		} catch (err) {
 			if (err instanceof ApiClientError) {
@@ -102,7 +107,7 @@ export function CreateNoteModal({
 		} finally {
 			setIsLoadingNoteTypes(false);
 		}
-	}, [fetchNoteTypeDetails]);
+	}, [fetchNoteTypeDetails, defaultNoteTypeId]);
 
 	useEffect(() => {
 		if (isOpen && !hasLoadedNoteTypes) {

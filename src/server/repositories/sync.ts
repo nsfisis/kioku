@@ -53,6 +53,7 @@ export interface SyncDeckData {
 	id: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
@@ -223,6 +224,7 @@ export const syncRepository: SyncRepository = {
 						userId,
 						name: deckData.name,
 						description: deckData.description,
+						defaultNoteTypeId: deckData.defaultNoteTypeId,
 						createdAt: new Date(deckData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: deckData.deletedAt ? new Date(deckData.deletedAt) : null,
@@ -246,6 +248,7 @@ export const syncRepository: SyncRepository = {
 						.set({
 							name: deckData.name,
 							description: deckData.description,
+							defaultNoteTypeId: deckData.defaultNoteTypeId,
 							updatedAt: clientUpdatedAt,
 							deletedAt: deckData.deletedAt
 								? new Date(deckData.deletedAt)

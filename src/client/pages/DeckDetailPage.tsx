@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAtomValue } from "jotai";
 import { Suspense, useState } from "react";
 import { Link, useParams } from "wouter";
-import { cardsByDeckAtomFamily, deckByIdAtomFamily } from "../atoms";
+import { cardsByDeckAtomFamily, type Deck, deckByIdAtomFamily } from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -204,6 +204,9 @@ export function DeckDetailPage() {
 			<CreateNoteModal
 				isOpen={isCreateModalOpen}
 				deckId={deckId}
+				defaultNoteTypeId={
+					queryClient.getQueryData<Deck>(["decks", deckId])?.defaultNoteTypeId
+				}
 				onClose={() => setIsCreateModalOpen(false)}
 				onNoteCreated={() => {
 					queryClient.invalidateQueries({

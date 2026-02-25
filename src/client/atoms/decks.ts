@@ -6,6 +6,7 @@ export interface Deck {
 	id: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
 	dueCardCount: number;
 	newCardCount: number;
 	totalCardCount: number;

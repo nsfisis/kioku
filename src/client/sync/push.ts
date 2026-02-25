@@ -39,6 +39,7 @@ export interface SyncDeckData {
 	id: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
@@ -153,6 +154,7 @@ function deckToSyncData(deck: LocalDeck): SyncDeckData {
 		id: deck.id,
 		name: deck.name,
 		description: deck.description,
+		defaultNoteTypeId: deck.defaultNoteTypeId,
 		createdAt: deck.createdAt.toISOString(),
 		updatedAt: deck.updatedAt.toISOString(),
 		deletedAt: deck.deletedAt?.toISOString() ?? null,

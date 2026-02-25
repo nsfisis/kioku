@@ -33,6 +33,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: "A test deck",
+				defaultNoteTypeId: null,
 			});
 
 			expect(deck.id).toBeDefined();
@@ -51,6 +52,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const found = await db.decks.get(created.id);
@@ -64,6 +66,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const found = await localDeckRepository.findById(created.id);
@@ -82,16 +85,19 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Deck 1",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.create({
 				userId: "user-1",
 				name: "Deck 2",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.create({
 				userId: "user-2",
 				name: "Other User Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const decks = await localDeckRepository.findByUserId("user-1");
@@ -104,6 +110,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Deleted Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.delete(deck.id);
 
@@ -118,6 +125,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Original Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const updated = await localDeckRepository.update(deck.id, {
@@ -147,6 +155,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const result = await localDeckRepository.delete(deck.id);
@@ -169,11 +178,13 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Unsynced",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const deck2 = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Synced",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			await localDeckRepository.markSynced(deck2.id, 1);
 
@@ -189,6 +200,7 @@ describe("localDeckRepository", () => {
 				userId: "user-1",
 				name: "Test",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			await localDeckRepository.markSynced(deck.id, 5);
@@ -212,6 +224,7 @@ describe("localCardRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 		});
 		deckId = deck.id;
 	});
@@ -411,6 +424,7 @@ describe("localReviewLogRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 		});
 		deckId = deck.id;
 
@@ -935,6 +949,7 @@ describe("localNoteRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 		});
 		deckId = deck.id;
 
@@ -1094,6 +1109,7 @@ describe("localNoteFieldValueRepository", () => {
 			userId: "user-1",
 			name: "Test Deck",
 			description: null,
+			defaultNoteTypeId: null,
 		});
 
 		const noteType = await localNoteTypeRepository.create({

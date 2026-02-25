@@ -60,6 +60,7 @@ const mockDeck = {
 	id: "deck-1",
 	name: "Japanese Vocabulary",
 	description: "Common Japanese words",
+	defaultNoteTypeId: null,
 	dueCardCount: 0,
 	newCardCount: 0,
 	totalCardCount: 0,

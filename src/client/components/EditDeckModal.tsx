@@ -1,10 +1,16 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
 
 interface Deck {
 	id: string;
 	name: string;
 	description: string | null;
+	defaultNoteTypeId: string | null;
+}
+
+interface NoteTypeSummary {
+	id: string;
+	name: string;
 }
 
 interface EditDeckModalProps {
@@ -22,17 +28,44 @@ export function EditDeckModal({
 }: EditDeckModalProps) {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
+	const [defaultNoteTypeId, setDefaultNoteTypeId] = useState<string | null>(
+		null,
+	);
+	const [noteTypes, setNoteTypes] = useState<NoteTypeSummary[]>([]);
+	const [isLoadingNoteTypes, setIsLoadingNoteTypes] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	const fetchNoteTypes = useCallback(async () => {
+		setIsLoadingNoteTypes(true);
+		try {
+			const res = await apiClient.rpc.api["note-types"].$get();
+			const data = await apiClient.handleResponse<{
+				noteTypes: NoteTypeSummary[];
+			}>(res);
+			setNoteTypes(data.noteTypes);
+		} catch {
+			// Non-critical: note type list is optional
+		} finally {
+			setIsLoadingNoteTypes(false);
+		}
+	}, []);
 
 	// Sync form state when deck changes
 	useEffect(() => {
 		if (deck) {
 			setName(deck.name);
 			setDescription(deck.description ?? "");
+			setDefaultNoteTypeId(deck.defaultNoteTypeId);
 			setError(null);
 		}
 	}, [deck]);
+
+	useEffect(() => {
+		if (isOpen) {
+			fetchNoteTypes();
+		}
+	}, [isOpen, fetchNoteTypes]);
 
 	const handleClose = () => {
 		setError(null);
@@ -52,6 +85,7 @@ export function EditDeckModal({
 				json: {
 					name: name.trim(),
 					description: description.trim() || null,
+					defaultNoteTypeId: defaultNoteTypeId || null,
 				},
 			});
 			await apiClient.handleResponse(res);
@@ -145,6 +179,30 @@ export function EditDeckModal({
 								rows={3}
 								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate placeholder-muted transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
 							/>
+						</div>
+
+						<div>
+							<label
+								htmlFor="edit-deck-default-note-type"
+								className="block text-sm font-medium text-slate mb-1.5"
+							>
+								Default Note Type{" "}
+								<span className="text-muted font-normal">(optional)</span>
+							</label>
+							<select
+								id="edit-deck-default-note-type"
+								value={defaultNoteTypeId ?? ""}
+								onChange={(e) => setDefaultNoteTypeId(e.target.value || null)}
+								disabled={isSubmitting || isLoadingNoteTypes}
+								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								<option value="">None</option>
+								{noteTypes.map((nt) => (
+									<option key={nt.id} value={nt.id}>
+										{nt.name}
+									</option>
+								))}
+							</select>
 						</div>
 
 						<div className="flex gap-3 justify-end pt-2">

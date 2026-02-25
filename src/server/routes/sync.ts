@@ -18,6 +18,7 @@ const syncDeckSchema = z.object({
 	id: z.uuid(),
 	name: z.string().min(1).max(255),
 	description: z.string().nullable(),
+	defaultNoteTypeId: z.uuid().nullable(),
 	createdAt: z.string().datetime(),
 	updatedAt: z.string().datetime(),
 	deletedAt: z.string().datetime().nullable(),

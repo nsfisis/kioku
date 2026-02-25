@@ -155,6 +155,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: "Local description",
+				defaultNoteTypeId: null,
 			});
 
 			const serverDeck = {
@@ -165,6 +166,7 @@ describe("ConflictResolver", () => {
 				createdAt: new Date("2024-01-01"),
 				updatedAt: new Date("2024-01-03"),
 				deletedAt: null,
+				defaultNoteTypeId: null,
 				syncVersion: 5,
 			};
 
@@ -186,6 +188,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const localCard = await localCardRepository.create({
@@ -236,11 +239,13 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Deck 1",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 			const deck2 = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Deck 2",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -267,6 +272,7 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck 1",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -277,6 +283,7 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck 2",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -306,6 +313,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Test Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const card = await localCardRepository.create({
@@ -388,6 +396,7 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Deck",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -415,6 +424,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Only Deck",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -451,6 +461,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const pushResult: SyncPushResult = {
@@ -471,6 +482,7 @@ describe("ConflictResolver", () => {
 						userId: "user-1",
 						name: "Server Name",
 						description: null,
+						defaultNoteTypeId: null,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						deletedAt: null,
@@ -501,6 +513,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Deck Name",
 				description: "Local description",
+				defaultNoteTypeId: null,
 			});
 
 			// Store local CRDT document
@@ -518,6 +531,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Deck Name",
 				description: "Server description",
+				defaultNoteTypeId: null,
 				createdAt: localDeck.createdAt,
 				updatedAt: new Date(Date.now() + 1000),
 				deletedAt: null,
@@ -575,6 +589,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const serverDeck = {
@@ -582,6 +597,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -632,6 +648,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const serverDeck = {
@@ -639,6 +656,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
@@ -680,6 +698,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Local Name",
 				description: null,
+				defaultNoteTypeId: null,
 			});
 
 			const serverDeck = {
@@ -687,6 +706,7 @@ describe("ConflictResolver", () => {
 				userId: "user-1",
 				name: "Server Name",
 				description: null,
+				defaultNoteTypeId: null,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
