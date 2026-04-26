@@ -7,14 +7,13 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { authLoadingAtom } from "../atoms";
+import { authLoadingAtom, userAtom } from "../atoms";
 import { LoginPage } from "./LoginPage";
 
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
 		logout: vi.fn(),
-		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
 	},
@@ -49,7 +48,6 @@ describe("LoginPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.mocked(apiClient.getTokens).mockReturnValue(null);
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
 	});
 
 	afterEach(() => {
@@ -147,7 +145,6 @@ describe("LoginPage", () => {
 	});
 
 	it("redirects when already authenticated", async () => {
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
 		vi.mocked(apiClient.getTokens).mockReturnValue({
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
@@ -162,6 +159,7 @@ describe("LoginPage", () => {
 
 		const store = createStore();
 		store.set(authLoadingAtom, false);
+		store.set(userAtom, { id: "u1", username: "tester" });
 
 		render(
 			<Provider store={store}>

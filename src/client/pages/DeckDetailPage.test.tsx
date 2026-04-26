@@ -20,7 +20,6 @@ vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
 		logout: vi.fn(),
-		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
@@ -165,7 +164,6 @@ describe("DeckDetailPage", () => {
 			accessToken: "access-token",
 			refreshToken: "refresh-token",
 		});
-		vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
 		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 			Authorization: "Bearer access-token",
 		});

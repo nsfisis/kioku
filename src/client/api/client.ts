@@ -101,16 +101,22 @@ export class ApiClient {
 
 		const response = await fetch(input, { ...init, headers });
 
-		if (response.status === 401 && tokens?.refreshToken) {
-			// Try to refresh the token
-			const refreshed = await this.refreshToken();
-			if (refreshed) {
-				// Retry with new token
-				const newTokens = this.tokenStorage.getTokens();
-				if (newTokens?.accessToken) {
-					headers.set("Authorization", `Bearer ${newTokens.accessToken}`);
+		if (response.status === 401 && tokens?.accessToken) {
+			if (tokens.refreshToken) {
+				// Try to refresh the token
+				const refreshed = await this.refreshToken();
+				if (refreshed) {
+					// Retry with new token
+					const newTokens = this.tokenStorage.getTokens();
+					if (newTokens?.accessToken) {
+						headers.set("Authorization", `Bearer ${newTokens.accessToken}`);
+					}
+					return fetch(input, { ...init, headers });
 				}
-				return fetch(input, { ...init, headers });
+			} else {
+				// No refresh token available — treat as session expiry
+				this.tokenStorage.clearTokens();
+				this.sessionExpiredCallback?.();
 			}
 		}
 
@@ -203,10 +209,6 @@ export class ApiClient {
 
 	logout(): void {
 		this.tokenStorage.clearTokens();
-	}
-
-	isAuthenticated(): boolean {
-		return this.tokenStorage.getTokens() !== null;
 	}
 
 	getTokens(): Tokens | null {

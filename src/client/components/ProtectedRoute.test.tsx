@@ -6,14 +6,13 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { authLoadingAtom } from "../atoms";
+import { authLoadingAtom, userAtom } from "../atoms";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 vi.mock("../api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
 		logout: vi.fn(),
-		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
 	},
@@ -29,20 +28,17 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-import { apiClient } from "../api/client";
-
 function renderWithProvider(
 	path: string,
 	atomValues: { isAuthenticated: boolean; isLoading: boolean },
 ) {
-	// Mock the apiClient.isAuthenticated to control isAuthenticatedAtom value
-	vi.mocked(apiClient.isAuthenticated).mockReturnValue(
-		atomValues.isAuthenticated,
-	);
-
 	const { hook } = memoryLocation({ path });
 	const store = createStore();
 	store.set(authLoadingAtom, atomValues.isLoading);
+	store.set(
+		userAtom,
+		atomValues.isAuthenticated ? { id: "u1", username: "tester" } : null,
+	);
 
 	return render(
 		<Provider store={store}>

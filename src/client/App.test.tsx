@@ -8,13 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { App } from "./App";
-import { authLoadingAtom } from "./atoms";
+import { authLoadingAtom, userAtom } from "./atoms";
 
 vi.mock("./api/client", () => ({
 	apiClient: {
 		login: vi.fn(),
 		logout: vi.fn(),
-		isAuthenticated: vi.fn(),
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
@@ -52,10 +51,17 @@ function mockResponse(data: {
 	>;
 }
 
-function renderWithRouter(path: string) {
+function renderWithRouter(
+	path: string,
+	{ isAuthenticated = false }: { isAuthenticated?: boolean } = {},
+) {
 	const { hook } = memoryLocation({ path, static: true });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(
+		userAtom,
+		isAuthenticated ? { id: "u1", username: "tester" } : null,
+	);
 	return render(
 		<Provider store={store}>
 			<Router hook={hook}>
@@ -68,7 +74,6 @@ function renderWithRouter(path: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.mocked(apiClient.getTokens).mockReturnValue(null);
-	vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -83,7 +88,6 @@ describe("App routing", () => {
 				accessToken: "access-token",
 				refreshToken: "refresh-token",
 			});
-			vi.mocked(apiClient.isAuthenticated).mockReturnValue(true);
 			vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 				Authorization: "Bearer access-token",
 			});
@@ -96,7 +100,7 @@ describe("App routing", () => {
 		});
 
 		it("renders home page at /", () => {
-			renderWithRouter("/");
+			renderWithRouter("/", { isAuthenticated: true });
 			expect(screen.getByRole("heading", { name: "Kioku" })).toBeDefined();
 			expect(screen.getByRole("heading", { name: "Your Decks" })).toBeDefined();
 		});
@@ -105,7 +109,6 @@ describe("App routing", () => {
 	describe("when not authenticated", () => {
 		beforeEach(() => {
 			vi.mocked(apiClient.getTokens).mockReturnValue(null);
-			vi.mocked(apiClient.isAuthenticated).mockReturnValue(false);
 		});
 
 		it("redirects to login when accessing / without authentication", () => {

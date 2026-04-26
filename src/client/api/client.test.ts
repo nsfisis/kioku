@@ -119,27 +119,6 @@ describe("ApiClient", () => {
 		});
 	});
 
-	describe("isAuthenticated", () => {
-		it("returns true when tokens exist", () => {
-			const mockStorage = createMockTokenStorage();
-			mockStorage.getTokens.mockReturnValue({
-				accessToken: "token",
-				refreshToken: "refresh",
-			});
-			const client = new ApiClient({ tokenStorage: mockStorage });
-
-			expect(client.isAuthenticated()).toBe(true);
-		});
-
-		it("returns false when no tokens", () => {
-			const mockStorage = createMockTokenStorage();
-			mockStorage.getTokens.mockReturnValue(null);
-			const client = new ApiClient({ tokenStorage: mockStorage });
-
-			expect(client.isAuthenticated()).toBe(false);
-		});
-	});
-
 	describe("getAuthHeader", () => {
 		it("returns auth header when tokens exist", () => {
 			const mockStorage = createMockTokenStorage();
