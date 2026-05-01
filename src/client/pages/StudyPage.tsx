@@ -295,28 +295,6 @@ function StudySession({
 				)}
 			</div>
 
-			{/* Undo Button */}
-			{pendingReview && !isFlipped && !isSessionComplete && (
-				<div className="flex justify-end mb-4">
-					<button
-						type="button"
-						data-testid="undo-button"
-						onClick={handleUndo}
-						className="inline-flex items-center gap-1.5 text-muted hover:text-slate text-sm transition-colors"
-					>
-						<FontAwesomeIcon
-							icon={faRotateLeft}
-							className="w-3.5 h-3.5"
-							aria-hidden="true"
-						/>
-						Undo
-						<kbd className="ml-1 px-1.5 py-0.5 bg-ivory rounded text-xs font-mono">
-							Z
-						</kbd>
-					</button>
-				</div>
-			)}
-
 			{/* No Cards State */}
 			{hasNoCards && (
 				<div
@@ -425,32 +403,67 @@ function StudySession({
 								: "bg-ivory/50"
 						}`}
 					>
-						{/* Edit button */}
-						{/* biome-ignore lint/a11y/useSemanticElements: Cannot nest <button> inside parent <button>, using span with role="button" instead */}
-						<span
-							role="button"
-							tabIndex={0}
-							data-testid="edit-card-button"
-							onClick={(e) => {
-								e.stopPropagation();
-								setEditingNoteId(currentCard.noteId);
-							}}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
+						{/* Top-right action buttons */}
+						<div className="absolute top-3 right-3 flex items-center gap-1">
+							{/* Undo button */}
+							{pendingReview && !isFlipped && (
+								/* biome-ignore lint/a11y/useSemanticElements: Cannot nest <button> inside parent <button>, using span with role="button" instead */
+								<span
+									role="button"
+									tabIndex={0}
+									data-testid="undo-button"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleUndo();
+									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.stopPropagation();
+											e.preventDefault();
+											handleUndo();
+										}
+									}}
+									className="h-8 px-2 flex items-center gap-1.5 text-muted hover:text-slate text-sm transition-colors rounded-lg hover:bg-ivory"
+									aria-label="Undo last rating"
+								>
+									<FontAwesomeIcon
+										icon={faRotateLeft}
+										className="w-3.5 h-3.5"
+										aria-hidden="true"
+									/>
+									Undo
+									<kbd className="px-1.5 py-0.5 bg-ivory rounded text-xs font-mono">
+										Z
+									</kbd>
+								</span>
+							)}
+							{/* Edit button */}
+							{/* biome-ignore lint/a11y/useSemanticElements: Cannot nest <button> inside parent <button>, using span with role="button" instead */}
+							<span
+								role="button"
+								tabIndex={0}
+								data-testid="edit-card-button"
+								onClick={(e) => {
 									e.stopPropagation();
-									e.preventDefault();
 									setEditingNoteId(currentCard.noteId);
-								}
-							}}
-							className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-slate transition-colors rounded-lg hover:bg-ivory"
-							aria-label="Edit card"
-						>
-							<FontAwesomeIcon
-								icon={faPen}
-								className="w-3.5 h-3.5"
-								aria-hidden="true"
-							/>
-						</span>
+								}}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.stopPropagation();
+										e.preventDefault();
+										setEditingNoteId(currentCard.noteId);
+									}
+								}}
+								className="w-8 h-8 flex items-center justify-center text-muted hover:text-slate transition-colors rounded-lg hover:bg-ivory"
+								aria-label="Edit card"
+							>
+								<FontAwesomeIcon
+									icon={faPen}
+									className="w-3.5 h-3.5"
+									aria-hidden="true"
+								/>
+							</span>
+						</div>
 						{/* Card state badge */}
 						<span
 							data-testid="card-state-badge"
