@@ -239,7 +239,9 @@ describe("HomePage", () => {
 
 		await user.click(screen.getByRole("button", { name: "Logout" }));
 
-		expect(apiClient.logout).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(apiClient.logout).toHaveBeenCalled();
+		});
 	});
 
 	it("does not show description if deck has none", () => {
