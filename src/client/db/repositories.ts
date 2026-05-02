@@ -337,6 +337,14 @@ export const localReviewLogRepository = {
 	},
 
 	/**
+	 * Hard-delete a review log. Used to undo a just-submitted review
+	 * before it gets pushed to the server.
+	 */
+	async delete(id: string): Promise<void> {
+		await db.reviewLogs.delete(id);
+	},
+
+	/**
 	 * Mark a review log as synced
 	 */
 	async markSynced(id: string, syncVersion: number): Promise<void> {

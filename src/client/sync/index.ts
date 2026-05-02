@@ -43,3 +43,10 @@ export {
 	type SyncStatusType,
 	syncQueue,
 } from "./queue";
+export {
+	cacheStudyCards,
+	type ServerStudyCard,
+	type SubmitReviewResult,
+	submitReviewLocal,
+	undoReviewLocal,
+} from "./scheduler";

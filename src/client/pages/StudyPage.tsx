@@ -6,7 +6,7 @@ import {
 	faRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
 	Suspense,
 	useCallback,
@@ -16,16 +16,16 @@ import {
 	useState,
 } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { ApiClientError, apiClient } from "../api";
-import { studyDataAtomFamily } from "../atoms";
+import { isOnlineAtom, studyDataAtomFamily, syncActionAtom } from "../atoms";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import type { CardStateType } from "../db";
+import type { CardStateType, LocalCard, RatingType } from "../db";
 import { queryClient } from "../queryClient";
+import { submitReviewLocal, undoReviewLocal } from "../sync";
 import { renderCard } from "../utils/templateRenderer";
 
-type Rating = 1 | 2 | 3 | 4;
-type PendingReview = { cardId: string; rating: Rating; durationMs: number };
+type Rating = RatingType;
+type LastReview = { prevCard: LocalCard; reviewLogId: string };
 
 const RatingLabels: Record<Rating, string> = {
 	1: "Again",
@@ -61,6 +61,8 @@ function StudySession({
 	const {
 		data: { deck, cards },
 	} = useAtomValue(studyDataAtomFamily(deckId));
+	const isOnline = useAtomValue(isOnlineAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	// Session state (kept as useState - transient UI state)
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -69,16 +71,8 @@ function StudySession({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [completedCount, setCompletedCount] = useState(0);
 	const cardStartTimeRef = useRef<number>(Date.now());
-	const [pendingReview, setPendingReview] = useState<PendingReview | null>(
-		null,
-	);
-	const pendingReviewRef = useRef<PendingReview | null>(null);
+	const [lastReview, setLastReview] = useState<LastReview | null>(null);
 	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-
-	// Keep ref in sync with state for cleanup effect
-	useEffect(() => {
-		pendingReviewRef.current = pendingReview;
-	}, [pendingReview]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reset timer when card changes
 	useEffect(() => {
@@ -88,19 +82,6 @@ function StudySession({
 	const handleFlip = useCallback(() => {
 		setIsFlipped(true);
 	}, []);
-
-	const flushPendingReview = useCallback(
-		async (review: PendingReview) => {
-			const res = await apiClient.rpc.api.decks[":deckId"].study[
-				":cardId"
-			].$post({
-				param: { deckId, cardId: review.cardId },
-				json: { rating: review.rating, durationMs: review.durationMs },
-			});
-			await apiClient.handleResponse(res);
-		},
-		[deckId],
-	);
 
 	const handleRating = useCallback(
 		async (rating: Rating) => {
@@ -114,36 +95,50 @@ function StudySession({
 
 			const durationMs = Date.now() - cardStartTimeRef.current;
 
-			// Flush previous pending review first
-			if (pendingReview) {
-				try {
-					await flushPendingReview(pendingReview);
-				} catch (err) {
-					if (err instanceof ApiClientError) {
-						setSubmitError(err.message);
-					} else {
-						setSubmitError("Failed to submit review. Please try again.");
-					}
-				}
-			}
+			try {
+				const result = await submitReviewLocal({
+					cardId: currentCard.id,
+					rating,
+					durationMs,
+				});
+				setLastReview({
+					prevCard: result.prevCard,
+					reviewLogId: result.reviewLogId,
+				});
+				setCompletedCount((prev) => prev + 1);
+				setIsFlipped(false);
+				setCurrentIndex((prev) => prev + 1);
 
-			// Save current review as pending (don't send yet)
-			setPendingReview({ cardId: currentCard.id, rating, durationMs });
-			setCompletedCount((prev) => prev + 1);
-			setIsFlipped(false);
-			setCurrentIndex((prev) => prev + 1);
-			setIsSubmitting(false);
+				if (isOnline) {
+					// Fire-and-forget: sync runs in background; failures are
+					// recoverable on the next online tick.
+					triggerSync().catch(() => {});
+				}
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Failed to submit review. Please try again.";
+				setSubmitError(message);
+			} finally {
+				setIsSubmitting(false);
+			}
 		},
-		[isSubmitting, cards, currentIndex, pendingReview, flushPendingReview],
+		[isSubmitting, cards, currentIndex, isOnline, triggerSync],
 	);
 
-	const handleUndo = useCallback(() => {
-		if (!pendingReview) return;
-		setPendingReview(null);
+	const handleUndo = useCallback(async () => {
+		if (!lastReview) return;
+		try {
+			await undoReviewLocal(lastReview);
+		} catch {
+			// Best-effort undo: swallow errors so the user can keep navigating.
+		}
+		setLastReview(null);
 		setCurrentIndex((prev) => prev - 1);
 		setCompletedCount((prev) => prev - 1);
 		setIsFlipped(false);
-	}, [pendingReview]);
+	}, [lastReview]);
 
 	const [isNavigating, setIsNavigating] = useState(false);
 
@@ -151,39 +146,19 @@ function StudySession({
 		async (href: string) => {
 			if (isNavigating) return;
 			setIsNavigating(true);
-			const review = pendingReviewRef.current;
-			if (review) {
-				try {
-					await flushPendingReview(review);
-					setPendingReview(null);
-				} catch {
-					// Continue navigation even on error
-				}
-			}
 			await queryClient.invalidateQueries({ queryKey: ["decks"] });
 			onNavigate(href);
 		},
-		[isNavigating, flushPendingReview, onNavigate],
+		[isNavigating, onNavigate],
 	);
 
-	// Flush pending review on unmount (fire-and-forget)
+	// Refresh deck queries on unmount so cached due-counts pick up the
+	// just-submitted reviews once they sync.
 	useEffect(() => {
 		return () => {
-			const review = pendingReviewRef.current;
-			if (review) {
-				apiClient.rpc.api.decks[":deckId"].study[":cardId"]
-					.$post({
-						param: { deckId, cardId: review.cardId },
-						json: { rating: review.rating, durationMs: review.durationMs },
-					})
-					.then((res) => apiClient.handleResponse(res))
-					.then(() => queryClient.invalidateQueries({ queryKey: ["decks"] }))
-					.catch(() => {});
-			} else {
-				queryClient.invalidateQueries({ queryKey: ["decks"] });
-			}
+			queryClient.invalidateQueries({ queryKey: ["decks"] });
 		};
-	}, [deckId]);
+	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
@@ -350,7 +325,7 @@ function StudySession({
 							card{completedCount !== 1 ? "s" : ""}
 						</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
-							{pendingReview && (
+							{lastReview && (
 								<button
 									type="button"
 									data-testid="undo-button"
@@ -406,7 +381,7 @@ function StudySession({
 						{/* Top-right action buttons */}
 						<div className="absolute top-3 right-3 flex items-center gap-1">
 							{/* Undo button */}
-							{pendingReview && !isFlipped && (
+							{lastReview && !isFlipped && (
 								/* biome-ignore lint/a11y/useSemanticElements: Cannot nest <button> inside parent <button>, using span with role="button" instead */
 								<span
 									role="button"

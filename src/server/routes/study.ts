@@ -1,12 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import {
-	type Card as FSRSCard,
-	type State as FSRSState,
-	fsrs,
-	type Grade,
-} from "ts-fsrs";
 import { z } from "zod";
+import { computeNextSchedule } from "../../shared/fsrs.js";
 import { authMiddleware, Errors, getAuthUser } from "../middleware/index.js";
 import {
 	type CardRepository,
@@ -32,8 +27,6 @@ const cardIdParamSchema = z.object({
 	deckId: z.uuid(),
 	cardId: z.uuid(),
 });
-
-const f = fsrs({ enable_fuzz: true });
 
 export function createStudyRouter(deps: StudyDependencies) {
 	const { cardRepo, deckRepo, reviewLogRepo } = deps;
@@ -79,42 +72,19 @@ export function createStudyRouter(deps: StudyDependencies) {
 
 				const now = new Date();
 
-				// Convert our card to FSRS card format
-				const fsrsCard: FSRSCard = {
-					due: card.due,
-					stability: card.stability,
-					difficulty: card.difficulty,
-					elapsed_days: card.elapsedDays,
-					scheduled_days: card.scheduledDays,
-					reps: card.reps,
-					lapses: card.lapses,
-					state: card.state as FSRSState,
-					last_review: card.lastReview ?? undefined,
-					learning_steps: 0,
-				};
-
-				// Schedule the card with the given rating
-				const result = f.next(fsrsCard, now, rating as Grade);
-
-				// Calculate elapsed days for review log
-				const elapsedDays = card.lastReview
-					? Math.round(
-							(now.getTime() - card.lastReview.getTime()) /
-								(1000 * 60 * 60 * 24),
-						)
-					: 0;
+				const next = computeNextSchedule(card, rating, now);
 
 				// Update the card with new FSRS values
 				const updatedCard = await cardRepo.updateFSRSFields(cardId, deckId, {
-					state: result.card.state,
-					due: result.card.due,
-					stability: result.card.stability,
-					difficulty: result.card.difficulty,
-					elapsedDays: result.card.elapsed_days,
-					scheduledDays: result.card.scheduled_days,
-					reps: result.card.reps,
-					lapses: result.card.lapses,
-					lastReview: now,
+					state: next.state,
+					due: next.due,
+					stability: next.stability,
+					difficulty: next.difficulty,
+					elapsedDays: next.elapsedDays,
+					scheduledDays: next.scheduledDays,
+					reps: next.reps,
+					lapses: next.lapses,
+					lastReview: next.lastReview,
 				});
 
 				// Create review log
@@ -123,8 +93,8 @@ export function createStudyRouter(deps: StudyDependencies) {
 					userId: user.id,
 					rating,
 					state: card.state,
-					scheduledDays: result.card.scheduled_days,
-					elapsedDays,
+					scheduledDays: next.scheduledDays,
+					elapsedDays: next.reviewElapsedDays,
 					durationMs: durationMs ?? null,
 				});
 

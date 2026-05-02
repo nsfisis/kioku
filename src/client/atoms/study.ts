@@ -3,21 +3,11 @@ import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { getStartOfStudyDayBoundary } from "../../shared/date";
 import { apiClient } from "../api/client";
 import type { CardStateType } from "../db";
+import { cacheStudyCards, type ServerStudyCard } from "../sync";
 import { createSeededRandom, shuffle } from "../utils/random";
 
-export interface StudyCard {
-	id: string;
-	deckId: string;
-	noteId: string;
-	isReversed: boolean;
-	front: string;
-	back: string;
+export interface StudyCard extends ServerStudyCard {
 	state: CardStateType;
-	due: string;
-	stability: number;
-	difficulty: number;
-	reps: number;
-	lapses: number;
 	noteType: {
 		frontTemplate: string;
 		backTemplate: string;
@@ -55,6 +45,9 @@ export const studyDataAtomFamily = atomFamily((deckId: string) =>
 			const cardsData = await apiClient.handleResponse<{
 				cards: StudyCard[];
 			}>(cardsRes);
+
+			// Cache cards in IndexedDB so reviews can be submitted offline.
+			await cacheStudyCards(cardsData.cards);
 
 			const seed = getStartOfStudyDayBoundary().getTime();
 			return {

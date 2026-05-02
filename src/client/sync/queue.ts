@@ -246,6 +246,14 @@ export class SyncQueue {
 	}
 
 	/**
+	 * Notify listeners that pending changes may have been added externally
+	 * (e.g., after writing to IndexedDB outside of the sync flow).
+	 */
+	async notifyChanged(): Promise<void> {
+		await this.notifyListeners();
+	}
+
+	/**
 	 * Mark items as synced after successful push
 	 */
 	async markSynced(results: {
