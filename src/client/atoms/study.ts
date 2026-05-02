@@ -1,19 +1,12 @@
 import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import { getStartOfStudyDayBoundary } from "../../shared/date";
-import { apiClient } from "../api/client";
-import type { CardStateType } from "../db";
-import { cacheStudyCards, type ServerStudyCard } from "../sync";
+import { localDeckRepository } from "../db/repositories";
+import { buildStudyCards, type StudyCardView } from "../db/study-builder";
 import { createSeededRandom, shuffle } from "../utils/random";
+import { ensureBootstrap } from "./sync";
 
-export interface StudyCard extends ServerStudyCard {
-	state: CardStateType;
-	noteType: {
-		frontTemplate: string;
-		backTemplate: string;
-	};
-	fieldValuesMap: Record<string, string>;
-}
+export type StudyCard = StudyCardView;
 
 export interface StudyDeck {
 	id: string;
@@ -25,35 +18,36 @@ export interface StudyData {
 	cards: StudyCard[];
 }
 
+async function loadStudyData(deckId: string): Promise<StudyData | null> {
+	const deck = await localDeckRepository.findById(deckId);
+	if (!deck || deck.deletedAt !== null) return null;
+	const cards = await buildStudyCards(deckId);
+	const seed = getStartOfStudyDayBoundary().getTime();
+	return {
+		deck: { id: deck.id, name: deck.name },
+		cards: shuffle(cards, createSeededRandom(seed)),
+	};
+}
+
 // =====================
-// Study Session - Suspense-compatible
+// Study Session - Suspense-compatible, IndexedDB-first
 // =====================
 
 export const studyDataAtomFamily = atomFamily((deckId: string) =>
 	atomWithSuspenseQuery(() => ({
 		queryKey: ["decks", deckId, "study"],
 		queryFn: async (): Promise<StudyData> => {
-			// Fetch deck and due cards in parallel
-			const [deckRes, cardsRes] = await Promise.all([
-				apiClient.rpc.api.decks[":id"].$get({ param: { id: deckId } }),
-				apiClient.rpc.api.decks[":deckId"].study.$get({ param: { deckId } }),
-			]);
-
-			const deckData = await apiClient.handleResponse<{ deck: StudyDeck }>(
-				deckRes,
-			);
-			const cardsData = await apiClient.handleResponse<{
-				cards: StudyCard[];
-			}>(cardsRes);
-
-			// Cache cards in IndexedDB so reviews can be submitted offline.
-			await cacheStudyCards(cardsData.cards);
-
-			const seed = getStartOfStudyDayBoundary().getTime();
-			return {
-				deck: deckData.deck,
-				cards: shuffle(cardsData.cards, createSeededRandom(seed)),
-			};
+			let data = await loadStudyData(deckId);
+			if (data) {
+				ensureBootstrap();
+				return data;
+			}
+			await ensureBootstrap();
+			data = await loadStudyData(deckId);
+			if (!data) {
+				throw new Error(`Deck not found: ${deckId}`);
+			}
+			return data;
 		},
 	})),
 );

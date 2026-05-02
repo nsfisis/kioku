@@ -36,7 +36,6 @@ vi.mock(import("../sync"), async (importOriginal) => {
 			mockSubmitReview(args),
 		undoReviewLocal: (args: Parameters<typeof actual.undoReviewLocal>[0]) =>
 			mockUndoReview(args),
-		cacheStudyCards: vi.fn().mockResolvedValue(undefined),
 	};
 });
 
@@ -136,21 +135,7 @@ function makeStudyCard(overrides: Partial<StudyCard>): StudyCard {
 		deckId: "deck-1",
 		noteId: "note-1",
 		isReversed: false,
-		front: "Hello",
-		back: "こんにちは",
 		state: 0,
-		due: "2024-01-01T00:00:00Z",
-		stability: 0,
-		difficulty: 0,
-		elapsedDays: 0,
-		scheduledDays: 0,
-		reps: 0,
-		lapses: 0,
-		lastReview: null,
-		createdAt: "2024-01-01T00:00:00Z",
-		updatedAt: "2024-01-01T00:00:00Z",
-		deletedAt: null,
-		syncVersion: 0,
 		noteType: { frontTemplate: "{{Front}}", backTemplate: "{{Back}}" },
 		fieldValuesMap: { Front: "Hello", Back: "こんにちは" },
 		...overrides,
@@ -161,15 +146,11 @@ const mockFirstCard = makeStudyCard({});
 const mockSecondCard = makeStudyCard({
 	id: "card-2",
 	noteId: "note-2",
-	front: "Goodbye",
-	back: "さようなら",
 	fieldValuesMap: { Front: "Goodbye", Back: "さようなら" },
 });
 const mockThirdCard = makeStudyCard({
 	id: "card-3",
 	noteId: "note-3",
-	front: "Thank you",
-	back: "ありがとう",
 	fieldValuesMap: { Front: "Thank you", Back: "ありがとう" },
 });
 

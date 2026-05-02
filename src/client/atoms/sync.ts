@@ -1,6 +1,7 @@
-import { atom, useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { apiClient } from "../api/client";
+import { queryClient } from "../queryClient";
 import {
 	conflictResolver,
 	createPullService,
@@ -23,6 +24,7 @@ import type {
 	SyncPullResult,
 } from "../sync/pull";
 import type { SyncPushData, SyncPushResult } from "../sync/push";
+import { userAtom } from "./auth";
 
 // =====================
 // Sync Services Setup
@@ -182,6 +184,34 @@ const syncManager = createSyncManager({
 });
 
 // =====================
+// Bootstrap (initial sync) coordination
+// =====================
+//
+// The first sync after app load is responsible for populating IndexedDB
+// from the server. SWR-style atoms (decks, cards, noteTypes, study) check
+// whether bootstrap is in flight and await it if their local data is empty.
+// If we are offline or already bootstrapped, the promise resolves immediately.
+
+let bootstrapPromise: Promise<void> | null = null;
+
+export function ensureBootstrap(): Promise<void> {
+	if (bootstrapPromise) return bootstrapPromise;
+	if (typeof navigator !== "undefined" && !navigator.onLine) {
+		bootstrapPromise = Promise.resolve();
+		return bootstrapPromise;
+	}
+	bootstrapPromise = syncManager
+		.sync()
+		.then(() => undefined)
+		.catch(() => undefined);
+	return bootstrapPromise;
+}
+
+function resetBootstrap(): void {
+	bootstrapPromise = null;
+}
+
+// =====================
 // Sync State Atoms
 // =====================
 
@@ -207,6 +237,17 @@ export function useSyncInit() {
 	const setLastSyncAt = useSetAtom(lastSyncAtAtom);
 	const setLastError = useSetAtom(lastErrorAtom);
 	const setStatus = useSetAtom(syncStatusAtom);
+	const user = useAtomValue(userAtom);
+
+	useEffect(() => {
+		// Bootstrap pulls user-scoped data, so wait for an authenticated user.
+		// Reset on logout so the next sign-in re-pulls.
+		if (user) {
+			ensureBootstrap();
+		} else {
+			resetBootstrap();
+		}
+	}, [user]);
 
 	useEffect(() => {
 		syncManager.start();
@@ -229,6 +270,13 @@ export function useSyncInit() {
 						setIsSyncing(false);
 						setLastSyncAt(new Date());
 						setStatus(SyncStatus.Idle);
+						// Refetch SWR atoms so the UI reflects the freshly pulled
+						// IndexedDB data. Suspense queries with cached data refetch
+						// in the background without re-suspending.
+						if (event.result.success) {
+							queryClient.invalidateQueries({ queryKey: ["decks"] });
+							queryClient.invalidateQueries({ queryKey: ["noteTypes"] });
+						}
 						break;
 					case "sync_error":
 						setIsSyncing(false);

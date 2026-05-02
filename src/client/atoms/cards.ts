@@ -1,7 +1,8 @@
 import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
-import { apiClient } from "../api/client";
-import type { CardStateType } from "../db";
+import type { CardStateType, LocalCard } from "../db";
+import { localCardRepository } from "../db/repositories";
+import { ensureBootstrap } from "./sync";
 
 export interface Card {
 	id: string;
@@ -25,19 +26,51 @@ export interface Card {
 	syncVersion: number;
 }
 
+function localCardToView(card: LocalCard): Card {
+	return {
+		id: card.id,
+		deckId: card.deckId,
+		noteId: card.noteId,
+		isReversed: card.isReversed,
+		front: card.front,
+		back: card.back,
+		state: card.state,
+		due: card.due.toISOString(),
+		stability: card.stability,
+		difficulty: card.difficulty,
+		elapsedDays: card.elapsedDays,
+		scheduledDays: card.scheduledDays,
+		reps: card.reps,
+		lapses: card.lapses,
+		lastReview: card.lastReview ? card.lastReview.toISOString() : null,
+		createdAt: card.createdAt.toISOString(),
+		updatedAt: card.updatedAt.toISOString(),
+		deletedAt: card.deletedAt ? card.deletedAt.toISOString() : null,
+		syncVersion: card.syncVersion,
+	};
+}
+
+async function loadCardsByDeck(deckId: string): Promise<Card[]> {
+	const cards = await localCardRepository.findByDeckId(deckId);
+	cards.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+	return cards.map(localCardToView);
+}
+
 // =====================
-// Cards by Deck - Suspense-compatible
+// Cards by Deck - Suspense-compatible, IndexedDB-first
 // =====================
 
 export const cardsByDeckAtomFamily = atomFamily((deckId: string) =>
 	atomWithSuspenseQuery(() => ({
 		queryKey: ["decks", deckId, "cards"],
-		queryFn: async () => {
-			const res = await apiClient.rpc.api.decks[":deckId"].cards.$get({
-				param: { deckId },
-			});
-			const data = await apiClient.handleResponse<{ cards: Card[] }>(res);
-			return data.cards;
+		queryFn: async (): Promise<Card[]> => {
+			const cards = await loadCardsByDeck(deckId);
+			if (cards.length > 0) {
+				ensureBootstrap();
+				return cards;
+			}
+			await ensureBootstrap();
+			return loadCardsByDeck(deckId);
 		},
 	})),
 );

@@ -1,5 +1,7 @@
+import { useAtomValue } from "jotai";
 import { type FormEvent, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { isOnlineAtom } from "../atoms";
 
 interface CreateCardModalProps {
 	isOpen: boolean;
@@ -18,6 +20,7 @@ export function CreateCardModal({
 	const [back, setBack] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const isOnline = useAtomValue(isOnlineAtom);
 
 	const resetForm = () => {
 		setFront("");
@@ -163,7 +166,8 @@ export function CreateCardModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !isFormValid}
+								disabled={isSubmitting || !isFormValid || !isOnline}
+								title={!isOnline ? "Reconnect to create a card" : undefined}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Creating..." : "Create Card"}

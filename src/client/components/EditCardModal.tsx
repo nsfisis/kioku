@@ -1,5 +1,7 @@
+import { useAtomValue } from "jotai";
 import { type FormEvent, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { isOnlineAtom } from "../atoms";
 
 interface Card {
 	id: string;
@@ -26,6 +28,7 @@ export function EditCardModal({
 	const [back, setBack] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const isOnline = useAtomValue(isOnlineAtom);
 
 	// Sync form state when card changes
 	useEffect(() => {
@@ -164,7 +167,8 @@ export function EditCardModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !isFormValid}
+								disabled={isSubmitting || !isFormValid || !isOnline}
+								title={!isOnline ? "Reconnect to save changes" : undefined}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Saving..." : "Save Changes"}

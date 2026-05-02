@@ -44,8 +44,6 @@ export {
 	syncQueue,
 } from "./queue";
 export {
-	cacheStudyCards,
-	type ServerStudyCard,
 	type SubmitReviewResult,
 	submitReviewLocal,
 	undoReviewLocal,

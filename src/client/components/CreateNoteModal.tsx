@@ -1,7 +1,9 @@
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useAtomValue } from "jotai";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { isOnlineAtom } from "../atoms";
 
 interface NoteField {
 	id: string;
@@ -49,6 +51,7 @@ export function CreateNoteModal({
 	const [isLoadingNoteType, setIsLoadingNoteType] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [hasLoadedNoteTypes, setHasLoadedNoteTypes] = useState(false);
+	const isOnline = useAtomValue(isOnlineAtom);
 
 	const fetchNoteTypeDetails = useCallback(async (noteTypeId: string) => {
 		setIsLoadingNoteType(true);
@@ -346,7 +349,10 @@ export function CreateNoteModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !isFormValid || isLoading}
+								disabled={
+									isSubmitting || !isFormValid || isLoading || !isOnline
+								}
+								title={!isOnline ? "Reconnect to create a note" : undefined}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Creating..." : "Create Note"}

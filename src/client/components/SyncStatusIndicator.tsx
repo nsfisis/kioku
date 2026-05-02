@@ -101,11 +101,15 @@ export function SyncStatusIndicator() {
 		);
 	};
 
+	const titleText = !isOnline
+		? "Showing cached data — changes will sync when you're back online"
+		: lastError || undefined;
+
 	return (
 		<div
 			data-testid="sync-status-indicator"
 			className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${getStatusStyles()}`}
-			title={lastError || undefined}
+			title={titleText}
 		>
 			{getStatusIcon()}
 			<span>{getStatusText()}</span>

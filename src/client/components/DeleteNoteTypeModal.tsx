@@ -1,5 +1,7 @@
+import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { isOnlineAtom } from "../atoms";
 
 interface NoteType {
 	id: string;
@@ -21,6 +23,7 @@ export function DeleteNoteTypeModal({
 }: DeleteNoteTypeModalProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const isOnline = useAtomValue(isOnlineAtom);
 
 	const handleClose = () => {
 		setError(null);
@@ -129,7 +132,8 @@ export function DeleteNoteTypeModal({
 						<button
 							type="button"
 							onClick={handleDelete}
-							disabled={isDeleting}
+							disabled={isDeleting || !isOnline}
+							title={!isOnline ? "Reconnect to delete" : undefined}
 							className="px-4 py-2 bg-error hover:bg-error/90 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
 						>
 							{isDeleting ? "Deleting..." : "Delete"}

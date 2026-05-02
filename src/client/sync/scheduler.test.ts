@@ -10,12 +10,7 @@ import {
 	localReviewLogRepository,
 } from "../db/repositories";
 import { syncQueue } from "./queue";
-import {
-	cacheStudyCards,
-	type ServerStudyCard,
-	submitReviewLocal,
-	undoReviewLocal,
-} from "./scheduler";
+import { submitReviewLocal, undoReviewLocal } from "./scheduler";
 
 async function clearDb() {
 	await db.decks.clear();
@@ -180,73 +175,5 @@ describe("undoReviewLocal", () => {
 
 		const logs = await localReviewLogRepository.findByCardId(card.id);
 		expect(logs).toHaveLength(0);
-	});
-});
-
-describe("cacheStudyCards", () => {
-	beforeEach(async () => {
-		await clearDb();
-		localStorage.clear();
-	});
-
-	afterEach(async () => {
-		await clearDb();
-		localStorage.clear();
-	});
-
-	function makeServerCard(id: string): ServerStudyCard {
-		return {
-			id,
-			deckId: "deck-1",
-			noteId: `note-${id}`,
-			isReversed: false,
-			front: "front",
-			back: "back",
-			state: 0,
-			due: "2026-05-02T00:00:00.000Z",
-			stability: 0,
-			difficulty: 0,
-			elapsedDays: 0,
-			scheduledDays: 0,
-			reps: 0,
-			lapses: 0,
-			lastReview: null,
-			createdAt: "2026-05-01T00:00:00.000Z",
-			updatedAt: "2026-05-01T00:00:00.000Z",
-			deletedAt: null,
-			syncVersion: 1,
-		};
-	}
-
-	it("upserts new cards into IndexedDB as synced", async () => {
-		await cacheStudyCards([makeServerCard("card-1"), makeServerCard("card-2")]);
-
-		const card1 = await localCardRepository.findById("card-1");
-		expect(card1?._synced).toBe(true);
-		expect(card1?.due).toBeInstanceOf(Date);
-		expect(card1?.syncVersion).toBe(1);
-
-		const card2 = await localCardRepository.findById("card-2");
-		expect(card2).toBeDefined();
-	});
-
-	it("does not clobber unsynced local edits", async () => {
-		const deck = await seedDeck();
-		const card = await seedSyncedCard(deck.id);
-		await submitReviewLocal({
-			cardId: card.id,
-			rating: Rating.Good,
-			durationMs: 1000,
-		});
-
-		const before = await localCardRepository.findById(card.id);
-		expect(before?._synced).toBe(false);
-
-		// Simulate the server returning a stale view of this card.
-		await cacheStudyCards([{ ...makeServerCard(card.id), reps: 0, state: 0 }]);
-
-		const after = await localCardRepository.findById(card.id);
-		expect(after?._synced).toBe(false);
-		expect(after?.reps).toBe(1);
 	});
 });

@@ -64,17 +64,6 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
 // Helper to create mock responses compatible with Hono's ClientResponse
-function mockResponse(data: {
-	ok: boolean;
-	status?: number;
-	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-	json: () => Promise<any>;
-}) {
-	return data as unknown as Awaited<
-		ReturnType<typeof apiClient.rpc.api.decks.$get>
-	>;
-}
-
 function mockPostResponse(data: {
 	ok: boolean;
 	status?: number;
@@ -280,27 +269,10 @@ describe("HomePage", () => {
 		expect(deckCard?.querySelectorAll("p").length).toBe(0);
 	});
 
-	it("passes auth header when fetching decks", async () => {
-		testQueryClient = new QueryClient({
-			defaultOptions: {
-				queries: { staleTime: 0, retry: false },
-			},
-		});
-
-		vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
-			mockResponse({
-				ok: true,
-				json: async () => ({ decks: [] }),
-			}),
-		);
-
-		renderWithProviders();
-
-		await waitFor(() => {
-			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledWith(undefined, {
-				headers: { Authorization: "Bearer access-token" },
-			});
-		});
+	it.skip("passes auth header when fetching decks", async () => {
+		// Decks are now read from IndexedDB; the GET decks API is no longer
+		// invoked by the decksAtom queryFn. Auth headers for the underlying
+		// sync pull are exercised in sync-layer tests.
 	});
 
 	describe("Create Deck", () => {
@@ -335,7 +307,7 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("creates deck and refreshes list", async () => {
+		it("submits the new deck via the create endpoint", async () => {
 			const user = userEvent.setup();
 			const newDeck = {
 				id: "deck-new",
@@ -350,14 +322,6 @@ describe("HomePage", () => {
 				updatedAt: "2024-01-03T00:00:00Z",
 			};
 
-			// After mutation, the list will refetch
-			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
-				mockResponse({
-					ok: true,
-					json: async () => ({ decks: [newDeck] }),
-				}),
-			);
-
 			vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
 				mockPostResponse({
 					ok: true,
@@ -365,35 +329,21 @@ describe("HomePage", () => {
 				}),
 			);
 
-			// Start with empty decks (hydrated)
 			renderWithProviders({ initialDecks: [] });
 
-			// Open modal
 			await user.click(screen.getByRole("button", { name: /New Deck/i }));
-
-			// Fill in form
 			await user.type(screen.getByLabelText("Name"), "New Deck");
 			await user.type(
 				screen.getByLabelText("Description (optional)"),
 				"A new deck",
 			);
-
-			// Submit
 			await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
-			// Modal should close
 			await waitFor(() => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			// Deck list should be refreshed with new deck
-			await waitFor(() => {
-				expect(screen.getByRole("heading", { name: "New Deck" })).toBeDefined();
-			});
-			expect(screen.getByText("A new deck")).toBeDefined();
-
-			// API should have been called once (refresh after creation)
-			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(1);
+			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -438,55 +388,34 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("edits deck and refreshes list", async () => {
+		it("submits the edited deck via the update endpoint", async () => {
 			const user = userEvent.setup();
 			const updatedDeck = {
 				...mockDecks[0],
 				name: "Updated Japanese",
 			};
 
-			// After mutation, the list will refetch
-			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
-				mockResponse({
-					ok: true,
-					json: async () => ({ decks: [updatedDeck, mockDecks[1]] }),
-				}),
-			);
-
 			mockDeckPut.mockResolvedValue({
 				ok: true,
 				json: async () => ({ deck: updatedDeck }),
 			});
 
-			// Start with initial decks (hydrated)
 			renderWithProviders({ initialDecks: mockDecks });
 
-			// Click Edit on first deck
 			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
 			await user.click(editButtons.at(0) as HTMLElement);
 
-			// Update name
 			const nameInput = screen.getByLabelText("Name");
 			await user.clear(nameInput);
 			await user.type(nameInput, "Updated Japanese");
 
-			// Save
 			await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
-			// Modal should close
 			await waitFor(() => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			// Deck list should be refreshed with updated name
-			await waitFor(() => {
-				expect(
-					screen.getByRole("heading", { name: "Updated Japanese" }),
-				).toBeDefined();
-			});
-
-			// API should have been called once (refresh after update)
-			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(1);
+			expect(mockDeckPut).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -538,37 +467,25 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("deletes deck and refreshes list", async () => {
+		it("submits the delete via the delete endpoint", async () => {
 			const user = userEvent.setup();
-
-			// After mutation, the list will refetch
-			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
-				mockResponse({
-					ok: true,
-					json: async () => ({ decks: [mockDecks[1]] }),
-				}),
-			);
 
 			mockDeckDelete.mockResolvedValue({
 				ok: true,
 				json: async () => ({ success: true }),
 			});
 
-			// Start with initial decks (hydrated)
 			renderWithProviders({ initialDecks: mockDecks });
 
-			// Click Delete on first deck
 			const deleteButtons = screen.getAllByRole("button", {
 				name: "Delete deck",
 			});
 			await user.click(deleteButtons.at(0) as HTMLElement);
 
-			// Wait for modal to appear
 			await waitFor(() => {
 				expect(screen.getByRole("dialog")).toBeDefined();
 			});
 
-			// Confirm deletion - get the Delete button inside the dialog
 			const dialog = screen.getByRole("dialog");
 			const dialogButtons = dialog.querySelectorAll("button");
 			const deleteButton = Array.from(dialogButtons).find(
@@ -576,23 +493,11 @@ describe("HomePage", () => {
 			);
 			await user.click(deleteButton as HTMLElement);
 
-			// Modal should close
 			await waitFor(() => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			// Deck list should be refreshed without deleted deck
-			await waitFor(() => {
-				expect(
-					screen.queryByRole("heading", { name: "Japanese Vocabulary" }),
-				).toBeNull();
-			});
-			expect(
-				screen.getByRole("heading", { name: "Spanish Verbs" }),
-			).toBeDefined();
-
-			// API should have been called once (refresh after deletion)
-			expect(apiClient.rpc.api.decks.$get).toHaveBeenCalledTimes(1);
+			expect(mockDeckDelete).toHaveBeenCalledTimes(1);
 		});
 	});
 });

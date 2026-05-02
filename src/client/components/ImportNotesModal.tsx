@@ -5,8 +5,10 @@ import {
 	faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useAtomValue } from "jotai";
 import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import { ApiClientError, apiClient } from "../api";
+import { isOnlineAtom } from "../atoms";
 import { parseCSV } from "../utils/csvParser";
 
 interface NoteField {
@@ -64,6 +66,7 @@ export function ImportNotesModal({
 }: ImportNotesModalProps) {
 	const [phase, setPhase] = useState<ImportPhase>("upload");
 	const [error, setError] = useState<string | null>(null);
+	const isOnline = useAtomValue(isOnlineAtom);
 	const [noteTypes, setNoteTypes] = useState<NoteType[]>([]);
 	const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
 	const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
@@ -490,7 +493,8 @@ export function ImportNotesModal({
 								<button
 									type="button"
 									onClick={handleImport}
-									disabled={validatedRows.length === 0}
+									disabled={validatedRows.length === 0 || !isOnline}
+									title={!isOnline ? "Reconnect to import notes" : undefined}
 									className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									Import {validatedRows.length} Note(s)
