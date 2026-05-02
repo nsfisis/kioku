@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { generateCardsForNote } from "../../shared/card-generator.js";
 import { db } from "../db/index.js";
 import {
-	CardState,
 	cards,
 	noteFieldTypes,
 	noteFieldValues,
@@ -122,27 +122,15 @@ export const noteRepository: NoteRepository = {
 		}
 
 		const createdCards: Card[] = [];
-
-		const normalCard = await createCardForNote(
-			deckId,
-			note.id,
-			noteType[0],
-			fieldValuesResult,
+		const generatedCards = generateCardsForNote({
+			noteType: noteType[0],
 			fieldTypes,
-			false,
-		);
-		createdCards.push(normalCard);
+			fieldValues: fieldValuesResult,
+		});
 
-		if (noteType[0].isReversible) {
-			const reversedCard = await createCardForNote(
-				deckId,
-				note.id,
-				noteType[0],
-				fieldValuesResult,
-				fieldTypes,
-				true,
-			);
-			createdCards.push(reversedCard);
+		for (const generated of generatedCards) {
+			const card = await insertGeneratedCard(deckId, note.id, generated);
+			createdCards.push(card);
 		}
 
 		return {
@@ -357,26 +345,13 @@ export const noteRepository: NoteRepository = {
 					}
 				}
 
-				// Create normal card
-				await createCardForNote(
-					deckId,
-					note.id,
-					cached.noteType,
-					fieldValuesResult,
-					cached.fieldTypes,
-					false,
-				);
-
-				// Create reversed card if reversible
-				if (cached.noteType.isReversible) {
-					await createCardForNote(
-						deckId,
-						note.id,
-						cached.noteType,
-						fieldValuesResult,
-						cached.fieldTypes,
-						true,
-					);
+				const generatedCards = generateCardsForNote({
+					noteType: cached.noteType,
+					fieldTypes: cached.fieldTypes,
+					fieldValues: fieldValuesResult,
+				});
+				for (const generated of generatedCards) {
+					await insertGeneratedCard(deckId, note.id, generated);
 				}
 
 				created++;
@@ -392,48 +367,27 @@ export const noteRepository: NoteRepository = {
 	},
 };
 
-async function createCardForNote(
+async function insertGeneratedCard(
 	deckId: string,
 	noteId: string,
-	noteType: { frontTemplate: string; backTemplate: string },
-	fieldValues: NoteFieldValue[],
-	fieldTypes: { id: string; name: string }[],
-	isReversed: boolean,
+	generated: ReturnType<typeof generateCardsForNote>[number],
 ): Promise<Card> {
-	const fieldMap = new Map<string, string>();
-	for (const fv of fieldValues) {
-		const fieldType = fieldTypes.find((ft) => ft.id === fv.noteFieldTypeId);
-		if (fieldType) {
-			fieldMap.set(fieldType.name, fv.value);
-		}
-	}
-
-	const frontTemplate = isReversed
-		? noteType.backTemplate
-		: noteType.frontTemplate;
-	const backTemplate = isReversed
-		? noteType.frontTemplate
-		: noteType.backTemplate;
-
-	const front = renderTemplate(frontTemplate, fieldMap);
-	const back = renderTemplate(backTemplate, fieldMap);
-
 	const [card] = await db
 		.insert(cards)
 		.values({
 			deckId,
 			noteId,
-			isReversed,
-			front,
-			back,
-			state: CardState.New,
-			due: new Date(),
-			stability: 0,
-			difficulty: 0,
-			elapsedDays: 0,
-			scheduledDays: 0,
-			reps: 0,
-			lapses: 0,
+			isReversed: generated.isReversed,
+			front: generated.front,
+			back: generated.back,
+			state: generated.state,
+			due: generated.due,
+			stability: generated.stability,
+			difficulty: generated.difficulty,
+			elapsedDays: generated.elapsedDays,
+			scheduledDays: generated.scheduledDays,
+			reps: generated.reps,
+			lapses: generated.lapses,
 		})
 		.returning();
 
@@ -442,12 +396,4 @@ async function createCardForNote(
 	}
 
 	return card;
-}
-
-function renderTemplate(template: string, fields: Map<string, string>): string {
-	let result = template;
-	for (const [name, value] of fields) {
-		result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, "g"), value);
-	}
-	return result;
 }
