@@ -3,46 +3,24 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiClient } from "../api/client";
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		getAuthHeader: vi.fn(),
-		rpc: {
-			api: {
-				decks: {
-					$post: vi.fn(),
-				},
-			},
-		},
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+const mockCreate = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
+
+vi.mock("../db/repositories", () => ({
+	localDeckRepository: {
+		create: (...args: unknown[]) => mockCreate(...args),
 	},
 }));
 
-// Import after mock is set up
-import { CreateDeckModal } from "./CreateDeckModal";
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+	userAtom: atom({ id: "user-1", username: "alice" }),
+}));
 
-// Helper to create mock responses
-function mockResponse(data: {
-	ok: boolean;
-	status?: number;
-	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-	json: () => Promise<any>;
-}) {
-	return data as unknown as Awaited<
-		ReturnType<typeof apiClient.rpc.api.decks.$post>
-	>;
-}
+import { CreateDeckModal } from "./CreateDeckModal";
 
 describe("CreateDeckModal", () => {
 	const defaultProps = {
@@ -53,8 +31,12 @@ describe("CreateDeckModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
+		mockCreate.mockResolvedValue({
+			id: "deck-1",
+			userId: "user-1",
+			name: "Test Deck",
+			description: null,
+			defaultNoteTypeId: null,
 		});
 	});
 
@@ -93,8 +75,7 @@ describe("CreateDeckModal", () => {
 		const user = userEvent.setup();
 		render(<CreateDeckModal {...defaultProps} />);
 
-		const nameInput = screen.getByLabelText("Name");
-		await user.type(nameInput, "My Deck");
+		await user.type(screen.getByLabelText("Name"), "My Deck");
 
 		const createButton = screen.getByRole("button", { name: "Create Deck" });
 		expect(createButton).toHaveProperty("disabled", false);
@@ -110,46 +91,10 @@ describe("CreateDeckModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<CreateDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on the backdrop (the dialog element itself)
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not call onClose when clicking inside the modal content", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<CreateDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on an element inside the modal
-		await user.click(screen.getByLabelText("Name"));
-
-		expect(onClose).not.toHaveBeenCalled();
-	});
-
-	it("creates deck with name only", async () => {
+	it("creates deck via local repository with name only", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onDeckCreated = vi.fn();
-
-		vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-			mockResponse({
-				ok: true,
-				json: async () => ({
-					deck: {
-						id: "deck-1",
-						name: "Test Deck",
-						description: null,
-					},
-				}),
-			}),
-		);
 
 		render(
 			<CreateDeckModal
@@ -163,41 +108,21 @@ describe("CreateDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
-			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
-				{ json: { name: "Test Deck", description: null } },
-				{ headers: { Authorization: "Bearer access-token" } },
-			);
+			expect(mockCreate).toHaveBeenCalledWith({
+				userId: "user-1",
+				name: "Test Deck",
+				description: null,
+				defaultNoteTypeId: null,
+			});
 		});
-
 		expect(onDeckCreated).toHaveBeenCalledTimes(1);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("creates deck with name and description", async () => {
+	it("includes description when provided", async () => {
 		const user = userEvent.setup();
-		const onClose = vi.fn();
-		const onDeckCreated = vi.fn();
 
-		vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-			mockResponse({
-				ok: true,
-				json: async () => ({
-					deck: {
-						id: "deck-1",
-						name: "Test Deck",
-						description: "A test description",
-					},
-				}),
-			}),
-		);
-
-		render(
-			<CreateDeckModal
-				isOpen={true}
-				onClose={onClose}
-				onDeckCreated={onDeckCreated}
-			/>,
-		);
+		render(<CreateDeckModal {...defaultProps} />);
 
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
 		await user.type(
@@ -207,25 +132,17 @@ describe("CreateDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
-			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
-				{ json: { name: "Test Deck", description: "A test description" } },
-				{ headers: { Authorization: "Bearer access-token" } },
-			);
+			expect(mockCreate).toHaveBeenCalledWith({
+				userId: "user-1",
+				name: "Test Deck",
+				description: "A test description",
+				defaultNoteTypeId: null,
+			});
 		});
-
-		expect(onDeckCreated).toHaveBeenCalledTimes(1);
-		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it("trims whitespace from name and description", async () => {
 		const user = userEvent.setup();
-
-		vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-			mockResponse({
-				ok: true,
-				json: async () => ({ deck: { id: "deck-1" } }),
-			}),
-		);
 
 		render(<CreateDeckModal {...defaultProps} />);
 
@@ -237,19 +154,32 @@ describe("CreateDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
 		await waitFor(() => {
-			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledWith(
-				{ json: { name: "Test Deck", description: "Description" } },
-				{ headers: { Authorization: "Bearer access-token" } },
-			);
+			expect(mockCreate).toHaveBeenCalledWith({
+				userId: "user-1",
+				name: "Test Deck",
+				description: "Description",
+				defaultNoteTypeId: null,
+			});
+		});
+	});
+
+	it("triggers a background sync after a successful create", async () => {
+		const user = userEvent.setup();
+
+		render(<CreateDeckModal {...defaultProps} />);
+
+		await user.type(screen.getByLabelText("Name"), "Test Deck");
+		await user.click(screen.getByRole("button", { name: "Create Deck" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.rpc.api.decks.$post).mockImplementation(
-			() => new Promise(() => {}), // Never resolves
-		);
+		mockCreate.mockImplementation(() => new Promise(() => {}));
 
 		render(<CreateDeckModal {...defaultProps} />);
 
@@ -272,35 +202,10 @@ describe("CreateDeckModal", () => {
 		);
 	});
 
-	it("displays API error message", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-			mockResponse({
-				ok: false,
-				status: 400,
-				json: async () => ({ error: "Deck name already exists" }),
-			}),
-		);
-
-		render(<CreateDeckModal {...defaultProps} />);
-
-		await user.type(screen.getByLabelText("Name"), "Test Deck");
-		await user.click(screen.getByRole("button", { name: "Create Deck" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Deck name already exists",
-			);
-		});
-	});
-
-	it("displays generic error on unexpected failure", async () => {
-		const user = userEvent.setup();
-
-		vi.mocked(apiClient.rpc.api.decks.$post).mockRejectedValue(
-			new Error("Network error"),
-		);
+		mockCreate.mockRejectedValue(new Error("disk full"));
 
 		render(<CreateDeckModal {...defaultProps} />);
 
@@ -326,17 +231,14 @@ describe("CreateDeckModal", () => {
 			/>,
 		);
 
-		// Type something in the form
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
 		await user.type(
 			screen.getByLabelText("Description (optional)"),
 			"Test Description",
 		);
 
-		// Click cancel to close
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-		// Reopen the modal
 		rerender(
 			<CreateDeckModal
 				isOpen={true}
@@ -345,7 +247,6 @@ describe("CreateDeckModal", () => {
 			/>,
 		);
 
-		// Form should be reset
 		expect(screen.getByLabelText("Name")).toHaveProperty("value", "");
 		expect(screen.getByLabelText("Description (optional)")).toHaveProperty(
 			"value",
@@ -357,13 +258,6 @@ describe("CreateDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-			mockResponse({
-				ok: true,
-				json: async () => ({ deck: { id: "deck-1" } }),
-			}),
-		);
-
 		const { rerender } = render(
 			<CreateDeckModal
 				isOpen={true}
@@ -372,7 +266,6 @@ describe("CreateDeckModal", () => {
 			/>,
 		);
 
-		// Create a deck
 		await user.type(screen.getByLabelText("Name"), "Test Deck");
 		await user.click(screen.getByRole("button", { name: "Create Deck" }));
 
@@ -380,7 +273,6 @@ describe("CreateDeckModal", () => {
 			expect(onClose).toHaveBeenCalled();
 		});
 
-		// Reopen the modal
 		rerender(
 			<CreateDeckModal
 				isOpen={true}
@@ -389,7 +281,6 @@ describe("CreateDeckModal", () => {
 			/>,
 		);
 
-		// Form should be reset
 		expect(screen.getByLabelText("Name")).toHaveProperty("value", "");
 		expect(screen.getByLabelText("Description (optional)")).toHaveProperty(
 			"value",

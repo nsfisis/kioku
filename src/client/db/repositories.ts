@@ -63,7 +63,9 @@ export const localDeckRepository = {
 	 */
 	async update(
 		id: string,
-		data: Partial<Pick<LocalDeck, "name" | "description">>,
+		data: Partial<
+			Pick<LocalDeck, "name" | "description" | "defaultNoteTypeId">
+		>,
 	): Promise<LocalDeck | undefined> {
 		const deck = await db.decks.get(id);
 		if (!deck) return undefined;

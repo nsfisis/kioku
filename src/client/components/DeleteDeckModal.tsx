@@ -1,7 +1,7 @@
-import { useAtomValue } from "jotai";
+import { useSetAtom } from "jotai";
 import { useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom } from "../atoms";
+import { localDeckRepository } from "../db/repositories";
 
 interface Deck {
 	id: string;
@@ -23,7 +23,7 @@ export function DeleteDeckModal({
 }: DeleteDeckModalProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const handleClose = () => {
 		setError(null);
@@ -37,19 +37,17 @@ export function DeleteDeckModal({
 		setIsDeleting(true);
 
 		try {
-			const res = await apiClient.rpc.api.decks[":id"].$delete({
-				param: { id: deck.id },
-			});
-			await apiClient.handleResponse(res);
+			const deleted = await localDeckRepository.delete(deck.id);
+			if (!deleted) {
+				setError("Deck not found.");
+				return;
+			}
 
 			onDeckDeleted();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to delete deck. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to delete deck. Please try again.");
 		} finally {
 			setIsDeleting(false);
 		}
@@ -132,8 +130,7 @@ export function DeleteDeckModal({
 						<button
 							type="button"
 							onClick={handleDelete}
-							disabled={isDeleting || !isOnline}
-							title={!isOnline ? "Reconnect to delete" : undefined}
+							disabled={isDeleting}
 							className="px-4 py-2 bg-error hover:bg-error/90 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
 						>
 							{isDeleting ? "Deleting..." : "Delete"}

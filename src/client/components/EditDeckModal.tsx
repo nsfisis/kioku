@@ -1,18 +1,13 @@
-import { useAtomValue } from "jotai";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { useAtomValue, useSetAtom } from "jotai";
+import { type FormEvent, useEffect, useState } from "react";
+import { noteTypesAtom, syncActionAtom } from "../atoms";
+import { localDeckRepository } from "../db/repositories";
 
 interface Deck {
 	id: string;
 	name: string;
 	description: string | null;
 	defaultNoteTypeId: string | null;
-}
-
-interface NoteTypeSummary {
-	id: string;
-	name: string;
 }
 
 interface EditDeckModalProps {
@@ -22,53 +17,42 @@ interface EditDeckModalProps {
 	onDeckUpdated: () => void;
 }
 
-export function EditDeckModal({
-	isOpen,
+export function EditDeckModal(props: EditDeckModalProps) {
+	if (!props.isOpen || !props.deck) {
+		return null;
+	}
+	// Render the body only when actually open so the suspense-driven note types
+	// query does not fire on every host render (e.g. HomePage keeps the modal
+	// mounted at all times).
+	return <EditDeckModalContent {...props} deck={props.deck} />;
+}
+
+interface EditDeckModalContentProps extends EditDeckModalProps {
+	deck: Deck;
+}
+
+function EditDeckModalContent({
 	deck,
 	onClose,
 	onDeckUpdated,
-}: EditDeckModalProps) {
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
+}: EditDeckModalContentProps) {
+	const [name, setName] = useState(deck.name);
+	const [description, setDescription] = useState(deck.description ?? "");
 	const [defaultNoteTypeId, setDefaultNoteTypeId] = useState<string | null>(
-		null,
+		deck.defaultNoteTypeId,
 	);
-	const [noteTypes, setNoteTypes] = useState<NoteTypeSummary[]>([]);
-	const [isLoadingNoteTypes, setIsLoadingNoteTypes] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const noteTypesQuery = useAtomValue(noteTypesAtom);
+	const noteTypes = noteTypesQuery.data ?? [];
+	const triggerSync = useSetAtom(syncActionAtom);
 
-	const fetchNoteTypes = useCallback(async () => {
-		setIsLoadingNoteTypes(true);
-		try {
-			const res = await apiClient.rpc.api["note-types"].$get();
-			const data = await apiClient.handleResponse<{
-				noteTypes: NoteTypeSummary[];
-			}>(res);
-			setNoteTypes(data.noteTypes);
-		} catch {
-			// Non-critical: note type list is optional
-		} finally {
-			setIsLoadingNoteTypes(false);
-		}
-	}, []);
-
-	// Sync form state when deck changes
 	useEffect(() => {
-		if (deck) {
-			setName(deck.name);
-			setDescription(deck.description ?? "");
-			setDefaultNoteTypeId(deck.defaultNoteTypeId);
-			setError(null);
-		}
+		setName(deck.name);
+		setDescription(deck.description ?? "");
+		setDefaultNoteTypeId(deck.defaultNoteTypeId);
+		setError(null);
 	}, [deck]);
-
-	useEffect(() => {
-		if (isOpen) {
-			fetchNoteTypes();
-		}
-	}, [isOpen, fetchNoteTypes]);
 
 	const handleClose = () => {
 		setError(null);
@@ -77,38 +61,30 @@ export function EditDeckModal({
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
-		if (!deck) return;
 
 		setError(null);
 		setIsSubmitting(true);
 
 		try {
-			const res = await apiClient.rpc.api.decks[":id"].$put({
-				param: { id: deck.id },
-				json: {
-					name: name.trim(),
-					description: description.trim() || null,
-					defaultNoteTypeId: defaultNoteTypeId || null,
-				},
+			const updated = await localDeckRepository.update(deck.id, {
+				name: name.trim(),
+				description: description.trim() || null,
+				defaultNoteTypeId: defaultNoteTypeId || null,
 			});
-			await apiClient.handleResponse(res);
+			if (!updated) {
+				setError("Deck not found.");
+				return;
+			}
 
 			onDeckUpdated();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to update deck. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to update deck. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
-
-	if (!isOpen || !deck) {
-		return null;
-	}
 
 	return (
 		<div
@@ -196,7 +172,7 @@ export function EditDeckModal({
 								id="edit-deck-default-note-type"
 								value={defaultNoteTypeId ?? ""}
 								onChange={(e) => setDefaultNoteTypeId(e.target.value || null)}
-								disabled={isSubmitting || isLoadingNoteTypes}
+								disabled={isSubmitting}
 								className="w-full px-4 py-2.5 bg-ivory border border-border rounded-lg text-slate transition-all duration-200 hover:border-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								<option value="">None</option>
@@ -219,8 +195,7 @@ export function EditDeckModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !name.trim() || !isOnline}
-								title={!isOnline ? "Reconnect to save changes" : undefined}
+								disabled={isSubmitting || !name.trim()}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Saving..." : "Save Changes"}

@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { apiClient } from "../api/client";
-import { authLoadingAtom, type Deck } from "../atoms";
+import { authLoadingAtom, type Deck, userAtom } from "../atoms";
+import { db } from "../db";
 import { HomePage } from "./HomePage";
 
 const mockDeckPut = vi.fn();
@@ -63,18 +64,6 @@ vi.mock("../queryClient", () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Helper to create mock responses compatible with Hono's ClientResponse
-function mockPostResponse(data: {
-	ok: boolean;
-	status?: number;
-	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-	json: () => Promise<any>;
-}) {
-	return data as unknown as Awaited<
-		ReturnType<typeof apiClient.rpc.api.decks.$post>
-	>;
-}
-
 const mockDecks = [
 	{
 		id: "deck-1",
@@ -102,6 +91,23 @@ const mockDecks = [
 	},
 ];
 
+async function seedDecksInLocalDb(decks: Deck[], userId: string) {
+	for (const deck of decks) {
+		await db.decks.put({
+			id: deck.id,
+			userId,
+			name: deck.name,
+			description: deck.description,
+			defaultNoteTypeId: deck.defaultNoteTypeId,
+			createdAt: new Date(deck.createdAt),
+			updatedAt: new Date(deck.updatedAt),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		});
+	}
+}
+
 function renderWithProviders({
 	path = "/",
 	initialDecks,
@@ -112,9 +118,15 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(userAtom, {
+		id: "user-1",
+		username: "alice",
+	});
 	store.set(queryClientAtom, testQueryClient);
 
-	// If initialDecks provided, seed query cache to skip Suspense
+	// Seed query caches to skip Suspense for the home page and the edit modal
+	// (which subscribes to noteTypesAtom whenever it is rendered).
+	testQueryClient.setQueryData(["noteTypes"], []);
 	if (initialDecks !== undefined) {
 		testQueryClient.setQueryData(["decks"], initialDecks);
 	}
@@ -129,8 +141,18 @@ function renderWithProviders({
 }
 
 describe("HomePage", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		// fake-indexeddb persists across tests within the same file, and the
+		// logout flow can call db.delete(); make sure each test starts with an
+		// open, empty database.
+		if (!db.isOpen()) {
+			await db.open();
+		}
+		await db.decks.clear();
+		await db.cards.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
 		testQueryClient = new QueryClient({
 			defaultOptions: {
 				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
@@ -309,27 +331,8 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("submits the new deck via the create endpoint", async () => {
+		it("creates a deck locally and closes the modal", async () => {
 			const user = userEvent.setup();
-			const newDeck = {
-				id: "deck-new",
-				name: "New Deck",
-				description: "A new deck",
-				defaultNoteTypeId: null,
-				dueCardCount: 0,
-				newCardCount: 0,
-				totalCardCount: 0,
-				reviewCardCount: 0,
-				createdAt: "2024-01-03T00:00:00Z",
-				updatedAt: "2024-01-03T00:00:00Z",
-			};
-
-			vi.mocked(apiClient.rpc.api.decks.$post).mockResolvedValue(
-				mockPostResponse({
-					ok: true,
-					json: async () => ({ deck: newDeck }),
-				}),
-			);
 
 			renderWithProviders({ initialDecks: [] });
 
@@ -345,7 +348,11 @@ describe("HomePage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(apiClient.rpc.api.decks.$post).toHaveBeenCalledTimes(1);
+			const persisted = await db.decks
+				.filter((d) => d.name === "New Deck")
+				.first();
+			expect(persisted?.description).toBe("A new deck");
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 
@@ -390,18 +397,10 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("submits the edited deck via the update endpoint", async () => {
+		it("updates the deck locally and closes the modal", async () => {
 			const user = userEvent.setup();
-			const updatedDeck = {
-				...mockDecks[0],
-				name: "Updated Japanese",
-			};
 
-			mockDeckPut.mockResolvedValue({
-				ok: true,
-				json: async () => ({ deck: updatedDeck }),
-			});
-
+			await seedDecksInLocalDb(mockDecks, "user-1");
 			renderWithProviders({ initialDecks: mockDecks });
 
 			const editButtons = screen.getAllByRole("button", { name: "Edit deck" });
@@ -417,7 +416,9 @@ describe("HomePage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockDeckPut).toHaveBeenCalledTimes(1);
+			const persisted = await db.decks.get("deck-1");
+			expect(persisted?.name).toBe("Updated Japanese");
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 
@@ -469,14 +470,10 @@ describe("HomePage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("submits the delete via the delete endpoint", async () => {
+		it("soft-deletes the deck locally and closes the modal", async () => {
 			const user = userEvent.setup();
 
-			mockDeckDelete.mockResolvedValue({
-				ok: true,
-				json: async () => ({ success: true }),
-			});
-
+			await seedDecksInLocalDb(mockDecks, "user-1");
 			renderWithProviders({ initialDecks: mockDecks });
 
 			const deleteButtons = screen.getAllByRole("button", {
@@ -499,7 +496,9 @@ describe("HomePage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockDeckDelete).toHaveBeenCalledTimes(1);
+			const persisted = await db.decks.get("deck-1");
+			expect(persisted?.deletedAt).not.toBeNull();
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 });

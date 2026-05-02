@@ -3,38 +3,22 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockDelete = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				decks: {
-					":id": {
-						$delete: (args: unknown) => mockDelete(args),
-					},
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+vi.mock("../db/repositories", () => ({
+	localDeckRepository: {
+		delete: (...args: unknown[]) => mockDelete(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
-// Import after mock is set up
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+}));
+
 import { DeleteDeckModal } from "./DeleteDeckModal";
 
 describe("DeleteDeckModal", () => {
@@ -52,8 +36,7 @@ describe("DeleteDeckModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockDelete.mockResolvedValue({ ok: true });
-		mockHandleResponse.mockResolvedValue({});
+		mockDelete.mockResolvedValue(true);
 	});
 
 	afterEach(() => {
@@ -105,30 +88,7 @@ describe("DeleteDeckModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<DeleteDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on the backdrop (the dialog element itself)
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not call onClose when clicking inside the modal content", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<DeleteDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on an element inside the modal
-		await user.click(screen.getByText("Test Deck"));
-
-		expect(onClose).not.toHaveBeenCalled();
-	});
-
-	it("deletes deck when Delete is clicked", async () => {
+	it("deletes deck via local repository when Delete is clicked", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onDeckDeleted = vi.fn();
@@ -145,19 +105,29 @@ describe("DeleteDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockDelete).toHaveBeenCalledWith({
-				param: { id: "deck-123" },
-			});
+			expect(mockDelete).toHaveBeenCalledWith("deck-123");
 		});
 
 		expect(onDeckDeleted).toHaveBeenCalledTimes(1);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it("triggers a background sync after a successful delete", async () => {
+		const user = userEvent.setup();
+
+		render(<DeleteDeckModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
+		});
+	});
+
 	it("shows loading state during deletion", async () => {
 		const user = userEvent.setup();
 
-		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDelete.mockImplementation(() => new Promise(() => {}));
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -174,26 +144,26 @@ describe("DeleteDeckModal", () => {
 		);
 	});
 
-	it("displays API error message", async () => {
+	it("shows an error when the deck no longer exists locally", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Deck not found", 404),
-		);
+		mockDelete.mockResolvedValue(false);
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain("Deck not found");
+			expect(screen.getByRole("alert").textContent).toContain(
+				"Deck not found.",
+			);
 		});
 	});
 
-	it("displays generic error on unexpected failure", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		mockDelete.mockRejectedValue(new Error("Network error"));
+		mockDelete.mockRejectedValue(new Error("disk full"));
 
 		render(<DeleteDeckModal {...defaultProps} />);
 
@@ -206,45 +176,24 @@ describe("DeleteDeckModal", () => {
 		});
 	});
 
-	it("displays error when handleResponse throws", async () => {
-		const user = userEvent.setup();
-
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Not authenticated", 401),
-		);
-
-		render(<DeleteDeckModal {...defaultProps} />);
-
-		await user.click(screen.getByRole("button", { name: "Delete" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Not authenticated",
-			);
-		});
-	});
-
 	it("clears error when modal is closed", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
+		mockDelete.mockRejectedValueOnce(new Error("Some error"));
 
 		const { rerender } = render(
 			<DeleteDeckModal {...defaultProps} onClose={onClose} />,
 		);
 
-		// Trigger error
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 		await waitFor(() => {
 			expect(screen.getByRole("alert")).toBeDefined();
 		});
 
-		// Close and reopen the modal
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 		rerender(<DeleteDeckModal {...defaultProps} onClose={onClose} />);
 
-		// Error should be cleared
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 

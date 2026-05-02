@@ -1,7 +1,7 @@
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type FormEvent, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom, userAtom } from "../atoms";
+import { localDeckRepository } from "../db/repositories";
 
 interface CreateDeckModalProps {
 	isOpen: boolean;
@@ -18,7 +18,8 @@ export function CreateDeckModal({
 	const [description, setDescription] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const user = useAtomValue(userAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const resetForm = () => {
 		setName("");
@@ -33,40 +34,29 @@ export function CreateDeckModal({
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
+		if (!user) {
+			setError("You must be signed in to create a deck.");
+			return;
+		}
 		setError(null);
 		setIsSubmitting(true);
 
 		try {
-			const res = await apiClient.rpc.api.decks.$post(
-				{
-					json: {
-						name: name.trim(),
-						description: description.trim() || null,
-					},
-				},
-				{
-					headers: apiClient.getAuthHeader(),
-				},
-			);
-
-			if (!res.ok) {
-				const errorBody = await res.json().catch(() => ({}));
-				throw new ApiClientError(
-					(errorBody as { error?: string }).error ||
-						`Request failed with status ${res.status}`,
-					res.status,
-				);
-			}
+			await localDeckRepository.create({
+				userId: user.id,
+				name: name.trim(),
+				description: description.trim() || null,
+				defaultNoteTypeId: null,
+			});
 
 			resetForm();
 			onDeckCreated();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to create deck. Please try again.");
-			}
+			// Fire-and-forget: server push will be retried by the sync engine if it
+			// fails (e.g. offline), so we deliberately do not await or surface errors.
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to create deck. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -163,8 +153,7 @@ export function CreateDeckModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !name.trim() || !isOnline}
-								title={!isOnline ? "Reconnect to create a deck" : undefined}
+								disabled={isSubmitting || !name.trim()}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Creating..." : "Create Deck"}

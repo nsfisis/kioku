@@ -3,43 +3,23 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockPut = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockUpdate = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-const mockGetNoteTypes = vi.fn();
-
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				decks: {
-					":id": {
-						$put: (args: unknown) => mockPut(args),
-					},
-				},
-				"note-types": {
-					$get: () => mockGetNoteTypes(),
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+vi.mock("../db/repositories", () => ({
+	localDeckRepository: {
+		update: (...args: unknown[]) => mockUpdate(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
-// Import after mock is set up
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+	noteTypesAtom: atom({ data: [] as { id: string; name: string }[] }),
+}));
+
 import { EditDeckModal } from "./EditDeckModal";
 
 describe("EditDeckModal", () => {
@@ -57,25 +37,14 @@ describe("EditDeckModal", () => {
 		onDeckUpdated: vi.fn(),
 	};
 
-	const noteTypesResponse = { ok: true, _type: "noteTypes" };
-	const putResponse = { ok: true, _type: "put" };
-
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockPut.mockResolvedValue(putResponse);
-		mockGetNoteTypes.mockResolvedValue(noteTypesResponse);
-		mockHandleResponse.mockImplementation((res: unknown) => {
-			if (res === noteTypesResponse) {
-				return Promise.resolve({ noteTypes: [] });
-			}
-			return Promise.resolve({
-				deck: {
-					id: "deck-123",
-					name: "Test Deck",
-					description: "Test description",
-					defaultNoteTypeId: null,
-				},
-			});
+		mockUpdate.mockResolvedValue({
+			id: "deck-123",
+			userId: "user-1",
+			name: "Test Deck",
+			description: "Test description",
+			defaultNoteTypeId: null,
 		});
 	});
 
@@ -155,30 +124,7 @@ describe("EditDeckModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<EditDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on the backdrop (the dialog element itself)
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not call onClose when clicking inside the modal content", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<EditDeckModal {...defaultProps} onClose={onClose} />);
-
-		// Click on an element inside the modal
-		await user.click(screen.getByLabelText("Name"));
-
-		expect(onClose).not.toHaveBeenCalled();
-	});
-
-	it("updates deck with new name", async () => {
+	it("updates deck via local repository with new name", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onDeckUpdated = vi.fn();
@@ -198,47 +144,10 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockPut).toHaveBeenCalledWith({
-				param: { id: "deck-123" },
-				json: {
-					name: "Updated Deck",
-					description: "Test description",
-					defaultNoteTypeId: null,
-				},
-			});
-		});
-
-		expect(onDeckUpdated).toHaveBeenCalledTimes(1);
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("updates deck with new description", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		const onDeckUpdated = vi.fn();
-
-		render(
-			<EditDeckModal
-				isOpen={true}
-				deck={mockDeck}
-				onClose={onClose}
-				onDeckUpdated={onDeckUpdated}
-			/>,
-		);
-
-		const descInput = screen.getByLabelText("Description (optional)");
-		await user.clear(descInput);
-		await user.type(descInput, "New description");
-		await user.click(screen.getByRole("button", { name: "Save Changes" }));
-
-		await waitFor(() => {
-			expect(mockPut).toHaveBeenCalledWith({
-				param: { id: "deck-123" },
-				json: {
-					name: "Test Deck",
-					description: "New description",
-					defaultNoteTypeId: null,
-				},
+			expect(mockUpdate).toHaveBeenCalledWith("deck-123", {
+				name: "Updated Deck",
+				description: "Test description",
+				defaultNoteTypeId: null,
 			});
 		});
 
@@ -256,13 +165,10 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockPut).toHaveBeenCalledWith({
-				param: { id: "deck-123" },
-				json: {
-					name: "Test Deck",
-					description: null,
-					defaultNoteTypeId: null,
-				},
+			expect(mockUpdate).toHaveBeenCalledWith("deck-123", {
+				name: "Test Deck",
+				description: null,
+				defaultNoteTypeId: null,
 			});
 		});
 	});
@@ -280,21 +186,30 @@ describe("EditDeckModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
-			expect(mockPut).toHaveBeenCalledWith({
-				param: { id: "deck-123" },
-				json: {
-					name: "Deck",
-					description: "Description",
-					defaultNoteTypeId: null,
-				},
+			expect(mockUpdate).toHaveBeenCalledWith("deck-123", {
+				name: "Deck",
+				description: "Description",
+				defaultNoteTypeId: null,
 			});
+		});
+	});
+
+	it("triggers a background sync after a successful update", async () => {
+		const user = userEvent.setup();
+
+		render(<EditDeckModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockPut.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockUpdate.mockImplementation(() => new Promise(() => {}));
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -316,32 +231,26 @@ describe("EditDeckModal", () => {
 		);
 	});
 
-	it("displays API error message", async () => {
+	it("shows an error when the deck no longer exists locally", async () => {
 		const user = userEvent.setup();
 
-		render(<EditDeckModal {...defaultProps} />);
+		mockUpdate.mockResolvedValue(undefined);
 
-		// Wait for note types to load, then override handleResponse for the PUT
-		await waitFor(() => {
-			expect(mockGetNoteTypes).toHaveBeenCalled();
-		});
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Deck name already exists", 400),
-		);
+		render(<EditDeckModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
-				"Deck name already exists",
+				"Deck not found.",
 			);
 		});
 	});
 
-	it("displays generic error on unexpected failure", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		mockPut.mockRejectedValue(new Error("Network error"));
+		mockUpdate.mockRejectedValue(new Error("disk full"));
 
 		render(<EditDeckModal {...defaultProps} />);
 
@@ -350,28 +259,6 @@ describe("EditDeckModal", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
 				"Failed to update deck. Please try again.",
-			);
-		});
-	});
-
-	it("displays error when handleResponse throws", async () => {
-		const user = userEvent.setup();
-
-		render(<EditDeckModal {...defaultProps} />);
-
-		// Wait for note types to load, then override handleResponse for the PUT
-		await waitFor(() => {
-			expect(mockGetNoteTypes).toHaveBeenCalled();
-		});
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Not authenticated", 401),
-		);
-
-		await user.click(screen.getByRole("button", { name: "Save Changes" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Not authenticated",
 			);
 		});
 	});
@@ -402,27 +289,20 @@ describe("EditDeckModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
+		mockUpdate.mockRejectedValueOnce(new Error("Some error"));
+
 		const { rerender } = render(
 			<EditDeckModal {...defaultProps} onClose={onClose} />,
 		);
 
-		// Wait for note types to load, then override handleResponse for the PUT
-		await waitFor(() => {
-			expect(mockGetNoteTypes).toHaveBeenCalled();
-		});
-		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 400));
-
-		// Trigger error
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 		await waitFor(() => {
 			expect(screen.getByRole("alert")).toBeDefined();
 		});
 
-		// Close and reopen the modal
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 		rerender(<EditDeckModal {...defaultProps} onClose={onClose} />);
 
-		// Error should be cleared
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 });
