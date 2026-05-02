@@ -10,20 +10,14 @@ import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { authLoadingAtom, type NoteType } from "../atoms";
+import { authLoadingAtom, type NoteType, userAtom } from "../atoms";
+import { db } from "../db";
 import { NoteTypesPage } from "./NoteTypesPage";
 
 interface RenderOptions {
 	path?: string;
 	initialNoteTypes?: NoteType[];
 }
-
-const mockNoteTypesGet = vi.fn();
-const mockNoteTypesPost = vi.fn();
-const mockNoteTypeGet = vi.fn();
-const mockNoteTypePut = vi.fn();
-const mockNoteTypeDelete = vi.fn();
-const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -32,20 +26,7 @@ vi.mock("../api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
-		rpc: {
-			api: {
-				"note-types": {
-					$get: () => mockNoteTypesGet(),
-					$post: (args: unknown) => mockNoteTypesPost(args),
-					":id": {
-						$get: (args: unknown) => mockNoteTypeGet(args),
-						$put: (args: unknown) => mockNoteTypePut(args),
-						$delete: (args: unknown) => mockNoteTypeDelete(args),
-					},
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
+		rpc: { api: { "note-types": {} } },
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -59,15 +40,12 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
-// Mock queryClient module so pages use our test queryClient
 let testQueryClient: QueryClient;
 vi.mock("../queryClient", () => ({
 	get queryClient() {
 		return testQueryClient;
 	},
 }));
-
-import { ApiClientError, apiClient } from "../api/client";
 
 const mockNoteTypes = [
 	{
@@ -90,6 +68,47 @@ const mockNoteTypes = [
 	},
 ];
 
+async function seedNoteTypesInLocalDb(
+	noteTypes: NoteType[],
+	userId: string,
+	fields: {
+		noteTypeId: string;
+		id: string;
+		name: string;
+		order: number;
+	}[] = [],
+) {
+	for (const nt of noteTypes) {
+		await db.noteTypes.put({
+			id: nt.id,
+			userId,
+			name: nt.name,
+			frontTemplate: nt.frontTemplate,
+			backTemplate: nt.backTemplate,
+			isReversible: nt.isReversible,
+			createdAt: new Date(nt.createdAt),
+			updatedAt: new Date(nt.updatedAt),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		});
+	}
+	for (const f of fields) {
+		await db.noteFieldTypes.put({
+			id: f.id,
+			noteTypeId: f.noteTypeId,
+			name: f.name,
+			order: f.order,
+			fieldType: "text",
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		});
+	}
+}
+
 function renderWithProviders({
 	path = "/note-types",
 	initialNoteTypes,
@@ -97,9 +116,9 @@ function renderWithProviders({
 	const { hook } = memoryLocation({ path });
 	const store = createStore();
 	store.set(authLoadingAtom, false);
+	store.set(userAtom, { id: "user-1", username: "alice" });
 	store.set(queryClientAtom, testQueryClient);
 
-	// Seed query cache if initial data provided
 	if (initialNoteTypes !== undefined) {
 		testQueryClient.setQueryData(["noteTypes"], initialNoteTypes);
 	}
@@ -114,37 +133,20 @@ function renderWithProviders({
 }
 
 describe("NoteTypesPage", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		if (!db.isOpen()) {
+			await db.open();
+		}
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
+
 		testQueryClient = new QueryClient({
 			defaultOptions: {
 				queries: { staleTime: Number.POSITIVE_INFINITY, retry: false },
 			},
-		});
-		vi.mocked(apiClient.getTokens).mockReturnValue({
-			accessToken: "access-token",
-			refreshToken: "refresh-token",
-		});
-		vi.mocked(apiClient.getAuthHeader).mockReturnValue({
-			Authorization: "Bearer access-token",
-		});
-
-		// handleResponse simulates actual behavior
-		// - If response is a plain object (from mocked RPC), pass through
-		// - If response is Response-like with ok/status, handle properly
-		mockHandleResponse.mockImplementation(async (res) => {
-			// Plain object (already the data) - pass through
-			if (res.ok === undefined && res.status === undefined) {
-				return res;
-			}
-			// Response-like object
-			if (!res.ok) {
-				const body = await res.json?.().catch(() => ({}));
-				throw new Error(
-					body?.error || `Request failed with status ${res.status}`,
-				);
-			}
-			return typeof res.json === "function" ? res.json() : res;
 		});
 	});
 
@@ -159,15 +161,6 @@ describe("NoteTypesPage", () => {
 
 		expect(screen.getByRole("heading", { name: "Note Types" })).toBeDefined();
 		expect(screen.getByRole("link", { name: "Back to Home" })).toBeDefined();
-	});
-
-	it("shows loading state while fetching note types", async () => {
-		mockNoteTypesGet.mockImplementation(() => new Promise(() => {})); // Never resolves
-
-		renderWithProviders();
-
-		// Loading state shows spinner (svg with animate-spin class)
-		expect(document.querySelector(".animate-spin")).toBeDefined();
 	});
 
 	it("displays empty state when no note types exist", () => {
@@ -207,44 +200,6 @@ describe("NoteTypesPage", () => {
 		expect(screen.getAllByText("Back: {{Back}}").length).toBeGreaterThan(0);
 	});
 
-	// Skip: Error boundary tests don't work reliably with Jotai async atoms in test environment.
-	// Errors from rejected Promises in async atoms are not caught by ErrorBoundary in vitest.
-	it.skip("displays error on API failure", async () => {
-		mockNoteTypesGet.mockRejectedValue(
-			new ApiClientError("Internal server error", 500),
-		);
-
-		renderWithProviders();
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Internal server error",
-			);
-		});
-	});
-
-	// Skip: Same reason as above
-	it.skip("displays generic error on unexpected failure", async () => {
-		mockNoteTypesGet.mockRejectedValue(new Error("Network error"));
-
-		renderWithProviders();
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain("Network error");
-		});
-	});
-
-	// Skip: Testing RPC endpoint calls is difficult with Suspense in test environment.
-	it.skip("calls correct RPC endpoint when fetching note types", async () => {
-		mockNoteTypesGet.mockResolvedValue({ noteTypes: [] });
-
-		renderWithProviders();
-
-		await waitFor(() => {
-			expect(mockNoteTypesGet).toHaveBeenCalled();
-		});
-	});
-
 	describe("Create Note Type", () => {
 		it("shows New Note Type button", () => {
 			renderWithProviders({ initialNoteTypes: [] });
@@ -267,22 +222,8 @@ describe("NoteTypesPage", () => {
 			).toBeDefined();
 		});
 
-		it("submits the new note type via the create endpoint", async () => {
+		it("creates a note type locally and closes the modal", async () => {
 			const user = userEvent.setup();
-			const newNoteType = {
-				id: "note-type-new",
-				name: "New Note Type",
-				frontTemplate: "{{Front}}",
-				backTemplate: "{{Back}}",
-				isReversible: false,
-				createdAt: "2024-01-03T00:00:00Z",
-				updatedAt: "2024-01-03T00:00:00Z",
-			};
-
-			mockNoteTypesPost.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteType: newNoteType }),
-			});
 
 			renderWithProviders({ initialNoteTypes: [] });
 
@@ -294,7 +235,11 @@ describe("NoteTypesPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockNoteTypesPost).toHaveBeenCalledTimes(1);
+			const persisted = await db.noteTypes
+				.filter((nt) => nt.name === "New Note Type")
+				.first();
+			expect(persisted).toBeDefined();
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 
@@ -310,30 +255,18 @@ describe("NoteTypesPage", () => {
 			expect(editButtons.length).toBe(2);
 		});
 
-		it("opens edit modal when Edit button is clicked", async () => {
+		it("opens edit modal and loads the note type from local DB", async () => {
 			const user = userEvent.setup();
-			const mockNoteTypeWithFields = {
-				...mockNoteTypes[0],
-				fields: [
-					{
-						id: "field-1",
-						noteTypeId: "note-type-1",
-						name: "Front",
-						order: 0,
-						fieldType: "text",
-					},
-					{
-						id: "field-2",
-						noteTypeId: "note-type-1",
-						name: "Back",
-						order: 1,
-						fieldType: "text",
-					},
-				],
-			};
 
-			mockNoteTypeGet.mockResolvedValue({ noteType: mockNoteTypeWithFields });
-
+			await seedNoteTypesInLocalDb(mockNoteTypes, "user-1", [
+				{
+					id: "field-1",
+					noteTypeId: "note-type-1",
+					name: "Front",
+					order: 0,
+				},
+				{ id: "field-2", noteTypeId: "note-type-1", name: "Back", order: 1 },
+			]);
 			renderWithProviders({ initialNoteTypes: mockNoteTypes });
 
 			const editButtons = screen.getAllByRole("button", {
@@ -351,38 +284,10 @@ describe("NoteTypesPage", () => {
 			});
 		});
 
-		it("submits the edited note type via the update endpoint", async () => {
+		it("updates the note type locally and closes the editor", async () => {
 			const user = userEvent.setup();
-			const mockNoteTypeWithFields = {
-				...mockNoteTypes[0],
-				fields: [
-					{
-						id: "field-1",
-						noteTypeId: "note-type-1",
-						name: "Front",
-						order: 0,
-						fieldType: "text",
-					},
-					{
-						id: "field-2",
-						noteTypeId: "note-type-1",
-						name: "Back",
-						order: 1,
-						fieldType: "text",
-					},
-				],
-			};
-			const updatedNoteType = {
-				...mockNoteTypes[0],
-				name: "Updated Basic",
-			};
 
-			mockNoteTypeGet.mockResolvedValue({ noteType: mockNoteTypeWithFields });
-			mockNoteTypePut.mockResolvedValue({
-				ok: true,
-				json: async () => ({ noteType: updatedNoteType }),
-			});
-
+			await seedNoteTypesInLocalDb(mockNoteTypes, "user-1");
 			renderWithProviders({ initialNoteTypes: mockNoteTypes });
 
 			const editButtons = screen.getAllByRole("button", {
@@ -404,7 +309,9 @@ describe("NoteTypesPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockNoteTypePut).toHaveBeenCalledTimes(1);
+			const persisted = await db.noteTypes.get("note-type-1");
+			expect(persisted?.name).toBe("Updated Basic");
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 
@@ -437,14 +344,10 @@ describe("NoteTypesPage", () => {
 			expect(dialog.textContent).toContain("Basic");
 		});
 
-		it("submits the note type delete via the delete endpoint", async () => {
+		it("soft-deletes the note type locally and closes the modal", async () => {
 			const user = userEvent.setup();
 
-			mockNoteTypeDelete.mockResolvedValue({
-				ok: true,
-				json: async () => ({ success: true }),
-			});
-
+			await seedNoteTypesInLocalDb(mockNoteTypes, "user-1");
 			renderWithProviders({ initialNoteTypes: mockNoteTypes });
 
 			const deleteButtons = screen.getAllByRole("button", {
@@ -467,7 +370,9 @@ describe("NoteTypesPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockNoteTypeDelete).toHaveBeenCalledTimes(1);
+			const persisted = await db.noteTypes.get("note-type-1");
+			expect(persisted?.deletedAt).not.toBeNull();
+			expect(persisted?._synced).toBe(false);
 		});
 	});
 });

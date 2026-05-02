@@ -1,7 +1,7 @@
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type FormEvent, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom, userAtom } from "../atoms";
+import { localNoteTypeRepository } from "../db/repositories";
 
 interface CreateNoteTypeModalProps {
 	isOpen: boolean;
@@ -20,7 +20,8 @@ export function CreateNoteTypeModal({
 	const [isReversible, setIsReversible] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const user = useAtomValue(userAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const resetForm = () => {
 		setName("");
@@ -37,29 +38,28 @@ export function CreateNoteTypeModal({
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
+		if (!user) {
+			setError("You must be signed in to create a note type.");
+			return;
+		}
 		setError(null);
 		setIsSubmitting(true);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"].$post({
-				json: {
-					name: name.trim(),
-					frontTemplate: frontTemplate.trim(),
-					backTemplate: backTemplate.trim(),
-					isReversible,
-				},
+			await localNoteTypeRepository.create({
+				userId: user.id,
+				name: name.trim(),
+				frontTemplate: frontTemplate.trim(),
+				backTemplate: backTemplate.trim(),
+				isReversible,
 			});
-			await apiClient.handleResponse(res);
 
 			resetForm();
 			onNoteTypeCreated();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to create note type. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to create note type. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -200,8 +200,7 @@ export function CreateNoteTypeModal({
 							</button>
 							<button
 								type="submit"
-								disabled={isSubmitting || !name.trim() || !isOnline}
-								title={!isOnline ? "Reconnect to create" : undefined}
+								disabled={isSubmitting || !name.trim()}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Creating..." : "Create"}

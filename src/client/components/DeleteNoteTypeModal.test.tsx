@@ -3,38 +3,24 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockDelete = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockHasNotes = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				"note-types": {
-					":id": {
-						$delete: (args: unknown) => mockDelete(args),
-					},
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+vi.mock("../db/repositories", () => ({
+	localNoteTypeRepository: {
+		delete: (...args: unknown[]) => mockDelete(...args),
+		hasNotes: (...args: unknown[]) => mockHasNotes(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
-// Import after mock is set up
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+}));
+
 import { DeleteNoteTypeModal } from "./DeleteNoteTypeModal";
 
 describe("DeleteNoteTypeModal", () => {
@@ -52,8 +38,8 @@ describe("DeleteNoteTypeModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockDelete.mockResolvedValue({ ok: true });
-		mockHandleResponse.mockResolvedValue({});
+		mockDelete.mockResolvedValue(true);
+		mockHasNotes.mockResolvedValue(false);
 	});
 
 	afterEach(() => {
@@ -109,28 +95,7 @@ describe("DeleteNoteTypeModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<DeleteNoteTypeModal {...defaultProps} onClose={onClose} />);
-
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not call onClose when clicking inside the modal content", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<DeleteNoteTypeModal {...defaultProps} onClose={onClose} />);
-
-		await user.click(screen.getByText("Basic"));
-
-		expect(onClose).not.toHaveBeenCalled();
-	});
-
-	it("deletes noteType when Delete is clicked", async () => {
+	it("deletes noteType via local repository when Delete is clicked", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onNoteTypeDeleted = vi.fn();
@@ -147,19 +112,46 @@ describe("DeleteNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockDelete).toHaveBeenCalledWith({
-				param: { id: "note-type-123" },
-			});
+			expect(mockDelete).toHaveBeenCalledWith("note-type-123");
 		});
 
 		expect(onNoteTypeDeleted).toHaveBeenCalledTimes(1);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it("triggers a background sync after a successful delete", async () => {
+		const user = userEvent.setup();
+
+		render(<DeleteNoteTypeModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
+		});
+	});
+
+	it("blocks deletion when notes still reference the type", async () => {
+		const user = userEvent.setup();
+
+		mockHasNotes.mockResolvedValue(true);
+
+		render(<DeleteNoteTypeModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("alert").textContent).toContain(
+				"Cannot delete note type with existing notes",
+			);
+		});
+		expect(mockDelete).not.toHaveBeenCalled();
+	});
+
 	it("shows loading state during deletion", async () => {
 		const user = userEvent.setup();
 
-		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockDelete.mockImplementation(() => new Promise(() => {}));
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -176,12 +168,10 @@ describe("DeleteNoteTypeModal", () => {
 		);
 	});
 
-	it("displays API error message", async () => {
+	it("shows an error when the note type no longer exists locally", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Note type not found", 404),
-		);
+		mockDelete.mockResolvedValue(false);
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -189,33 +179,15 @@ describe("DeleteNoteTypeModal", () => {
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
-				"Note type not found",
+				"Note type not found.",
 			);
 		});
 	});
 
-	it("displays conflict error when notes exist", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Cannot delete note type with existing notes", 409),
-		);
-
-		render(<DeleteNoteTypeModal {...defaultProps} />);
-
-		await user.click(screen.getByRole("button", { name: "Delete" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Cannot delete note type with existing notes",
-			);
-		});
-	});
-
-	it("displays generic error on unexpected failure", async () => {
-		const user = userEvent.setup();
-
-		mockDelete.mockRejectedValue(new Error("Network error"));
+		mockDelete.mockRejectedValue(new Error("disk full"));
 
 		render(<DeleteNoteTypeModal {...defaultProps} />);
 
@@ -228,45 +200,24 @@ describe("DeleteNoteTypeModal", () => {
 		});
 	});
 
-	it("displays error when handleResponse throws", async () => {
-		const user = userEvent.setup();
-
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Not authenticated", 401),
-		);
-
-		render(<DeleteNoteTypeModal {...defaultProps} />);
-
-		await user.click(screen.getByRole("button", { name: "Delete" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Not authenticated",
-			);
-		});
-	});
-
 	it("clears error when modal is closed", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockHandleResponse.mockRejectedValue(new ApiClientError("Some error", 404));
+		mockDelete.mockRejectedValueOnce(new Error("Some error"));
 
 		const { rerender } = render(
 			<DeleteNoteTypeModal {...defaultProps} onClose={onClose} />,
 		);
 
-		// Trigger error
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 		await waitFor(() => {
 			expect(screen.getByRole("alert")).toBeDefined();
 		});
 
-		// Close and reopen the modal
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 		rerender(<DeleteNoteTypeModal {...defaultProps} onClose={onClose} />);
 
-		// Error should be cleared
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 

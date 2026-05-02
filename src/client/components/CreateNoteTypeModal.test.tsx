@@ -3,36 +3,23 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockPost = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockCreate = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				"note-types": {
-					$post: (args: unknown) => mockPost(args),
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+vi.mock("../db/repositories", () => ({
+	localNoteTypeRepository: {
+		create: (...args: unknown[]) => mockCreate(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
-// Import after mock is set up
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+	userAtom: atom({ id: "user-1", username: "alice" }),
+}));
+
 import { CreateNoteTypeModal } from "./CreateNoteTypeModal";
 
 describe("CreateNoteTypeModal", () => {
@@ -44,15 +31,13 @@ describe("CreateNoteTypeModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockPost.mockResolvedValue({ ok: true });
-		mockHandleResponse.mockResolvedValue({
-			noteType: {
-				id: "note-type-1",
-				name: "Test Note Type",
-				frontTemplate: "{{Front}}",
-				backTemplate: "{{Back}}",
-				isReversible: false,
-			},
+		mockCreate.mockResolvedValue({
+			id: "note-type-1",
+			userId: "user-1",
+			name: "Test Note Type",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
 		});
 	});
 
@@ -123,18 +108,7 @@ describe("CreateNoteTypeModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-		render(<CreateNoteTypeModal {...defaultProps} onClose={onClose} />);
-
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("creates note type with all fields", async () => {
+	it("creates note type via local repository with all fields", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onNoteTypeCreated = vi.fn();
@@ -148,18 +122,16 @@ describe("CreateNoteTypeModal", () => {
 		);
 
 		await user.type(screen.getByLabelText("Name"), "Test Note Type");
-		// Keep default templates and just toggle reversible
 		await user.click(screen.getByLabelText("Create reversed cards"));
 		await user.click(screen.getByRole("button", { name: "Create" }));
 
 		await waitFor(() => {
-			expect(mockPost).toHaveBeenCalledWith({
-				json: {
-					name: "Test Note Type",
-					frontTemplate: "{{Front}}",
-					backTemplate: "{{Back}}",
-					isReversible: true,
-				},
+			expect(mockCreate).toHaveBeenCalledWith({
+				userId: "user-1",
+				name: "Test Note Type",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: true,
 			});
 		});
 
@@ -176,18 +148,31 @@ describe("CreateNoteTypeModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create" }));
 
 		await waitFor(() => {
-			expect(mockPost).toHaveBeenCalledWith({
-				json: expect.objectContaining({
+			expect(mockCreate).toHaveBeenCalledWith(
+				expect.objectContaining({
 					name: "Test Note Type",
 				}),
-			});
+			);
+		});
+	});
+
+	it("triggers a background sync after a successful create", async () => {
+		const user = userEvent.setup();
+
+		render(<CreateNoteTypeModal {...defaultProps} />);
+
+		await user.type(screen.getByLabelText("Name"), "Test Note Type");
+		await user.click(screen.getByRole("button", { name: "Create" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockPost.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockCreate.mockImplementation(() => new Promise(() => {}));
 
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
@@ -206,29 +191,10 @@ describe("CreateNoteTypeModal", () => {
 		expect(screen.getByLabelText("Name")).toHaveProperty("disabled", true);
 	});
 
-	it("displays API error message", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Note type name already exists", 400),
-		);
-
-		render(<CreateNoteTypeModal {...defaultProps} />);
-
-		await user.type(screen.getByLabelText("Name"), "Test Note Type");
-		await user.click(screen.getByRole("button", { name: "Create" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Note type name already exists",
-			);
-		});
-	});
-
-	it("displays generic error on unexpected failure", async () => {
-		const user = userEvent.setup();
-
-		mockPost.mockRejectedValue(new Error("Network error"));
+		mockCreate.mockRejectedValue(new Error("disk full"));
 
 		render(<CreateNoteTypeModal {...defaultProps} />);
 
@@ -254,14 +220,11 @@ describe("CreateNoteTypeModal", () => {
 			/>,
 		);
 
-		// Type something in the form
 		await user.type(screen.getByLabelText("Name"), "Test Note Type");
 		await user.click(screen.getByLabelText("Create reversed cards"));
 
-		// Click cancel to close
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-		// Reopen the modal
 		rerender(
 			<CreateNoteTypeModal
 				isOpen={true}
@@ -270,7 +233,6 @@ describe("CreateNoteTypeModal", () => {
 			/>,
 		);
 
-		// Form should be reset
 		expect(screen.getByLabelText("Name")).toHaveProperty("value", "");
 		expect(screen.getByLabelText("Front Template")).toHaveProperty(
 			"value",

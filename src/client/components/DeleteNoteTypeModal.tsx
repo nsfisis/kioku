@@ -1,7 +1,7 @@
-import { useAtomValue } from "jotai";
+import { useSetAtom } from "jotai";
 import { useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom } from "../atoms";
+import { localNoteTypeRepository } from "../db/repositories";
 
 interface NoteType {
 	id: string;
@@ -23,7 +23,7 @@ export function DeleteNoteTypeModal({
 }: DeleteNoteTypeModalProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const handleClose = () => {
 		setError(null);
@@ -37,19 +37,22 @@ export function DeleteNoteTypeModal({
 		setIsDeleting(true);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].$delete({
-				param: { id: noteType.id },
-			});
-			await apiClient.handleResponse(res);
+			if (await localNoteTypeRepository.hasNotes(noteType.id)) {
+				setError("Cannot delete note type with existing notes.");
+				return;
+			}
+
+			const deleted = await localNoteTypeRepository.delete(noteType.id);
+			if (!deleted) {
+				setError("Note type not found.");
+				return;
+			}
 
 			onNoteTypeDeleted();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to delete note type. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to delete note type. Please try again.");
 		} finally {
 			setIsDeleting(false);
 		}
@@ -132,8 +135,7 @@ export function DeleteNoteTypeModal({
 						<button
 							type="button"
 							onClick={handleDelete}
-							disabled={isDeleting || !isOnline}
-							title={!isOnline ? "Reconnect to delete" : undefined}
+							disabled={isDeleting}
 							className="px-4 py-2 bg-error hover:bg-error/90 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
 						>
 							{isDeleting ? "Deleting..." : "Delete"}

@@ -462,6 +462,19 @@ export const localNoteTypeRepository = {
 	},
 
 	/**
+	 * Returns true if any non-deleted note still uses this note type. Used to
+	 * block deletion (mirrors the server's hasNotes check).
+	 */
+	async hasNotes(id: string): Promise<boolean> {
+		const note = await db.notes
+			.where("noteTypeId")
+			.equals(id)
+			.filter((n) => n.deletedAt === null)
+			.first();
+		return note !== undefined;
+	},
+
+	/**
 	 * Get all unsynced note types
 	 */
 	async findUnsynced(): Promise<LocalNoteType[]> {
@@ -570,6 +583,48 @@ export const localNoteFieldTypeRepository = {
 			_synced: false,
 		});
 		return true;
+	},
+
+	/**
+	 * Returns true if any noteFieldValue references this field type. Used to
+	 * block deletion (mirrors the server's hasNoteFieldValues check).
+	 */
+	async hasNoteFieldValues(id: string): Promise<boolean> {
+		const value = await db.noteFieldValues
+			.where("noteFieldTypeId")
+			.equals(id)
+			.first();
+		return value !== undefined;
+	},
+
+	/**
+	 * Reorder field types in a note type. The given fieldIds become the new
+	 * ordering 0..n-1. Returns the reordered field types in the new order.
+	 */
+	async reorder(
+		noteTypeId: string,
+		fieldIds: string[],
+	): Promise<LocalNoteFieldType[]> {
+		const now = new Date();
+		const result = await db.transaction("rw", db.noteFieldTypes, async () => {
+			const updated: LocalNoteFieldType[] = [];
+			for (let i = 0; i < fieldIds.length; i++) {
+				const fieldId = fieldIds[i];
+				if (!fieldId) continue;
+				const field = await db.noteFieldTypes.get(fieldId);
+				if (!field || field.noteTypeId !== noteTypeId) continue;
+				const next: LocalNoteFieldType = {
+					...field,
+					order: i,
+					updatedAt: now,
+					_synced: false,
+				};
+				await db.noteFieldTypes.put(next);
+				updated.push(next);
+			}
+			return updated;
+		});
+		return result.sort((a, b) => a.order - b.order);
 	},
 
 	/**

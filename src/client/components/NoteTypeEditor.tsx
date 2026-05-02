@@ -6,6 +6,7 @@ import {
 	faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useSetAtom } from "jotai";
 import {
 	type FormEvent,
 	useCallback,
@@ -13,7 +14,11 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { ApiClientError, apiClient } from "../api";
+import { syncActionAtom } from "../atoms";
+import {
+	localNoteFieldTypeRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
 
 interface NoteFieldType {
 	id: string;
@@ -31,10 +36,6 @@ interface NoteType {
 	isReversible: boolean;
 }
 
-interface NoteTypeWithFields extends NoteType {
-	fields: NoteFieldType[];
-}
-
 interface NoteTypeEditorProps {
 	isOpen: boolean;
 	noteTypeId: string | null;
@@ -48,7 +49,7 @@ export function NoteTypeEditor({
 	onClose,
 	onNoteTypeUpdated,
 }: NoteTypeEditorProps) {
-	const [noteType, setNoteType] = useState<NoteTypeWithFields | null>(null);
+	const [noteType, setNoteType] = useState<NoteType | null>(null);
 	const [name, setName] = useState("");
 	const [frontTemplate, setFrontTemplate] = useState("");
 	const [backTemplate, setBackTemplate] = useState("");
@@ -63,33 +64,37 @@ export function NoteTypeEditor({
 	const [editingFieldName, setEditingFieldName] = useState("");
 	const [fieldError, setFieldError] = useState<string | null>(null);
 	const editInputRef = useRef<HTMLInputElement>(null);
+	const triggerSync = useSetAtom(syncActionAtom);
 
-	const fetchNoteType = useCallback(async () => {
+	const loadNoteType = useCallback(async () => {
 		if (!noteTypeId) return;
 
 		setIsLoading(true);
 		setError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].$get({
-				param: { id: noteTypeId },
-			});
-			const data = await apiClient.handleResponse<{
-				noteType: NoteTypeWithFields;
-			}>(res);
-			const fetchedNoteType = data.noteType;
-			setNoteType(fetchedNoteType);
-			setName(fetchedNoteType.name);
-			setFrontTemplate(fetchedNoteType.frontTemplate);
-			setBackTemplate(fetchedNoteType.backTemplate);
-			setIsReversible(fetchedNoteType.isReversible);
-			setFields(fetchedNoteType.fields.sort((a, b) => a.order - b.order) || []);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note type. Please try again.");
+			const localNoteType = await localNoteTypeRepository.findById(noteTypeId);
+			if (!localNoteType || localNoteType.deletedAt !== null) {
+				setError("Note type not found.");
+				return;
 			}
+			const localFields =
+				await localNoteFieldTypeRepository.findByNoteTypeId(noteTypeId);
+
+			setNoteType({
+				id: localNoteType.id,
+				name: localNoteType.name,
+				frontTemplate: localNoteType.frontTemplate,
+				backTemplate: localNoteType.backTemplate,
+				isReversible: localNoteType.isReversible,
+			});
+			setName(localNoteType.name);
+			setFrontTemplate(localNoteType.frontTemplate);
+			setBackTemplate(localNoteType.backTemplate);
+			setIsReversible(localNoteType.isReversible);
+			setFields(localFields);
+		} catch {
+			setError("Failed to load note type. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -97,9 +102,9 @@ export function NoteTypeEditor({
 
 	useEffect(() => {
 		if (isOpen && noteTypeId) {
-			fetchNoteType();
+			loadNoteType();
 		}
-	}, [isOpen, noteTypeId, fetchNoteType]);
+	}, [isOpen, noteTypeId, loadNoteType]);
 
 	useEffect(() => {
 		if (editingFieldId && editInputRef.current) {
@@ -125,25 +130,22 @@ export function NoteTypeEditor({
 		setIsSubmitting(true);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].$put({
-				param: { id: noteType.id },
-				json: {
-					name: name.trim(),
-					frontTemplate: frontTemplate.trim(),
-					backTemplate: backTemplate.trim(),
-					isReversible,
-				},
+			const updated = await localNoteTypeRepository.update(noteType.id, {
+				name: name.trim(),
+				frontTemplate: frontTemplate.trim(),
+				backTemplate: backTemplate.trim(),
+				isReversible,
 			});
-			await apiClient.handleResponse(res);
+			if (!updated) {
+				setError("Note type not found.");
+				return;
+			}
 
 			onNoteTypeUpdated();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to update note type. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to update note type. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -159,25 +161,16 @@ export function NoteTypeEditor({
 			const newOrder =
 				fields.length > 0 ? Math.max(...fields.map((f) => f.order)) + 1 : 0;
 
-			const res = await apiClient.rpc.api["note-types"][":id"].fields.$post({
-				param: { id: noteType.id },
-				json: {
-					name: newFieldName.trim(),
-					order: newOrder,
-					fieldType: "text",
-				},
+			const created = await localNoteFieldTypeRepository.create({
+				noteTypeId: noteType.id,
+				name: newFieldName.trim(),
+				order: newOrder,
 			});
-			const data = await apiClient.handleResponse<{ field: NoteFieldType }>(
-				res,
-			);
-			setFields([...fields, data.field]);
+			setFields([...fields, created]);
 			setNewFieldName("");
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setFieldError(err.message);
-			} else {
-				setFieldError("Failed to add field. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setFieldError("Failed to add field. Please try again.");
 		} finally {
 			setIsAddingField(false);
 		}
@@ -189,26 +182,19 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].fields[
-				":fieldId"
-			].$put({
-				param: { id: noteType.id, fieldId },
-				json: {
-					name: editingFieldName.trim(),
-				},
+			const updated = await localNoteFieldTypeRepository.update(fieldId, {
+				name: editingFieldName.trim(),
 			});
-			const data = await apiClient.handleResponse<{ field: NoteFieldType }>(
-				res,
-			);
-			setFields(fields.map((f) => (f.id === fieldId ? data.field : f)));
+			if (!updated) {
+				setFieldError("Field not found.");
+				return;
+			}
+			setFields(fields.map((f) => (f.id === fieldId ? updated : f)));
 			setEditingFieldId(null);
 			setEditingFieldName("");
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setFieldError(err.message);
-			} else {
-				setFieldError("Failed to update field. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setFieldError("Failed to update field. Please try again.");
 		}
 	};
 
@@ -218,19 +204,19 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].fields[
-				":fieldId"
-			].$delete({
-				param: { id: noteType.id, fieldId },
-			});
-			await apiClient.handleResponse(res);
-			setFields(fields.filter((f) => f.id !== fieldId));
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setFieldError(err.message);
-			} else {
-				setFieldError("Failed to delete field. Please try again.");
+			if (await localNoteFieldTypeRepository.hasNoteFieldValues(fieldId)) {
+				setFieldError("Cannot delete field with existing values.");
+				return;
 			}
+			const deleted = await localNoteFieldTypeRepository.delete(fieldId);
+			if (!deleted) {
+				setFieldError("Field not found.");
+				return;
+			}
+			setFields(fields.filter((f) => f.id !== fieldId));
+			void triggerSync().catch(() => {});
+		} catch {
+			setFieldError("Failed to delete field. Please try again.");
 		}
 	};
 
@@ -253,26 +239,14 @@ export function NoteTypeEditor({
 		setFieldError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][
-				":id"
-			].fields.reorder.$put({
-				param: { id: noteType.id },
-				json: { fieldIds },
-			});
-			const data = await apiClient.handleResponse<{ fields: NoteFieldType[] }>(
-				res,
+			const reordered = await localNoteFieldTypeRepository.reorder(
+				noteType.id,
+				fieldIds,
 			);
-			setFields(
-				data.fields.sort(
-					(a: NoteFieldType, b: NoteFieldType) => a.order - b.order,
-				),
-			);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setFieldError(err.message);
-			} else {
-				setFieldError("Failed to reorder fields. Please try again.");
-			}
+			setFields(reordered);
+			void triggerSync().catch(() => {});
+		} catch {
+			setFieldError("Failed to reorder fields. Please try again.");
 		}
 	};
 
