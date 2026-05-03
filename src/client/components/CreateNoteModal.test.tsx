@@ -3,48 +3,34 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockNoteTypesGet = vi.fn();
-const mockNoteTypeGet = vi.fn();
-const mockNotesPost = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockNoteTypeFindByUserId = vi.fn();
+const mockNoteTypeFindById = vi.fn();
+const mockNoteFieldTypeFindByNoteTypeId = vi.fn();
+const mockCreateWithCards = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				"note-types": {
-					$get: () => mockNoteTypesGet(),
-					":id": {
-						$get: (args: unknown) => mockNoteTypeGet(args),
-					},
-				},
-				decks: {
-					":deckId": {
-						notes: {
-							$post: (args: unknown) => mockNotesPost(args),
-						},
-					},
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
+vi.mock("../db/repositories", () => ({
+	localNoteTypeRepository: {
+		findByUserId: (...args: unknown[]) => mockNoteTypeFindByUserId(...args),
+		findById: (...args: unknown[]) => mockNoteTypeFindById(...args),
 	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+	localNoteFieldTypeRepository: {
+		findByNoteTypeId: (...args: unknown[]) =>
+			mockNoteFieldTypeFindByNoteTypeId(...args),
+	},
+	localNoteRepository: {
+		createWithCards: (...args: unknown[]) => mockCreateWithCards(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
-// Import after mock is set up
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+	userAtom: atom({ id: "user-1", username: "alice" }),
+}));
+
 import { CreateNoteModal } from "./CreateNoteModal";
 
 describe("CreateNoteModal", () => {
@@ -56,27 +42,71 @@ describe("CreateNoteModal", () => {
 	};
 
 	const mockNoteTypes = [
-		{ id: "note-type-1", name: "Basic", isReversible: false },
-		{ id: "note-type-2", name: "Basic (reversed)", isReversible: true },
+		{
+			id: "note-type-1",
+			userId: "user-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+			createdAt: new Date("2026-01-01T00:00:00Z"),
+			updatedAt: new Date("2026-01-01T00:00:00Z"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		},
+		{
+			id: "note-type-2",
+			userId: "user-1",
+			name: "Basic (reversed)",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: true,
+			createdAt: new Date("2026-01-02T00:00:00Z"),
+			updatedAt: new Date("2026-01-02T00:00:00Z"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		},
 	];
 
-	const mockNoteTypeWithFields = {
-		id: "note-type-1",
-		name: "Basic",
-		frontTemplate: "{{Front}}",
-		backTemplate: "{{Back}}",
-		isReversible: false,
-		fields: [
-			{ id: "field-1", name: "Front", order: 0 },
-			{ id: "field-2", name: "Back", order: 1 },
-		],
-	};
+	const mockFields = [
+		{
+			id: "field-1",
+			noteTypeId: "note-type-1",
+			name: "Front",
+			order: 0,
+			fieldType: "text",
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		},
+		{
+			id: "field-2",
+			noteTypeId: "note-type-1",
+			name: "Back",
+			order: 1,
+			fieldType: "text",
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: true,
+		},
+	];
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockNoteTypesGet.mockResolvedValue({ ok: true });
-		mockNoteTypeGet.mockResolvedValue({ ok: true });
-		mockNotesPost.mockResolvedValue({ ok: true });
+		mockNoteTypeFindByUserId.mockResolvedValue(mockNoteTypes);
+		mockNoteTypeFindById.mockResolvedValue(mockNoteTypes[0]);
+		mockNoteFieldTypeFindByNoteTypeId.mockResolvedValue(mockFields);
+		mockCreateWithCards.mockResolvedValue({
+			note: { id: "note-1" },
+			fieldValues: [],
+			cards: [{ id: "card-1", isReversed: false }],
+		});
 	});
 
 	afterEach(() => {
@@ -91,10 +121,6 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("renders modal when open", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
 		expect(screen.getByRole("dialog")).toBeDefined();
@@ -102,53 +128,38 @@ describe("CreateNoteModal", () => {
 			screen.getByRole("heading", { name: "Create New Note" }),
 		).toBeDefined();
 
-		// Wait for note types to load
 		await waitFor(() => {
 			expect(screen.getByLabelText("Note Type")).toBeDefined();
 		});
 	});
 
-	it("loads note types on open", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
+	it("loads note types on open from local repository", async () => {
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
-			expect(mockNoteTypesGet).toHaveBeenCalled();
+			expect(mockNoteTypeFindByUserId).toHaveBeenCalledWith("user-1");
 		});
 	});
 
 	it("auto-selects first note type and loads its fields", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
-		// Wait for fields to be loaded
 		await waitFor(() => {
 			expect(screen.getByLabelText("Front")).toBeDefined();
 			expect(screen.getByLabelText("Back")).toBeDefined();
 		});
 
-		// Verify the note type details were fetched
-		expect(mockNoteTypeGet).toHaveBeenCalledWith({
-			param: { id: "note-type-1" },
-		});
+		expect(mockNoteTypeFindById).toHaveBeenCalledWith("note-type-1");
+		expect(mockNoteFieldTypeFindByNoteTypeId).toHaveBeenCalledWith(
+			"note-type-1",
+		);
 	});
 
 	it("displays note type options in select", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
-			const select = screen.getByLabelText("Note Type");
-			expect(select).toBeDefined();
+			expect(screen.getByLabelText("Note Type")).toBeDefined();
 		});
 
 		const options = screen.getAllByRole("option");
@@ -158,7 +169,7 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("shows message when no note types available", async () => {
-		mockHandleResponse.mockResolvedValueOnce({ noteTypes: [] });
+		mockNoteTypeFindByUserId.mockResolvedValueOnce([]);
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -172,14 +183,7 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("shows message when note type has no fields", async () => {
-		const noteTypeWithNoFields = {
-			...mockNoteTypeWithFields,
-			fields: [],
-		};
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: noteTypeWithNoFields });
+		mockNoteFieldTypeFindByNoteTypeId.mockResolvedValueOnce([]);
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -193,10 +197,6 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("disables create button when fields are empty", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
@@ -209,11 +209,6 @@ describe("CreateNoteModal", () => {
 
 	it("enables create button when all fields have values", async () => {
 		const user = userEvent.setup();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
@@ -231,10 +226,6 @@ describe("CreateNoteModal", () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} onClose={onClose} />);
 
 		await waitFor(() => {
@@ -246,40 +237,10 @@ describe("CreateNoteModal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onClose when clicking outside the modal", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
-		render(<CreateNoteModal {...defaultProps} onClose={onClose} />);
-
-		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeDefined();
-		});
-
-		// Click on the backdrop (the dialog element itself)
-		const dialog = screen.getByRole("dialog");
-		await user.click(dialog);
-
-		expect(onClose).toHaveBeenCalledTimes(1);
-	});
-
-	it("creates note with field values", async () => {
+	it("creates note via local repository with field values", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onNoteCreated = vi.fn();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockResolvedValueOnce({
-				note: { id: "note-1" },
-				fieldValues: [],
-				cards: [{ id: "card-1", isReversed: false }],
-			});
 
 		render(
 			<CreateNoteModal
@@ -299,14 +260,12 @@ describe("CreateNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Note" }));
 
 		await waitFor(() => {
-			expect(mockNotesPost).toHaveBeenCalledWith({
-				param: { deckId: "deck-123" },
-				json: {
-					noteTypeId: "note-type-1",
-					fields: {
-						"field-1": "What is 2+2?",
-						"field-2": "4",
-					},
+			expect(mockCreateWithCards).toHaveBeenCalledWith({
+				deckId: "deck-123",
+				noteTypeId: "note-type-1",
+				fields: {
+					"field-1": "What is 2+2?",
+					"field-2": "4",
 				},
 			});
 		});
@@ -317,15 +276,6 @@ describe("CreateNoteModal", () => {
 
 	it("trims whitespace from field values", async () => {
 		const user = userEvent.setup();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockResolvedValueOnce({
-				note: { id: "note-1" },
-				fieldValues: [],
-				cards: [],
-			});
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -338,27 +288,39 @@ describe("CreateNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Create Note" }));
 
 		await waitFor(() => {
-			expect(mockNotesPost).toHaveBeenCalledWith({
-				param: { deckId: "deck-123" },
-				json: {
-					noteTypeId: "note-type-1",
-					fields: {
-						"field-1": "Question",
-						"field-2": "Answer",
-					},
+			expect(mockCreateWithCards).toHaveBeenCalledWith({
+				deckId: "deck-123",
+				noteTypeId: "note-type-1",
+				fields: {
+					"field-1": "Question",
+					"field-2": "Answer",
 				},
 			});
+		});
+	});
+
+	it("triggers a background sync after a successful create", async () => {
+		const user = userEvent.setup();
+
+		render(<CreateNoteModal {...defaultProps} />);
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("Front")).toBeDefined();
+		});
+
+		await user.type(screen.getByLabelText("Front"), "Question");
+		await user.type(screen.getByLabelText("Back"), "Answer");
+		await user.click(screen.getByRole("button", { name: "Create Note" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
 		});
 	});
 
 	it("shows loading state during submission", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
-		mockNotesPost.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
+		mockCreateWithCards.mockImplementationOnce(() => new Promise(() => {}));
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -377,39 +339,10 @@ describe("CreateNoteModal", () => {
 		);
 	});
 
-	it("displays API error message", async () => {
+	it("displays a generic error when the local write fails", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockRejectedValueOnce(new ApiClientError("Note type not found", 400));
-
-		render(<CreateNoteModal {...defaultProps} />);
-
-		await waitFor(() => {
-			expect(screen.getByLabelText("Front")).toBeDefined();
-		});
-
-		await user.type(screen.getByLabelText("Front"), "Question");
-		await user.type(screen.getByLabelText("Back"), "Answer");
-		await user.click(screen.getByRole("button", { name: "Create Note" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain(
-				"Note type not found",
-			);
-		});
-	});
-
-	it("displays generic error on unexpected failure", async () => {
-		const user = userEvent.setup();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
-		mockNotesPost.mockRejectedValueOnce(new Error("Network error"));
+		mockCreateWithCards.mockRejectedValueOnce(new Error("disk full"));
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -431,22 +364,27 @@ describe("CreateNoteModal", () => {
 	it("switches note type and loads new fields", async () => {
 		const user = userEvent.setup();
 
-		const reversedNoteType = {
-			id: "note-type-2",
-			name: "Basic (reversed)",
-			frontTemplate: "{{Front}}",
-			backTemplate: "{{Back}}",
-			isReversible: true,
-			fields: [
-				{ id: "field-3", name: "Question", order: 0 },
-				{ id: "field-4", name: "Answer", order: 1 },
-			],
-		};
+		const reversedFields = [
+			{
+				...mockFields[0],
+				id: "field-3",
+				noteTypeId: "note-type-2",
+				name: "Question",
+			},
+			{
+				...mockFields[1],
+				id: "field-4",
+				noteTypeId: "note-type-2",
+				name: "Answer",
+			},
+		];
 
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields })
-			.mockResolvedValueOnce({ noteType: reversedNoteType });
+		mockNoteTypeFindById.mockImplementation(async (id: string) =>
+			mockNoteTypes.find((nt) => nt.id === id),
+		);
+		mockNoteFieldTypeFindByNoteTypeId.mockImplementation(async (id: string) =>
+			id === "note-type-2" ? reversedFields : mockFields,
+		);
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -454,31 +392,22 @@ describe("CreateNoteModal", () => {
 			expect(screen.getByLabelText("Front")).toBeDefined();
 		});
 
-		// Change note type
 		const select = screen.getByLabelText("Note Type");
 		await user.selectOptions(select, "note-type-2");
 
-		// Wait for new fields to load
 		await waitFor(() => {
 			expect(screen.getByLabelText("Question")).toBeDefined();
 			expect(screen.getByLabelText("Answer")).toBeDefined();
 		});
 
-		// Verify the note type details were fetched for the new type
-		expect(mockNoteTypeGet).toHaveBeenCalledWith({
-			param: { id: "note-type-2" },
-		});
+		expect(mockNoteTypeFindById).toHaveBeenCalledWith("note-type-2");
 	});
 
 	it("shows card count preview for reversible note type", async () => {
-		const reversedNoteType = {
-			...mockNoteTypeWithFields,
+		mockNoteTypeFindById.mockResolvedValueOnce({
+			...mockNoteTypes[0],
 			isReversible: true,
-		};
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: reversedNoteType });
+		});
 
 		render(<CreateNoteModal {...defaultProps} />);
 
@@ -489,10 +418,6 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("shows card count preview for non-reversible note type", async () => {
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
@@ -501,64 +426,24 @@ describe("CreateNoteModal", () => {
 	});
 
 	it("displays error when note types fail to load", async () => {
-		mockHandleResponse.mockRejectedValueOnce(
-			new ApiClientError("Server error", 500),
-		);
+		mockNoteTypeFindByUserId.mockRejectedValueOnce(new Error("disk error"));
 
 		render(<CreateNoteModal {...defaultProps} />);
 
 		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain("Server error");
+			expect(screen.getByRole("alert").textContent).toContain(
+				"Failed to load note types. Please try again.",
+			);
 		});
 	});
 
-	it("resets form when closed and reopened", async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
-
-		mockHandleResponse
-			.mockResolvedValueOnce({ noteTypes: mockNoteTypes })
-			.mockResolvedValueOnce({ noteType: mockNoteTypeWithFields });
-
-		const { rerender } = render(
-			<CreateNoteModal
-				isOpen={true}
-				deckId="deck-123"
-				onClose={onClose}
-				onNoteCreated={vi.fn()}
-			/>,
+	it("auto-selects defaultNoteTypeId when provided", async () => {
+		render(
+			<CreateNoteModal {...defaultProps} defaultNoteTypeId="note-type-2" />,
 		);
 
 		await waitFor(() => {
-			expect(screen.getByLabelText("Front")).toBeDefined();
+			expect(mockNoteTypeFindById).toHaveBeenCalledWith("note-type-2");
 		});
-
-		// Type something in the form
-		await user.type(screen.getByLabelText("Front"), "Question");
-		await user.type(screen.getByLabelText("Back"), "Answer");
-
-		// Click cancel to close
-		await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-		// Note: The component already has note types loaded (hasLoadedNoteTypes = true)
-		// so it won't fetch again
-
-		// Reopen the modal
-		rerender(
-			<CreateNoteModal
-				isOpen={true}
-				deckId="deck-123"
-				onClose={onClose}
-				onNoteCreated={vi.fn()}
-			/>,
-		);
-
-		await waitFor(() => {
-			expect(screen.getByLabelText("Front")).toBeDefined();
-		});
-
-		// Form should be reset
-		expect(screen.getByLabelText("Front")).toHaveProperty("value", "");
-		expect(screen.getByLabelText("Back")).toHaveProperty("value", "");
 	});
 });

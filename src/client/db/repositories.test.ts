@@ -1090,6 +1090,225 @@ describe("localNoteRepository", () => {
 			expect(unsynced[0]?.id).toBe(note1.id);
 		});
 	});
+
+	describe("createWithCards", () => {
+		it("should create a note, field values, and one card for a non-reversible note type", async () => {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+			const backField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Back",
+				order: 1,
+			});
+
+			const result = await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId,
+				fields: {
+					[frontField.id]: "Question",
+					[backField.id]: "Answer",
+				},
+			});
+
+			expect(result.note.id).toBeDefined();
+			expect(result.note.deckId).toBe(deckId);
+			expect(result.note.noteTypeId).toBe(noteTypeId);
+			expect(result.note._synced).toBe(false);
+
+			expect(result.fieldValues).toHaveLength(2);
+			const fronFieldValue = result.fieldValues.find(
+				(fv) => fv.noteFieldTypeId === frontField.id,
+			);
+			expect(fronFieldValue?.value).toBe("Question");
+
+			expect(result.cards).toHaveLength(1);
+			expect(result.cards[0]?.front).toBe("Question");
+			expect(result.cards[0]?.back).toBe("Answer");
+			expect(result.cards[0]?.isReversed).toBe(false);
+			expect(result.cards[0]?._synced).toBe(false);
+		});
+
+		it("should create two cards for a reversible note type", async () => {
+			const reversibleNoteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Reversible",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: true,
+			});
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId: reversibleNoteType.id,
+				name: "Front",
+				order: 0,
+			});
+			const backField = await localNoteFieldTypeRepository.create({
+				noteTypeId: reversibleNoteType.id,
+				name: "Back",
+				order: 1,
+			});
+
+			const result = await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId: reversibleNoteType.id,
+				fields: {
+					[frontField.id]: "Q",
+					[backField.id]: "A",
+				},
+			});
+
+			expect(result.cards).toHaveLength(2);
+			const normal = result.cards.find((c) => !c.isReversed);
+			const reversed = result.cards.find((c) => c.isReversed);
+			expect(normal?.front).toBe("Q");
+			expect(normal?.back).toBe("A");
+			expect(reversed?.front).toBe("A");
+			expect(reversed?.back).toBe("Q");
+		});
+
+		it("should fill missing fields with empty string", async () => {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+			const backField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Back",
+				order: 1,
+			});
+
+			const result = await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId,
+				fields: {
+					[frontField.id]: "Only front",
+				},
+			});
+
+			const backValue = result.fieldValues.find(
+				(fv) => fv.noteFieldTypeId === backField.id,
+			);
+			expect(backValue?.value).toBe("");
+		});
+
+		it("should throw when note type does not exist", async () => {
+			await expect(
+				localNoteRepository.createWithCards({
+					deckId,
+					noteTypeId: "non-existent",
+					fields: {},
+				}),
+			).rejects.toThrow("Note type not found");
+		});
+
+		it("should throw when note type is soft-deleted", async () => {
+			await localNoteTypeRepository.delete(noteTypeId);
+
+			await expect(
+				localNoteRepository.createWithCards({
+					deckId,
+					noteTypeId,
+					fields: {},
+				}),
+			).rejects.toThrow("Note type not found");
+		});
+
+		it("should persist all entities to the database", async () => {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+
+			const result = await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId,
+				fields: { [frontField.id]: "Persisted" },
+			});
+
+			const foundNote = await db.notes.get(result.note.id);
+			const foundFieldValues = await localNoteFieldValueRepository.findByNoteId(
+				result.note.id,
+			);
+			const foundCards = await db.cards
+				.where("noteId")
+				.equals(result.note.id)
+				.toArray();
+
+			expect(foundNote).toBeDefined();
+			expect(foundFieldValues).toHaveLength(1);
+			expect(foundCards).toHaveLength(1);
+		});
+	});
+
+	describe("updateWithFieldValues", () => {
+		it("should update existing field values and bump note's updatedAt", async () => {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+			const created = await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId,
+				fields: { [frontField.id]: "Old" },
+			});
+			await localNoteRepository.markSynced(created.note.id, 1);
+
+			const result = await localNoteRepository.updateWithFieldValues(
+				created.note.id,
+				{ [frontField.id]: "New" },
+			);
+
+			expect(result?.note._synced).toBe(false);
+			expect(result?.fieldValues).toHaveLength(1);
+			expect(result?.fieldValues[0]?.value).toBe("New");
+			expect(result?.fieldValues[0]?.id).toBe(created.fieldValues[0]?.id);
+		});
+
+		it("should create a field value when one is missing for the field type", async () => {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+			const note = await localNoteRepository.create({ deckId, noteTypeId });
+
+			const result = await localNoteRepository.updateWithFieldValues(note.id, {
+				[frontField.id]: "Inserted",
+			});
+
+			expect(result?.fieldValues).toHaveLength(1);
+			expect(result?.fieldValues[0]?.value).toBe("Inserted");
+
+			const persisted = await localNoteFieldValueRepository.findByNoteId(
+				note.id,
+			);
+			expect(persisted).toHaveLength(1);
+			expect(persisted[0]?.value).toBe("Inserted");
+		});
+
+		it("should return undefined when the note does not exist", async () => {
+			const result = await localNoteRepository.updateWithFieldValues(
+				"non-existent",
+				{ "field-1": "x" },
+			);
+			expect(result).toBeUndefined();
+		});
+
+		it("should return undefined when the note is soft-deleted", async () => {
+			const note = await localNoteRepository.create({ deckId, noteTypeId });
+			await localNoteRepository.delete(note.id);
+
+			const result = await localNoteRepository.updateWithFieldValues(note.id, {
+				"field-1": "x",
+			});
+			expect(result).toBeUndefined();
+		});
+	});
 });
 
 describe("localNoteFieldValueRepository", () => {

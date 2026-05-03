@@ -1,9 +1,14 @@
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue } from "jotai";
+import { useSetAtom } from "jotai";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom } from "../atoms";
+import {
+	localNoteFieldTypeRepository,
+	localNoteFieldValueRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
 
 interface NoteField {
 	id: string;
@@ -54,30 +59,8 @@ export function EditNoteModal({
 	const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingNote, setIsLoadingNote] = useState(false);
-	const [isLoadingNoteType, setIsLoadingNoteType] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
-
-	const fetchNoteTypeDetails = useCallback(async (noteTypeId: string) => {
-		setIsLoadingNoteType(true);
-		setError(null);
-
-		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].$get({
-				param: { id: noteTypeId },
-			});
-			const data = await apiClient.handleResponse<{ noteType: NoteType }>(res);
-			setNoteType(data.noteType);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note type details. Please try again.");
-			}
-		} finally {
-			setIsLoadingNoteType(false);
-		}
-	}, []);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const fetchNote = useCallback(async () => {
 		if (!noteId) return;
@@ -86,35 +69,67 @@ export function EditNoteModal({
 		setError(null);
 
 		try {
-			const res = await apiClient.rpc.api.decks[":deckId"].notes[
-				":noteId"
-			].$get({
-				param: { deckId, noteId },
-			});
-			const data = await apiClient.handleResponse<{
-				note: NoteWithFieldValues;
-			}>(res);
-			setNote(data.note);
+			const localNote = await localNoteRepository.findById(noteId);
+			if (
+				!localNote ||
+				localNote.deletedAt !== null ||
+				localNote.deckId !== deckId
+			) {
+				setError("Failed to load note. Please try again.");
+				return;
+			}
+
+			const localFieldValues =
+				await localNoteFieldValueRepository.findByNoteId(noteId);
+			const noteWithValues: NoteWithFieldValues = {
+				id: localNote.id,
+				deckId: localNote.deckId,
+				noteTypeId: localNote.noteTypeId,
+				fieldValues: localFieldValues.map((fv) => ({
+					id: fv.id,
+					noteId: fv.noteId,
+					noteFieldTypeId: fv.noteFieldTypeId,
+					value: fv.value,
+				})),
+			};
+			setNote(noteWithValues);
 
 			// Initialize field values from note
 			const initialValues: Record<string, string> = {};
-			for (const fv of data.note.fieldValues) {
+			for (const fv of noteWithValues.fieldValues) {
 				initialValues[fv.noteFieldTypeId] = fv.value;
 			}
 			setFieldValues(initialValues);
 
-			// Fetch note type details
-			await fetchNoteTypeDetails(data.note.noteTypeId);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note. Please try again.");
+			const localNoteType = await localNoteTypeRepository.findById(
+				localNote.noteTypeId,
+			);
+			if (!localNoteType || localNoteType.deletedAt !== null) {
+				setError("Failed to load note type details. Please try again.");
+				return;
 			}
+			const fieldTypes = await localNoteFieldTypeRepository.findByNoteTypeId(
+				localNote.noteTypeId,
+			);
+
+			setNoteType({
+				id: localNoteType.id,
+				name: localNoteType.name,
+				frontTemplate: localNoteType.frontTemplate,
+				backTemplate: localNoteType.backTemplate,
+				isReversible: localNoteType.isReversible,
+				fields: fieldTypes.map((ft) => ({
+					id: ft.id,
+					name: ft.name,
+					order: ft.order,
+				})),
+			});
+		} catch {
+			setError("Failed to load note. Please try again.");
 		} finally {
 			setIsLoadingNote(false);
 		}
-	}, [noteId, deckId, fetchNoteTypeDetails]);
+	}, [noteId, deckId]);
 
 	useEffect(() => {
 		if (isOpen && noteId) {
@@ -159,24 +174,20 @@ export function EditNoteModal({
 				trimmedFields[fieldId] = value.trim();
 			}
 
-			const res = await apiClient.rpc.api.decks[":deckId"].notes[
-				":noteId"
-			].$put({
-				param: { deckId, noteId: note.id },
-				json: {
-					fields: trimmedFields,
-				},
-			});
-			await apiClient.handleResponse(res);
+			const updated = await localNoteRepository.updateWithFieldValues(
+				note.id,
+				trimmedFields,
+			);
+			if (!updated) {
+				setError("Note not found.");
+				return;
+			}
 
 			onNoteUpdated();
 			handleClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to update note. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to update note. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -192,7 +203,7 @@ export function EditNoteModal({
 		noteType.fields.length > 0 &&
 		noteType.fields.every((field) => fieldValues[field.id]?.trim());
 
-	const isLoading = isLoadingNote || isLoadingNoteType;
+	const isLoading = isLoadingNote;
 
 	return (
 		<div
@@ -300,10 +311,7 @@ export function EditNoteModal({
 							</button>
 							<button
 								type="submit"
-								disabled={
-									isSubmitting || !isFormValid || isLoading || !isOnline
-								}
-								title={!isOnline ? "Reconnect to save changes" : undefined}
+								disabled={isSubmitting || !isFormValid || isLoading}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Saving..." : "Save Changes"}

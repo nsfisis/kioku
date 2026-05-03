@@ -15,8 +15,10 @@ import { DeckCardsPage } from "./DeckCardsPage";
 
 const mockDeckGet = vi.fn();
 const mockCardsGet = vi.fn();
-const mockNoteDelete = vi.fn();
 const mockHandleResponse = vi.fn();
+const mockLocalNoteFindById = vi.fn();
+const mockLocalNoteDelete = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
 vi.mock("../api/client", () => ({
 	apiClient: {
@@ -34,11 +36,6 @@ vi.mock("../api/client", () => ({
 					":deckId": {
 						cards: {
 							$get: (args: unknown) => mockCardsGet(args),
-						},
-						notes: {
-							":noteId": {
-								$delete: (args: unknown) => mockNoteDelete(args),
-							},
 						},
 					},
 				},
@@ -58,6 +55,38 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+vi.mock("../db/repositories", () => ({
+	localNoteRepository: {
+		findById: (...args: unknown[]) => mockLocalNoteFindById(...args),
+		delete: (...args: unknown[]) => mockLocalNoteDelete(...args),
+	},
+	localDeckRepository: {
+		findByUserId: vi.fn().mockResolvedValue([]),
+		findById: vi.fn().mockResolvedValue(undefined),
+	},
+	localCardRepository: {
+		findByDeckId: vi.fn().mockResolvedValue([]),
+	},
+	localNoteTypeRepository: {
+		findByUserId: vi.fn().mockResolvedValue([]),
+		findById: vi.fn().mockResolvedValue(undefined),
+	},
+	localNoteFieldTypeRepository: {
+		findByNoteTypeId: vi.fn().mockResolvedValue([]),
+	},
+	localNoteFieldValueRepository: {
+		findByNoteId: vi.fn().mockResolvedValue([]),
+	},
+}));
+
+vi.mock("../atoms", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../atoms")>();
+	return {
+		...original,
+		syncActionAtom: (await import("jotai")).atom(null, () => mockTriggerSync()),
+	};
+});
+
 // Mock queryClient module so pages use our test queryClient
 let testQueryClient: QueryClient;
 vi.mock("../queryClient", () => ({
@@ -66,7 +95,7 @@ vi.mock("../queryClient", () => ({
 	},
 }));
 
-import { ApiClientError, apiClient } from "../api/client";
+import { apiClient } from "../api/client";
 
 const mockDeck = {
 	id: "deck-1",
@@ -417,13 +446,20 @@ describe("DeckCardsPage", () => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
 
-		it("submits the note delete via the delete endpoint", async () => {
+		it("submits the note delete via the local repository", async () => {
 			const user = userEvent.setup();
 
-			mockNoteDelete.mockResolvedValue({
-				ok: true,
-				json: async () => ({ success: true }),
+			mockLocalNoteFindById.mockResolvedValue({
+				id: "note-1",
+				deckId: "deck-1",
+				noteTypeId: "note-type-1",
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: true,
 			});
+			mockLocalNoteDelete.mockResolvedValue(true);
 
 			renderWithProviders({
 				initialDeck: mockDeck,
@@ -451,17 +487,23 @@ describe("DeckCardsPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockNoteDelete).toHaveBeenCalledWith({
-				param: { deckId: "deck-1", noteId: "note-1" },
-			});
+			expect(mockLocalNoteDelete).toHaveBeenCalledWith("note-1");
 		});
 
 		it("displays error when delete fails", async () => {
 			const user = userEvent.setup();
 
-			mockNoteDelete.mockRejectedValue(
-				new ApiClientError("Failed to delete note", 500),
-			);
+			mockLocalNoteFindById.mockResolvedValue({
+				id: "note-1",
+				deckId: "deck-1",
+				noteTypeId: "note-type-1",
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: true,
+			});
+			mockLocalNoteDelete.mockRejectedValue(new Error("disk full"));
 
 			renderWithProviders({
 				initialDeck: mockDeck,
@@ -561,13 +603,20 @@ describe("DeckCardsPage", () => {
 			).toBeDefined();
 		});
 
-		it("submits the note delete via the delete endpoint", async () => {
+		it("submits the note delete via the local repository", async () => {
 			const user = userEvent.setup();
 
-			mockNoteDelete.mockResolvedValue({
-				ok: true,
-				json: async () => ({ success: true }),
+			mockLocalNoteFindById.mockResolvedValue({
+				id: "note-1",
+				deckId: "deck-1",
+				noteTypeId: "note-type-1",
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				syncVersion: 0,
+				_synced: true,
 			});
+			mockLocalNoteDelete.mockResolvedValue(true);
 
 			renderWithProviders({
 				initialDeck: mockDeck,
@@ -592,9 +641,7 @@ describe("DeckCardsPage", () => {
 				expect(screen.queryByRole("dialog")).toBeNull();
 			});
 
-			expect(mockNoteDelete).toHaveBeenCalledWith({
-				param: { deckId: "deck-1", noteId: "note-1" },
-			});
+			expect(mockLocalNoteDelete).toHaveBeenCalledWith("note-1");
 		});
 
 		it("displays note preview from normal card content", () => {

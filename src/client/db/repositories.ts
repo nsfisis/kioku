@@ -1,4 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
+import {
+	type FieldTypeForGeneration,
+	type FieldValueForGeneration,
+	generateCardsForNote,
+	type NoteTypeForGeneration,
+} from "../../shared/card-generator";
 import { getEndOfStudyDayBoundary } from "../../shared/date";
 import {
 	CardState,
@@ -706,6 +712,119 @@ export const localNoteRepository = {
 	},
 
 	/**
+	 * Create a note together with its field values and auto-generated cards
+	 * (1 or 2 depending on isReversible) inside a single IndexedDB transaction
+	 * so partial writes can never leak through.
+	 */
+	async createWithCards(input: {
+		deckId: string;
+		noteTypeId: string;
+		fields: Record<string, string>;
+	}): Promise<{
+		note: LocalNote;
+		fieldValues: LocalNoteFieldValue[];
+		cards: LocalCard[];
+	}> {
+		return db.transaction(
+			"rw",
+			[db.notes, db.noteFieldValues, db.cards, db.noteTypes, db.noteFieldTypes],
+			async () => {
+				const noteType = await db.noteTypes.get(input.noteTypeId);
+				if (!noteType || noteType.deletedAt !== null) {
+					throw new Error("Note type not found");
+				}
+
+				const fieldTypes = (
+					await db.noteFieldTypes
+						.where("noteTypeId")
+						.equals(input.noteTypeId)
+						.filter((ft) => ft.deletedAt === null)
+						.toArray()
+				).sort((a, b) => a.order - b.order);
+
+				const now = new Date();
+				const note: LocalNote = {
+					id: uuidv4(),
+					deckId: input.deckId,
+					noteTypeId: input.noteTypeId,
+					createdAt: now,
+					updatedAt: now,
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				};
+				await db.notes.add(note);
+
+				const fieldValues: LocalNoteFieldValue[] = [];
+				for (const fieldType of fieldTypes) {
+					const fieldValue: LocalNoteFieldValue = {
+						id: uuidv4(),
+						noteId: note.id,
+						noteFieldTypeId: fieldType.id,
+						value: input.fields[fieldType.id] ?? "",
+						createdAt: now,
+						updatedAt: now,
+						syncVersion: 0,
+						_synced: false,
+					};
+					await db.noteFieldValues.add(fieldValue);
+					fieldValues.push(fieldValue);
+				}
+
+				const noteTypeForGeneration: NoteTypeForGeneration = {
+					frontTemplate: noteType.frontTemplate,
+					backTemplate: noteType.backTemplate,
+					isReversible: noteType.isReversible,
+				};
+				const fieldTypesForGeneration: FieldTypeForGeneration[] =
+					fieldTypes.map((ft) => ({ id: ft.id, name: ft.name }));
+				const fieldValuesForGeneration: FieldValueForGeneration[] =
+					fieldValues.map((fv) => ({
+						noteFieldTypeId: fv.noteFieldTypeId,
+						value: fv.value,
+					}));
+
+				const generatedCards = generateCardsForNote({
+					noteType: noteTypeForGeneration,
+					fieldTypes: fieldTypesForGeneration,
+					fieldValues: fieldValuesForGeneration,
+					now,
+				});
+
+				const cards: LocalCard[] = [];
+				for (const generated of generatedCards) {
+					const card: LocalCard = {
+						id: uuidv4(),
+						deckId: input.deckId,
+						noteId: note.id,
+						isReversed: generated.isReversed,
+						front: generated.front,
+						back: generated.back,
+						state: generated.state as LocalCard["state"],
+						due: generated.due,
+						stability: generated.stability,
+						difficulty: generated.difficulty,
+						elapsedDays: generated.elapsedDays,
+						scheduledDays: generated.scheduledDays,
+						reps: generated.reps,
+						lapses: generated.lapses,
+						lastReview: null,
+						createdAt: now,
+						updatedAt: now,
+						deletedAt: null,
+						syncVersion: 0,
+						_synced: false,
+					};
+					await db.cards.add(card);
+					cards.push(card);
+				}
+
+				return { note, fieldValues, cards };
+			},
+		);
+	},
+
+	/**
 	 * Update a note's metadata (triggers updatedAt change)
 	 */
 	async update(id: string): Promise<LocalNote | undefined> {
@@ -719,6 +838,65 @@ export const localNoteRepository = {
 		};
 		await db.notes.put(updatedNote);
 		return updatedNote;
+	},
+
+	/**
+	 * Atomically bump the note's updatedAt and upsert each provided field value
+	 * (creating one if the note never had a value for the field type yet).
+	 */
+	async updateWithFieldValues(
+		id: string,
+		fields: Record<string, string>,
+	): Promise<
+		{ note: LocalNote; fieldValues: LocalNoteFieldValue[] } | undefined
+	> {
+		return db.transaction("rw", [db.notes, db.noteFieldValues], async () => {
+			const note = await db.notes.get(id);
+			if (!note || note.deletedAt !== null) return undefined;
+
+			const now = new Date();
+			const updatedNote: LocalNote = {
+				...note,
+				updatedAt: now,
+				_synced: false,
+			};
+			await db.notes.put(updatedNote);
+
+			const updatedFieldValues: LocalNoteFieldValue[] = [];
+			for (const [noteFieldTypeId, value] of Object.entries(fields)) {
+				const existing = await db.noteFieldValues
+					.where("noteId")
+					.equals(id)
+					.filter((fv) => fv.noteFieldTypeId === noteFieldTypeId)
+					.first();
+
+				if (existing) {
+					const next: LocalNoteFieldValue = {
+						...existing,
+						value,
+						updatedAt: now,
+						_synced: false,
+					};
+					await db.noteFieldValues.put(next);
+					updatedFieldValues.push(next);
+				} else {
+					const created: LocalNoteFieldValue = {
+						id: uuidv4(),
+						noteId: id,
+						noteFieldTypeId,
+						value,
+						createdAt: now,
+						updatedAt: now,
+						syncVersion: 0,
+						_synced: false,
+					};
+					await db.noteFieldValues.add(created);
+					updatedFieldValues.push(created);
+				}
+			}
+
+			return { note: updatedNote, fieldValues: updatedFieldValues };
+		});
 	},
 
 	/**

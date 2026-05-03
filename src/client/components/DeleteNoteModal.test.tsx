@@ -3,41 +3,24 @@
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { atom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockDelete = vi.fn();
-const mockHandleResponse = vi.fn();
+const mockNoteFindById = vi.fn();
+const mockNoteDelete = vi.fn();
+const mockTriggerSync = vi.fn(() => Promise.resolve(null));
 
-vi.mock("../api/client", () => ({
-	apiClient: {
-		rpc: {
-			api: {
-				decks: {
-					":deckId": {
-						notes: {
-							":noteId": {
-								$delete: (args: unknown) => mockDelete(args),
-							},
-						},
-					},
-				},
-			},
-		},
-		handleResponse: (res: unknown) => mockHandleResponse(res),
-	},
-	ApiClientError: class ApiClientError extends Error {
-		constructor(
-			message: string,
-			public status: number,
-			public code?: string,
-		) {
-			super(message);
-			this.name = "ApiClientError";
-		}
+vi.mock("../db/repositories", () => ({
+	localNoteRepository: {
+		findById: (...args: unknown[]) => mockNoteFindById(...args),
+		delete: (...args: unknown[]) => mockNoteDelete(...args),
 	},
 }));
 
-import { ApiClientError } from "../api/client";
+vi.mock("../atoms", () => ({
+	syncActionAtom: atom(null, () => mockTriggerSync()),
+}));
+
 import { DeleteNoteModal } from "./DeleteNoteModal";
 
 describe("DeleteNoteModal", () => {
@@ -49,10 +32,21 @@ describe("DeleteNoteModal", () => {
 		onNoteDeleted: vi.fn(),
 	};
 
+	const mockNote = {
+		id: "note-1",
+		deckId: "deck-1",
+		noteTypeId: "note-type-1",
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		deletedAt: null,
+		syncVersion: 0,
+		_synced: true,
+	};
+
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockDelete.mockResolvedValue({ ok: true });
-		mockHandleResponse.mockResolvedValue({});
+		mockNoteFindById.mockResolvedValue(mockNote);
+		mockNoteDelete.mockResolvedValue(true);
 	});
 
 	afterEach(() => {
@@ -110,7 +104,6 @@ describe("DeleteNoteModal", () => {
 
 		render(<DeleteNoteModal {...defaultProps} onClose={onClose} />);
 
-		// Click the backdrop (the dialog container)
 		const dialog = screen.getByRole("dialog");
 		await user.click(dialog);
 
@@ -122,7 +115,6 @@ describe("DeleteNoteModal", () => {
 
 		render(<DeleteNoteModal {...defaultProps} onClose={onClose} />);
 
-		// The dialog has onKeyDown handler - fire a keyboard event directly
 		const dialog = screen.getByRole("dialog");
 		const event = new KeyboardEvent("keydown", {
 			key: "Escape",
@@ -133,7 +125,7 @@ describe("DeleteNoteModal", () => {
 		expect(onClose).toHaveBeenCalledOnce();
 	});
 
-	it("deletes note and calls callbacks on success", async () => {
+	it("deletes note via local repository on success", async () => {
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		const onNoteDeleted = vi.fn();
@@ -149,21 +141,29 @@ describe("DeleteNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
 		await waitFor(() => {
-			expect(mockDelete).toHaveBeenCalledWith({
-				param: { deckId: "deck-1", noteId: "note-1" },
-			});
+			expect(mockNoteDelete).toHaveBeenCalledWith("note-1");
 		});
 
 		expect(onNoteDeleted).toHaveBeenCalledOnce();
 		expect(onClose).toHaveBeenCalledOnce();
 	});
 
-	it("displays error message when delete fails", async () => {
+	it("triggers a background sync after a successful delete", async () => {
 		const user = userEvent.setup();
 
-		mockHandleResponse.mockRejectedValue(
-			new ApiClientError("Failed to delete note", 500),
-		);
+		render(<DeleteNoteModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(mockTriggerSync).toHaveBeenCalled();
+		});
+	});
+
+	it("shows an error when the note no longer exists", async () => {
+		const user = userEvent.setup();
+
+		mockNoteFindById.mockResolvedValueOnce(undefined);
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
@@ -171,7 +171,44 @@ describe("DeleteNoteModal", () => {
 
 		await waitFor(() => {
 			expect(screen.getByRole("alert").textContent).toContain(
-				"Failed to delete note",
+				"Note not found.",
+			);
+		});
+		expect(mockNoteDelete).not.toHaveBeenCalled();
+	});
+
+	it("shows an error when the note belongs to a different deck", async () => {
+		const user = userEvent.setup();
+
+		mockNoteFindById.mockResolvedValueOnce({
+			...mockNote,
+			deckId: "deck-other",
+		});
+
+		render(<DeleteNoteModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("alert").textContent).toContain(
+				"Note not found.",
+			);
+		});
+		expect(mockNoteDelete).not.toHaveBeenCalled();
+	});
+
+	it("displays a generic error when the local write fails", async () => {
+		const user = userEvent.setup();
+
+		mockNoteDelete.mockRejectedValueOnce(new Error("disk full"));
+
+		render(<DeleteNoteModal {...defaultProps} />);
+
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("alert").textContent).toContain(
+				"Failed to delete note. Please try again.",
 			);
 		});
 	});
@@ -179,28 +216,30 @@ describe("DeleteNoteModal", () => {
 	it("shows Deleting... text while deleting", async () => {
 		const user = userEvent.setup();
 
-		// Create a promise that we can control
-		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockNoteDelete.mockImplementation(() => new Promise(() => {}));
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
-		// Should show "Deleting..." while request is in progress
-		expect(screen.getByText("Deleting...")).toBeDefined();
+		await waitFor(() => {
+			expect(screen.getByText("Deleting...")).toBeDefined();
+		});
 	});
 
 	it("disables buttons while deleting", async () => {
 		const user = userEvent.setup();
 
-		// Create a promise that we can control
-		mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
+		mockNoteDelete.mockImplementation(() => new Promise(() => {}));
 
 		render(<DeleteNoteModal {...defaultProps} />);
 
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 
-		// Both buttons should be disabled
+		await waitFor(() => {
+			expect(screen.getByText("Deleting...")).toBeDefined();
+		});
+
 		expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty(
 			"disabled",
 			true,

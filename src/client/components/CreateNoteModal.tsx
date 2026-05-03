@@ -1,9 +1,13 @@
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom, userAtom } from "../atoms";
+import {
+	localNoteFieldTypeRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
 
 interface NoteField {
 	id: string;
@@ -51,31 +55,44 @@ export function CreateNoteModal({
 	const [isLoadingNoteType, setIsLoadingNoteType] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [hasLoadedNoteTypes, setHasLoadedNoteTypes] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const user = useAtomValue(userAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const fetchNoteTypeDetails = useCallback(async (noteTypeId: string) => {
 		setIsLoadingNoteType(true);
 		setError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"][":id"].$get({
-				param: { id: noteTypeId },
-			});
-			const data = await apiClient.handleResponse<{ noteType: NoteType }>(res);
-			setSelectedNoteType(data.noteType);
+			const noteType = await localNoteTypeRepository.findById(noteTypeId);
+			if (!noteType || noteType.deletedAt !== null) {
+				setError("Note type not found.");
+				return;
+			}
+			const fieldTypes =
+				await localNoteFieldTypeRepository.findByNoteTypeId(noteTypeId);
+
+			const detailed: NoteType = {
+				id: noteType.id,
+				name: noteType.name,
+				frontTemplate: noteType.frontTemplate,
+				backTemplate: noteType.backTemplate,
+				isReversible: noteType.isReversible,
+				fields: fieldTypes.map((ft) => ({
+					id: ft.id,
+					name: ft.name,
+					order: ft.order,
+				})),
+			};
+			setSelectedNoteType(detailed);
 
 			// Initialize field values for the new note type
 			const initialValues: Record<string, string> = {};
-			for (const field of data.noteType.fields) {
+			for (const field of detailed.fields) {
 				initialValues[field.id] = "";
 			}
 			setFieldValues(initialValues);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note type details. Please try again.");
-			}
+		} catch {
+			setError("Failed to load note type details. Please try again.");
 		} finally {
 			setIsLoadingNoteType(false);
 		}
@@ -86,31 +103,35 @@ export function CreateNoteModal({
 		setError(null);
 
 		try {
-			const res = await apiClient.rpc.api["note-types"].$get();
-			const data = await apiClient.handleResponse<{
-				noteTypes: NoteTypeSummary[];
-			}>(res);
-			setNoteTypes(data.noteTypes);
+			const localNoteTypes = user
+				? await localNoteTypeRepository.findByUserId(user.id)
+				: [];
+			localNoteTypes.sort(
+				(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+			);
+			const summaries: NoteTypeSummary[] = localNoteTypes.map((nt) => ({
+				id: nt.id,
+				name: nt.name,
+				isReversible: nt.isReversible,
+			}));
+
+			setNoteTypes(summaries);
 			setHasLoadedNoteTypes(true);
 
 			// Auto-select default note type if specified, otherwise first
 			const targetNoteType =
 				(defaultNoteTypeId &&
-					data.noteTypes.find((nt) => nt.id === defaultNoteTypeId)) ||
-				data.noteTypes[0];
+					summaries.find((nt) => nt.id === defaultNoteTypeId)) ||
+				summaries[0];
 			if (targetNoteType) {
 				await fetchNoteTypeDetails(targetNoteType.id);
 			}
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note types. Please try again.");
-			}
+		} catch {
+			setError("Failed to load note types. Please try again.");
 		} finally {
 			setIsLoadingNoteTypes(false);
 		}
-	}, [fetchNoteTypeDetails, defaultNoteTypeId]);
+	}, [fetchNoteTypeDetails, defaultNoteTypeId, user]);
 
 	useEffect(() => {
 		if (isOpen && !hasLoadedNoteTypes) {
@@ -168,24 +189,18 @@ export function CreateNoteModal({
 				trimmedFields[fieldId] = value.trim();
 			}
 
-			const res = await apiClient.rpc.api.decks[":deckId"].notes.$post({
-				param: { deckId },
-				json: {
-					noteTypeId: selectedNoteType.id,
-					fields: trimmedFields,
-				},
+			await localNoteRepository.createWithCards({
+				deckId,
+				noteTypeId: selectedNoteType.id,
+				fields: trimmedFields,
 			});
-			await apiClient.handleResponse(res);
 
 			resetForm();
 			onNoteCreated();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to create note. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to create note. Please try again.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -349,10 +364,7 @@ export function CreateNoteModal({
 							</button>
 							<button
 								type="submit"
-								disabled={
-									isSubmitting || !isFormValid || isLoading || !isOnline
-								}
-								title={!isOnline ? "Reconnect to create a note" : undefined}
+								disabled={isSubmitting || !isFormValid || isLoading}
 								className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isSubmitting ? "Creating..." : "Create Note"}

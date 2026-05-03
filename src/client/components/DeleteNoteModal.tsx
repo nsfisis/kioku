@@ -1,7 +1,7 @@
-import { useAtomValue } from "jotai";
+import { useSetAtom } from "jotai";
 import { useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom } from "../atoms";
+import { localNoteRepository } from "../db/repositories";
 
 interface DeleteNoteModalProps {
 	isOpen: boolean;
@@ -20,7 +20,7 @@ export function DeleteNoteModal({
 }: DeleteNoteModalProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 
 	const handleClose = () => {
 		setError(null);
@@ -34,21 +34,27 @@ export function DeleteNoteModal({
 		setIsDeleting(true);
 
 		try {
-			const res = await apiClient.rpc.api.decks[":deckId"].notes[
-				":noteId"
-			].$delete({
-				param: { deckId, noteId },
-			});
-			await apiClient.handleResponse(res);
+			const existing = await localNoteRepository.findById(noteId);
+			if (
+				!existing ||
+				existing.deletedAt !== null ||
+				existing.deckId !== deckId
+			) {
+				setError("Note not found.");
+				return;
+			}
+
+			const deleted = await localNoteRepository.delete(noteId);
+			if (!deleted) {
+				setError("Note not found.");
+				return;
+			}
 
 			onNoteDeleted();
 			onClose();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to delete note. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to delete note. Please try again.");
 		} finally {
 			setIsDeleting(false);
 		}
@@ -130,8 +136,7 @@ export function DeleteNoteModal({
 						<button
 							type="button"
 							onClick={handleDelete}
-							disabled={isDeleting || !isOnline}
-							title={!isOnline ? "Reconnect to delete" : undefined}
+							disabled={isDeleting}
 							className="px-4 py-2 bg-error hover:bg-error/90 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
 						>
 							{isDeleting ? "Deleting..." : "Delete"}
