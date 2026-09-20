@@ -29,9 +29,7 @@ import {
 	deckByIdAtomFamily,
 } from "../atoms";
 import { CreateNoteModal } from "../components/CreateNoteModal";
-import { DeleteCardModal } from "../components/DeleteCardModal";
 import { DeleteNoteModal } from "../components/DeleteNoteModal";
-import { EditCardModal } from "../components/EditCardModal";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ImportNotesModal } from "../components/ImportNotesModal";
@@ -539,9 +537,7 @@ export function DeckCardsPage() {
 
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-	const [editingCard, setEditingCard] = useState<Card | null>(null);
 	const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-	const [deletingCard, setDeletingCard] = useState<Card | null>(null);
 	const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
 	const handleCardMutation = () => {
@@ -657,28 +653,12 @@ export function DeckCardsPage() {
 				onImportComplete={handleCardMutation}
 			/>
 
-			<EditCardModal
-				isOpen={editingCard !== null}
-				deckId={deckId}
-				card={editingCard}
-				onClose={() => setEditingCard(null)}
-				onCardUpdated={handleCardMutation}
-			/>
-
 			<EditNoteModal
 				isOpen={editingNoteId !== null}
 				deckId={deckId}
 				noteId={editingNoteId}
 				onClose={() => setEditingNoteId(null)}
 				onNoteUpdated={handleCardMutation}
-			/>
-
-			<DeleteCardModal
-				isOpen={deletingCard !== null}
-				deckId={deckId}
-				card={deletingCard}
-				onClose={() => setDeletingCard(null)}
-				onCardDeleted={handleCardMutation}
 			/>
 
 			<DeleteNoteModal
