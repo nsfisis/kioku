@@ -40,9 +40,9 @@
 |                    Server                        |
 |  +----------------------------------------------+|
 |  |              Hono (TypeScript)               ||
-|  |  +----------+ +----------+ +----------+      ||
-|  |  |   Auth   | |   FSRS   | |   Sync   |      ||
-|  |  +----------+ +----------+ +----------+      ||
+|  |        +----------+ +----------+             ||
+|  |        |   Auth   | |   Sync   |             ||
+|  |        +----------+ +----------+             ||
 |  +----------------------------------------------+|
 |                       |                          |
 |                       v                          |
@@ -295,12 +295,10 @@ interface ReviewLog {
 
 ## API Design
 
-> [!NOTE]
-> Only the authentication and sync endpoints are used by the current client.
-> The per-entity CRUD endpoints below are kept for compatibility with older
-> builds and are scheduled for removal
-> ([#18](https://github.com/nsfisis/kioku/issues/18)) — see
-> [Offline Sync Strategy](#offline-sync-strategy).
+The client is offline-first, so the server exposes only what the sync engine and
+the login flow need. Decks, note types, notes, cards and reviews have no HTTP
+endpoints of their own: they live in IndexedDB and reach the server as sync
+payloads — see [Offline Sync Strategy](#offline-sync-strategy).
 
 ### Authentication
 
@@ -311,61 +309,17 @@ POST /api/auth/refresh    - Refresh token
 
 Note: User registration is disabled. Use CLI to add users: `pnpm user:add`
 
-### Decks
-
-```
-GET    /api/decks         - List decks
-POST   /api/decks         - Create deck
-GET    /api/decks/:id     - Get deck
-PUT    /api/decks/:id     - Update deck
-DELETE /api/decks/:id     - Delete deck (soft)
-```
-
-### Note Types
-
-```
-GET    /api/note-types                         - List user's note types
-POST   /api/note-types                         - Create note type
-GET    /api/note-types/:id                     - Get note type with fields
-PUT    /api/note-types/:id                     - Update note type
-DELETE /api/note-types/:id                     - Soft delete
-POST   /api/note-types/:id/fields              - Add field
-PUT    /api/note-types/:id/fields/:fieldId     - Update field
-DELETE /api/note-types/:id/fields/:fieldId     - Remove field
-PUT    /api/note-types/:id/fields/reorder      - Reorder fields
-```
-
-### Notes
-
-```
-GET    /api/decks/:deckId/notes           - List notes in deck
-POST   /api/decks/:deckId/notes           - Create note (auto-generates cards)
-GET    /api/decks/:deckId/notes/:noteId   - Get note with field values
-PUT    /api/decks/:deckId/notes/:noteId   - Update note field values
-DELETE /api/decks/:deckId/notes/:noteId   - Delete note and its cards
-```
-
-### Cards
-
-```
-GET    /api/decks/:deckId/cards      - List cards
-POST   /api/decks/:deckId/cards      - Create card
-PUT    /api/decks/:deckId/cards/:id  - Update card
-DELETE /api/decks/:deckId/cards/:id  - Delete card
-```
-
-### Study
-
-```
-GET    /api/decks/:deckId/study           - Get cards to study
-POST   /api/decks/:deckId/study/:cardId   - Submit review
-```
-
 ### Sync
 
 ```
 POST /api/sync/push   - Push local changes to server
 GET  /api/sync/pull   - Pull server changes
+```
+
+### Health
+
+```
+GET /api/health   - Liveness probe
 ```
 
 ## Offline Sync Strategy
@@ -416,13 +370,6 @@ GET  /api/sync/pull   - Pull server changes
   binaries ride along in `crdtChanges` as base64.
 - **pull** returns every row with `syncVersion > lastSyncVersion`, the watermark
   persisted in `localStorage` under `kioku_sync_state`.
-
-The per-entity CRUD endpoints (`POST /api/decks`,
-`POST /api/decks/:deckId/notes`, `POST /api/decks/:deckId/study/:cardId`, …)
-documented under [API Design](#api-design) are **no longer called by the
-client**. They are kept for compatibility with older builds and are scheduled
-for removal after a one-to-two release migration window
-([#18](https://github.com/nsfisis/kioku/issues/18)).
 
 ### Sync Flow
 

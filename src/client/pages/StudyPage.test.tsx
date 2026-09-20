@@ -107,7 +107,6 @@ vi.mock("../api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
-		rpc: { api: { decks: {} } },
 		handleResponse: vi.fn(),
 	},
 	ApiClientError: class ApiClientError extends Error {

@@ -17,13 +17,6 @@ vi.mock("./api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
-		rpc: {
-			api: {
-				decks: {
-					$get: vi.fn(),
-				},
-			},
-		},
 	},
 	ApiClientError: class ApiClientError extends Error {
 		constructor(
@@ -38,18 +31,6 @@ vi.mock("./api/client", () => ({
 }));
 
 import { apiClient } from "./api/client";
-
-// Helper to create mock responses compatible with Hono's ClientResponse
-function mockResponse(data: {
-	ok: boolean;
-	status?: number;
-	// biome-ignore lint/suspicious/noExplicitAny: Test helper needs flexible typing
-	json: () => Promise<any>;
-}) {
-	return data as unknown as Awaited<
-		ReturnType<typeof apiClient.rpc.api.decks.$get>
-	>;
-}
 
 function renderWithRouter(
 	path: string,
@@ -91,12 +72,6 @@ describe("App routing", () => {
 			vi.mocked(apiClient.getAuthHeader).mockReturnValue({
 				Authorization: "Bearer access-token",
 			});
-			vi.mocked(apiClient.rpc.api.decks.$get).mockResolvedValue(
-				mockResponse({
-					ok: true,
-					json: async () => ({ decks: [] }),
-				}),
-			);
 		});
 
 		it("renders home page at /", () => {

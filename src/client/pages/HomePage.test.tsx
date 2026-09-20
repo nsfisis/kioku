@@ -15,8 +15,6 @@ import { authLoadingAtom, type Deck, userAtom } from "../atoms";
 import { db } from "../db";
 import { HomePage } from "./HomePage";
 
-const mockDeckPut = vi.fn();
-const mockDeckDelete = vi.fn();
 const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
@@ -26,18 +24,6 @@ vi.mock("../api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
-		rpc: {
-			api: {
-				decks: {
-					$get: vi.fn(),
-					$post: vi.fn(),
-					":id": {
-						$put: (args: unknown) => mockDeckPut(args),
-						$delete: (args: unknown) => mockDeckDelete(args),
-					},
-				},
-			},
-		},
 		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
@@ -191,15 +177,12 @@ describe("HomePage", () => {
 		expect(screen.getByRole("button", { name: "Logout" })).toBeDefined();
 	});
 
-	it("shows loading state while fetching decks", async () => {
-		vi.mocked(apiClient.rpc.api.decks.$get).mockImplementation(
-			() => new Promise(() => {}), // Never resolves
-		);
-
+	it("shows loading state while decks are read from the local db", () => {
+		// No seeded query cache, so the decks atom suspends.
 		renderWithProviders();
 
 		// Loading state shows spinner (svg with animate-spin class)
-		expect(document.querySelector(".animate-spin")).toBeDefined();
+		expect(document.querySelector(".animate-spin")).not.toBeNull();
 	});
 
 	it("displays empty state when no decks exist", () => {
@@ -221,38 +204,6 @@ describe("HomePage", () => {
 			screen.getByRole("heading", { name: "Spanish Verbs" }),
 		).toBeDefined();
 		expect(screen.getByText("Common Japanese words")).toBeDefined();
-	});
-
-	// Note: Error display tests are skipped because Jotai async atoms with
-	// rejected Promises don't propagate errors to ErrorBoundary in the test
-	// environment correctly. The actual error handling works in the browser.
-	it.skip("displays error on API failure", async () => {
-		vi.mocked(apiClient.rpc.api.decks.$get).mockRejectedValue(
-			new Error("Internal server error"),
-		);
-
-		renderWithProviders();
-
-		await waitFor(
-			() => {
-				expect(screen.getByRole("alert").textContent).toContain(
-					"Internal server error",
-				);
-			},
-			{ timeout: 3000 },
-		);
-	});
-
-	it.skip("displays generic error on unexpected failure", async () => {
-		vi.mocked(apiClient.rpc.api.decks.$get).mockRejectedValue(
-			new Error("Network error"),
-		);
-
-		renderWithProviders();
-
-		await waitFor(() => {
-			expect(screen.getByRole("alert").textContent).toContain("Network error");
-		});
 	});
 
 	it("calls logout when logout button is clicked", async () => {

@@ -12,8 +12,6 @@ import { authLoadingAtom, type Card, type Deck } from "../atoms";
 import { CardState } from "../db";
 import { DeckDetailPage } from "./DeckDetailPage";
 
-const mockDeckGet = vi.fn();
-const mockCardsGet = vi.fn();
 const mockHandleResponse = vi.fn();
 
 vi.mock("../api/client", () => ({
@@ -23,20 +21,6 @@ vi.mock("../api/client", () => ({
 		getTokens: vi.fn(),
 		getAuthHeader: vi.fn(),
 		onSessionExpired: vi.fn(() => vi.fn()),
-		rpc: {
-			api: {
-				decks: {
-					":id": {
-						$get: (args: unknown) => mockDeckGet(args),
-					},
-					":deckId": {
-						cards: {
-							$get: (args: unknown) => mockCardsGet(args),
-						},
-					},
-				},
-			},
-		},
 		handleResponse: (res: unknown) => mockHandleResponse(res),
 	},
 	ApiClientError: class ApiClientError extends Error {
@@ -201,13 +185,12 @@ describe("DeckDetailPage", () => {
 		expect(screen.getByText("Common Japanese words")).toBeDefined();
 	});
 
-	it("shows loading state while fetching data", async () => {
-		mockDeckGet.mockImplementation(() => new Promise(() => {}));
-		mockCardsGet.mockImplementation(() => new Promise(() => {}));
-
+	it("shows loading state while data is read from the local db", () => {
+		// No seeded query caches, so the deck and card atoms suspend.
 		renderWithProviders();
 
-		expect(document.querySelector(".animate-spin")).toBeDefined();
+		// The Suspense fallbacks render skeleton placeholders.
+		expect(document.querySelector(".animate-pulse")).not.toBeNull();
 	});
 
 	it("does not show description if deck has none", () => {
