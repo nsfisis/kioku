@@ -10,9 +10,13 @@ A spaced repetition learning application (Anki clone).
 ## Features
 
 - Spaced Repetition: FSRS algorithm for optimal learning scheduling
-- Offline Support: Full PWA with IndexedDB local storage
-- Cloud Sync: Automatic sync when online with conflict resolution
-- CSV Import: Bulk import notes from CSV files
+- Offline First: Every action — studying, creating and editing decks, note types
+  and notes, and CSV import — runs against a local IndexedDB copy and works with
+  no network. Only signing in requires the server ([details](docs/dev/offline.md))
+- Cloud Sync: Automatic sync on reconnect, with per-entity conflict resolution
+  (CRDT merge for note text, last-write-wins for metadata)
+- Installable: Full PWA, usable as a standalone app
+- CSV Import: Bulk import notes from CSV files, offline included
 
 ## Development Setup
 
@@ -106,6 +110,7 @@ docker compose exec server pnpm user:add
 
 - [Features](docs/manual/features.md) - Feature list
 - [Architecture](docs/dev/architecture.md) - System design and data models
+- [Offline Mode](docs/dev/offline.md) - Offline usage, limitations and troubleshooting
 
 ## License
 

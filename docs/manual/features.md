@@ -34,7 +34,9 @@ A list of features available in Kioku.
 
 ## Offline Support & Sync
 
-- Works offline: Study anywhere without an internet connection
+- Works offline: Study, manage decks and note types, add and edit notes, and
+  import CSV files without an internet connection — only signing in needs the
+  network
 - Installable: Add to your home screen as a native-like app (PWA)
 - Cloud sync: Your progress syncs across devices when online
 - Sync indicator: See your sync status at a glance

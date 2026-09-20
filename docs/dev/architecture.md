@@ -295,6 +295,13 @@ interface ReviewLog {
 
 ## API Design
 
+> [!NOTE]
+> Only the authentication and sync endpoints are used by the current client.
+> The per-entity CRUD endpoints below are kept for compatibility with older
+> builds and are scheduled for removal
+> ([#18](https://github.com/nsfisis/kioku/issues/18)) — see
+> [Offline Sync Strategy](#offline-sync-strategy).
+
 ### Authentication
 
 ```
@@ -363,20 +370,134 @@ GET  /api/sync/pull   - Pull server changes
 
 ## Offline Sync Strategy
 
-### Approach
+Kioku is offline-first: **every** read and write goes to IndexedDB, and the
+server is only ever contacted by the sync engine. No screen blocks on the
+network, so the `OfflineBanner` promise — "Changes will sync when you
+reconnect." — holds for all mutations: decks, note types, notes (including CSV
+import) and reviews.
 
-- **Method**: Last-Write-Wins with timestamps
-- **Client**: Store in IndexedDB with `_synced` flag
-- **Conflict Resolution**: Compare `updated_at`, newer wins
-- **ReviewLog**: Append-only (no conflicts)
+A user-facing walkthrough, the known limitations and the troubleshooting steps
+live in [offline.md](./offline.md).
+
+### Write Path
+
+Every mutation follows the same four steps:
+
+1. The client generates the row's UUID and writes it to IndexedDB with
+   `_synced = false` (`src/client/db/repositories.ts`). Deletes are soft
+   (`deletedAt`) and cascade locally — deleting a deck also soft-deletes its
+   notes, field values and cards.
+2. `queryClient.invalidateQueries(...)` re-evaluates the Jotai atoms, which read
+   back from IndexedDB. The new state is on screen without a round trip.
+3. `syncManager.sync()` is kicked off fire-and-forget. Offline it returns
+   `{ success: false, error: "Offline" }` right away and the row simply stays
+   pending.
+4. On reconnect, the `online` event triggers an auto-sync (debounced 1s,
+   `src/client/sync/manager.ts`) that drains everything queued.
+
+Reviews take the same path through `submitReviewLocal()`
+(`src/client/sync/scheduler.ts`): FSRS scheduling is computed client-side with
+the shared implementation in `src/shared/fsrs.ts`, the card row is updated and
+an append-only review log is written, both with `_synced = false`.
+
+### Sync Endpoints
+
+Client writes reach the server through exactly two endpoints:
+
+```
+POST /api/sync/push   - Push local changes to server
+GET  /api/sync/pull   - Pull server changes
+```
+
+- **push** sends pending rows in foreign-key dependency order (note types →
+  field types → decks → notes → field values → cards → review logs), split into
+  batches of at most `DEFAULT_MAX_RECORDS_PER_REQUEST` (500) records, so a
+  referenced row is never pushed after the rows referencing it. CRDT document
+  binaries ride along in `crdtChanges` as base64.
+- **pull** returns every row with `syncVersion > lastSyncVersion`, the watermark
+  persisted in `localStorage` under `kioku_sync_state`.
+
+The per-entity CRUD endpoints (`POST /api/decks`,
+`POST /api/decks/:deckId/notes`, `POST /api/decks/:deckId/study/:cardId`, …)
+documented under [API Design](#api-design) are **no longer called by the
+client**. They are kept for compatibility with older builds and are scheduled
+for removal after a one-to-two release migration window
+([#18](https://github.com/nsfisis/kioku/issues/18)).
 
 ### Sync Flow
 
-1. Local changes saved with `_synced = false`
-2. On sync, push pending changes to server
-3. Server resolves conflicts by timestamp
-4. Client pulls server changes
-5. Mark synced items with `_synced = true`
+`SyncManager.sync()` runs the following, serialized (a second call while one is
+in flight returns `"Sync already in progress"`):
+
+1. Push pending changes; the server replies with applied IDs and conflicts.
+2. Store the Automerge binaries of successfully pushed entities in the CRDT
+   sync state.
+3. Pull server changes since the watermark and apply them to IndexedDB, marking
+   the rows `_synced = true`.
+4. Resolve every conflict the push reported, per the policy table below.
+5. Update the watermark and the CRDT sync metadata; notify listeners so the UI
+   refetches.
+
+### Conflict Resolution
+
+The **server** decides *that* a conflict happened
+(`src/server/repositories/sync.ts`): on push it compares `updatedAt` per row and
+reports a conflict only when its own row is the newer one. The **client** then
+decides what to do about it, following the policy declared in
+`entityConflictPolicies` (`src/client/sync/conflict.ts`):
+
+| Entity | Policy | Behaviour |
+|--------|--------|-----------|
+| `deck` | LWW | Server row wins wholesale; metadata is rarely edited concurrently |
+| `noteType` | LWW | Template/config metadata |
+| `noteFieldType` | LWW | Field definition metadata |
+| `note` | LWW | Note metadata only (deck, note type, timestamps) |
+| `noteFieldValue` | CRDT | Automerge merge of the note text, LWW as fallback; the merged value is re-pushed |
+| `card` | LWW | FSRS state is one coherent unit, never merged field by field |
+| `reviewLog` | append-only | Immutable rows keyed by client UUID; the server de-duplicates, conflicts cannot occur |
+
+LWW entities take the server row verbatim rather than merging field by field:
+the server has already discarded the losing values, so merging locally would
+resurrect them and leave the device permanently out of step.
+
+### Local Storage Layout
+
+| Store | Contents |
+|-------|----------|
+| IndexedDB `kioku` (Dexie v4) | `decks`, `cards`, `reviewLogs`, `noteTypes`, `noteFieldTypes`, `notes`, `noteFieldValues`. Every row carries `syncVersion` and `_synced` |
+| IndexedDB `kioku-crdt-sync` (Dexie v1) | `syncState` — one Automerge binary per document, keyed `entityType:entityId` — and `metadata` (actor ID, sync watermark) |
+| `localStorage.kioku_sync_state` | `lastSyncVersion`, `lastSyncAt` |
+| `localStorage.kioku_user` + token storage | Authenticated user and JWTs |
+
+`_synced` is deliberately not indexed: IndexedDB cannot index booleans, so
+pending rows are found by a full scan of each table.
+
+### Lifecycle
+
+- **Startup / login**: `useSyncInit()` calls `ensureBootstrap()`, a single
+  deduplicated full sync that populates IndexedDB from the server. SWR-style
+  atoms await it when their local table is empty. Offline, it resolves
+  immediately and the app runs on whatever is already stored.
+- **Running**: auto-sync on the `online` event, plus the manual `SyncButton`
+  (disabled while offline or syncing).
+- **Session expiry**: local data is intentionally *kept*, so offline work is
+  still there after re-authenticating.
+- **Explicit logout**: `clearAllLocalData()` wipes both IndexedDB databases and
+  the sync queue state, so the next user starts clean. Pending changes that
+  never synced are lost with it.
+- **Accounts**: one account per browser profile. The local databases are not
+  namespaced by user, which is why logout clears them.
+
+### Known Gaps
+
+- `noteFieldValue` converges but does not merge character by character: the push
+  path rebuilds a fresh Automerge document from the row instead of continuing
+  the stored one, so two devices never share document history.
+- The pull watermark is global while `syncVersion` is per row, so a freshly
+  inserted row can sort below a long-lived client's watermark.
+
+Both are tracked in [offline-e2e-checklist.md](./offline-e2e-checklist.md),
+which is the manual pass to run before releasing changes to the sync path.
 
 ## Study
 
