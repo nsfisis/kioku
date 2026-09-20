@@ -1244,6 +1244,185 @@ describe("localNoteRepository", () => {
 		});
 	});
 
+	describe("bulkCreateWithCards", () => {
+		async function createBasicFields() {
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Front",
+				order: 0,
+			});
+			const backField = await localNoteFieldTypeRepository.create({
+				noteTypeId,
+				name: "Back",
+				order: 1,
+			});
+			return { frontField, backField };
+		}
+
+		it("should create every note with its field values and cards", async () => {
+			const { frontField, backField } = await createBasicFields();
+
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: [
+					{
+						noteTypeId,
+						fields: { [frontField.id]: "Q1", [backField.id]: "A1" },
+					},
+					{
+						noteTypeId,
+						fields: { [frontField.id]: "Q2", [backField.id]: "A2" },
+					},
+				],
+			});
+
+			expect(result.created).toBe(2);
+			expect(result.failed).toEqual([]);
+
+			const notes = await localNoteRepository.findByDeckId(deckId);
+			expect(notes).toHaveLength(2);
+
+			const cards = await localCardRepository.findByDeckId(deckId);
+			expect(cards).toHaveLength(2);
+			expect(cards.map((c) => c.front).sort()).toEqual(["Q1", "Q2"]);
+			expect(cards.every((c) => !c._synced)).toBe(true);
+
+			const fieldValues = await db.noteFieldValues.toArray();
+			expect(fieldValues).toHaveLength(4);
+			expect(fieldValues.every((fv) => !fv._synced)).toBe(true);
+		});
+
+		it("should create two cards per note for a reversible note type", async () => {
+			const reversibleNoteType = await localNoteTypeRepository.create({
+				userId: "user-1",
+				name: "Reversible",
+				frontTemplate: "{{Front}}",
+				backTemplate: "{{Back}}",
+				isReversible: true,
+			});
+			const frontField = await localNoteFieldTypeRepository.create({
+				noteTypeId: reversibleNoteType.id,
+				name: "Front",
+				order: 0,
+			});
+			const backField = await localNoteFieldTypeRepository.create({
+				noteTypeId: reversibleNoteType.id,
+				name: "Back",
+				order: 1,
+			});
+
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: [
+					{
+						noteTypeId: reversibleNoteType.id,
+						fields: { [frontField.id]: "Q", [backField.id]: "A" },
+					},
+				],
+			});
+
+			expect(result.created).toBe(1);
+			const cards = await localCardRepository.findByDeckId(deckId);
+			expect(cards).toHaveLength(2);
+			expect(cards.filter((c) => c.isReversed)).toHaveLength(1);
+		});
+
+		it("should report rows with an unknown note type without aborting the import", async () => {
+			const { frontField } = await createBasicFields();
+
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: [
+					{ noteTypeId, fields: { [frontField.id]: "Kept" } },
+					{ noteTypeId: "non-existent", fields: {} },
+					{ noteTypeId, fields: { [frontField.id]: "Also kept" } },
+				],
+			});
+
+			expect(result.created).toBe(2);
+			expect(result.failed).toEqual([
+				{ index: 1, error: "Note type not found" },
+			]);
+
+			const notes = await localNoteRepository.findByDeckId(deckId);
+			expect(notes).toHaveLength(2);
+		});
+
+		it("should report rows whose note type is soft-deleted", async () => {
+			await localNoteTypeRepository.delete(noteTypeId);
+
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: [{ noteTypeId, fields: {} }],
+			});
+
+			expect(result.created).toBe(0);
+			expect(result.failed).toEqual([
+				{ index: 0, error: "Note type not found" },
+			]);
+		});
+
+		it("should do nothing for an empty input", async () => {
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: [],
+			});
+
+			expect(result).toEqual({ created: 0, failed: [] });
+			expect(await localNoteRepository.findByDeckId(deckId)).toHaveLength(0);
+		});
+
+		it("should report progress after each chunk", async () => {
+			const { frontField } = await createBasicFields();
+			const progress: [number, number][] = [];
+
+			await localNoteRepository.bulkCreateWithCards(
+				{
+					deckId,
+					notes: Array.from({ length: 5 }, (_, i) => ({
+						noteTypeId,
+						fields: { [frontField.id]: `Q${i}` },
+					})),
+				},
+				{
+					chunkSize: 2,
+					onProgress: (done, total) => progress.push([done, total]),
+				},
+			);
+
+			expect(progress).toEqual([
+				[2, 5],
+				[4, 5],
+				[5, 5],
+			]);
+		});
+
+		it("should import 1000 notes into IndexedDB", async () => {
+			const { frontField, backField } = await createBasicFields();
+
+			const result = await localNoteRepository.bulkCreateWithCards({
+				deckId,
+				notes: Array.from({ length: 1000 }, (_, i) => ({
+					noteTypeId,
+					fields: {
+						[frontField.id]: `Question ${i}`,
+						[backField.id]: `Answer ${i}`,
+					},
+				})),
+			});
+
+			expect(result.created).toBe(1000);
+			expect(result.failed).toEqual([]);
+
+			expect(await db.notes.count()).toBe(1000);
+			expect(await db.cards.count()).toBe(1000);
+			expect(await db.noteFieldValues.count()).toBe(2000);
+
+			// Every row is queued for the next sync
+			expect(await db.notes.filter((n) => !n._synced).count()).toBe(1000);
+		});
+	});
+
 	describe("updateWithFieldValues", () => {
 		it("should update existing field values and bump note's updatedAt", async () => {
 			const frontField = await localNoteFieldTypeRepository.create({

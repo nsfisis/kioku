@@ -15,10 +15,13 @@ import {
 } from "../db/repositories";
 import { base64ToBinary } from "./crdt/sync-state";
 import { CrdtEntityType } from "./crdt/types";
+import type { SyncPushData, SyncPushResult } from "./push";
 import {
+	DEFAULT_MAX_RECORDS_PER_REQUEST,
 	generateCrdtChanges,
 	PushService,
 	pendingChangesToPushData,
+	splitPendingChanges,
 } from "./push";
 import type { PendingChanges } from "./queue";
 import { SyncQueue } from "./queue";
@@ -1533,5 +1536,343 @@ describe("pendingChangesToPushData with crdtChanges", () => {
 		const pushData = pendingChangesToPushData(changes);
 
 		expect(pushData.crdtChanges).toHaveLength(0);
+	});
+});
+
+describe("splitPendingChanges", () => {
+	function createPendingDeck(id: string): PendingChanges["decks"][number] {
+		return {
+			id,
+			userId: "user-1",
+			name: id,
+			description: null,
+			defaultNoteTypeId: null,
+			createdAt: new Date("2024-01-01T10:00:00Z"),
+			updatedAt: new Date("2024-01-01T10:00:00Z"),
+			deletedAt: null,
+			syncVersion: 0,
+			_synced: false,
+		};
+	}
+
+	it("should return no batches when there is nothing pending", () => {
+		expect(
+			splitPendingChanges(
+				{ decks: [], cards: [], reviewLogs: [], ...createEmptyPending() },
+				500,
+			),
+		).toEqual([]);
+	});
+
+	it("should keep everything in one batch when under the limit", () => {
+		const batches = splitPendingChanges(
+			{
+				decks: [createPendingDeck("deck-1"), createPendingDeck("deck-2")],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPending(),
+			},
+			500,
+		);
+
+		expect(batches).toHaveLength(1);
+		expect(batches[0]?.decks).toHaveLength(2);
+	});
+
+	it("should never place a note's field values or cards before the note itself", () => {
+		const noteIds = Array.from({ length: 1000 }, (_, i) => `note-${i}`);
+		const timestamp = new Date("2024-01-01T10:00:00Z");
+		const batches = splitPendingChanges(
+			{
+				decks: [createPendingDeck("deck-1")],
+				cards: noteIds.map((noteId, i) => ({
+					id: `card-${i}`,
+					deckId: "deck-1",
+					noteId,
+					isReversed: false,
+					front: "Q",
+					back: "A",
+					state: CardState.New,
+					due: timestamp,
+					stability: 0,
+					difficulty: 0,
+					elapsedDays: 0,
+					scheduledDays: 0,
+					reps: 0,
+					lapses: 0,
+					lastReview: null,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				})),
+				reviewLogs: [],
+				noteTypes: [],
+				noteFieldTypes: [],
+				notes: noteIds.map((id) => ({
+					id,
+					deckId: "deck-1",
+					noteTypeId: "note-type-1",
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					deletedAt: null,
+					syncVersion: 0,
+					_synced: false,
+				})),
+				noteFieldValues: noteIds.map((noteId, i) => ({
+					id: `value-${i}`,
+					noteId,
+					noteFieldTypeId: "field-1",
+					value: "Q",
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					syncVersion: 0,
+					_synced: false,
+				})),
+			},
+			DEFAULT_MAX_RECORDS_PER_REQUEST,
+		);
+
+		expect(batches.length).toBeGreaterThan(1);
+
+		const seenNoteIds = new Set<string>();
+		for (const batch of batches) {
+			expect(
+				batch.decks.length +
+					batch.cards.length +
+					batch.reviewLogs.length +
+					batch.noteTypes.length +
+					batch.noteFieldTypes.length +
+					batch.notes.length +
+					batch.noteFieldValues.length,
+			).toBeLessThanOrEqual(DEFAULT_MAX_RECORDS_PER_REQUEST);
+
+			for (const note of batch.notes) {
+				seenNoteIds.add(note.id);
+			}
+			for (const card of batch.cards) {
+				expect(seenNoteIds.has(card.noteId)).toBe(true);
+			}
+			for (const fieldValue of batch.noteFieldValues) {
+				expect(seenNoteIds.has(fieldValue.noteId)).toBe(true);
+			}
+		}
+	});
+
+	it("should split records across batches at the limit", () => {
+		const batches = splitPendingChanges(
+			{
+				decks: [
+					createPendingDeck("deck-1"),
+					createPendingDeck("deck-2"),
+					createPendingDeck("deck-3"),
+				],
+				cards: [],
+				reviewLogs: [],
+				...createEmptyPending(),
+			},
+			2,
+		);
+
+		expect(batches).toHaveLength(2);
+		expect(batches[0]?.decks.map((d) => d.id)).toEqual(["deck-1", "deck-2"]);
+		expect(batches[1]?.decks.map((d) => d.id)).toEqual(["deck-3"]);
+	});
+});
+
+describe("PushService bulk import", () => {
+	// Kept small so the CRDT payloads stay cheap to build; the batching rules
+	// themselves are covered at import scale in splitPendingChanges.
+	const NOTE_COUNT = 60;
+
+	let syncQueue: SyncQueue;
+
+	async function clearDb() {
+		await db.decks.clear();
+		await db.cards.clear();
+		await db.reviewLogs.clear();
+		await db.noteTypes.clear();
+		await db.noteFieldTypes.clear();
+		await db.notes.clear();
+		await db.noteFieldValues.clear();
+	}
+
+	beforeEach(async () => {
+		await clearDb();
+		localStorage.clear();
+		syncQueue = new SyncQueue();
+	});
+
+	afterEach(async () => {
+		await clearDb();
+		localStorage.clear();
+	});
+
+	/**
+	 * Stand-in server that accepts everything it is sent
+	 */
+	function createEchoServer() {
+		return vi.fn(
+			async (data: SyncPushData): Promise<SyncPushResult> => ({
+				decks: data.decks.map((d) => ({ id: d.id, syncVersion: 1 })),
+				cards: data.cards.map((c) => ({ id: c.id, syncVersion: 1 })),
+				reviewLogs: data.reviewLogs.map((r) => ({ id: r.id, syncVersion: 1 })),
+				noteTypes: data.noteTypes.map((n) => ({ id: n.id, syncVersion: 1 })),
+				noteFieldTypes: data.noteFieldTypes.map((f) => ({
+					id: f.id,
+					syncVersion: 1,
+				})),
+				notes: data.notes.map((n) => ({ id: n.id, syncVersion: 1 })),
+				noteFieldValues: data.noteFieldValues.map((v) => ({
+					id: v.id,
+					syncVersion: 1,
+				})),
+				conflicts: createEmptyConflicts(),
+			}),
+		);
+	}
+
+	async function importNotes(count: number) {
+		const deck = await localDeckRepository.create({
+			userId: "user-1",
+			name: "Imported",
+			description: null,
+			defaultNoteTypeId: null,
+		});
+		const noteType = await localNoteTypeRepository.create({
+			userId: "user-1",
+			name: "Basic",
+			frontTemplate: "{{Front}}",
+			backTemplate: "{{Back}}",
+			isReversible: false,
+		});
+		const frontField = await localNoteFieldTypeRepository.create({
+			noteTypeId: noteType.id,
+			name: "Front",
+			order: 0,
+		});
+		const backField = await localNoteFieldTypeRepository.create({
+			noteTypeId: noteType.id,
+			name: "Back",
+			order: 1,
+		});
+
+		await localNoteRepository.bulkCreateWithCards({
+			deckId: deck.id,
+			notes: Array.from({ length: count }, (_, i) => ({
+				noteTypeId: noteType.id,
+				fields: {
+					[frontField.id]: `Question ${i}`,
+					[backField.id]: `Answer ${i}`,
+				},
+			})),
+		});
+
+		return { deck, noteType };
+	}
+
+	it("should push every record of a bulk import across batches", async () => {
+		await importNotes(NOTE_COUNT);
+
+		const pushToServer = createEchoServer();
+		const pushService = new PushService({
+			syncQueue,
+			pushToServer,
+			maxRecordsPerRequest: 50,
+		});
+
+		const result = await pushService.push();
+
+		// Notes + field values + cards do not fit in a single request
+		expect(pushToServer.mock.calls.length).toBeGreaterThan(1);
+
+		expect(result.notes).toHaveLength(NOTE_COUNT);
+		expect(result.cards).toHaveLength(NOTE_COUNT);
+		expect(result.noteFieldValues).toHaveLength(NOTE_COUNT * 2);
+		expect(result.decks).toHaveLength(1);
+		expect(result.noteTypes).toHaveLength(1);
+		expect(result.noteFieldTypes).toHaveLength(2);
+
+		// Nothing is sent twice
+		const pushedNoteIds = pushToServer.mock.calls.flatMap(([data]) =>
+			data.notes.map((n) => n.id),
+		);
+		expect(new Set(pushedNoteIds).size).toBe(NOTE_COUNT);
+
+		// Everything ends up marked as synced
+		expect(await localNoteRepository.findUnsynced()).toHaveLength(0);
+		expect(await localCardRepository.findUnsynced()).toHaveLength(0);
+		expect(await localNoteFieldValueRepository.findUnsynced()).toHaveLength(0);
+		expect(await localDeckRepository.findUnsynced()).toHaveLength(0);
+	});
+
+	it("should never push a card before the note it belongs to", async () => {
+		await importNotes(NOTE_COUNT);
+
+		const pushToServer = createEchoServer();
+		const pushService = new PushService({
+			syncQueue,
+			pushToServer,
+			maxRecordsPerRequest: 50,
+		});
+
+		await pushService.push();
+
+		const seenNoteIds = new Set<string>();
+		for (const [data] of pushToServer.mock.calls) {
+			for (const note of data.notes) {
+				seenNoteIds.add(note.id);
+			}
+			for (const card of data.cards) {
+				expect(seenNoteIds.has(card.noteId)).toBe(true);
+			}
+			for (const fieldValue of data.noteFieldValues) {
+				expect(seenNoteIds.has(fieldValue.noteId)).toBe(true);
+			}
+		}
+	});
+
+	it("should keep batches already accepted by the server when a later batch fails", async () => {
+		const deck = await localDeckRepository.create({
+			userId: "user-1",
+			name: "Deck A",
+			description: null,
+			defaultNoteTypeId: null,
+		});
+		const otherDeck = await localDeckRepository.create({
+			userId: "user-1",
+			name: "Deck B",
+			description: null,
+			defaultNoteTypeId: null,
+		});
+
+		const echo = createEchoServer();
+		let requests = 0;
+		const pushToServer = vi.fn(async (data: SyncPushData) => {
+			requests++;
+			if (requests > 1) {
+				throw new Error("Network error");
+			}
+			return echo(data);
+		});
+
+		const pushService = new PushService({
+			syncQueue,
+			pushToServer,
+			maxRecordsPerRequest: 1,
+		});
+
+		await expect(pushService.push()).rejects.toThrow("Network error");
+
+		expect(pushToServer).toHaveBeenCalledTimes(2);
+
+		// The deck the server accepted stays synced; only the one from the failed
+		// request is left for the next sync. (Which deck lands in which batch
+		// depends on the pending-changes order, so assert on the counts.)
+		const synced = await db.decks.filter((d) => d._synced).toArray();
+		expect(synced).toHaveLength(1);
+		expect(await localDeckRepository.findUnsynced()).toHaveLength(1);
+		expect([deck.id, otherDeck.id]).toContain(synced[0]?.id);
 	});
 });

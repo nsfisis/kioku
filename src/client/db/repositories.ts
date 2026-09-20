@@ -656,6 +656,154 @@ export const localNoteFieldTypeRepository = {
 };
 
 /**
+ * A note type plus its order-sorted field types: everything needed to
+ * materialize a note and its generated cards.
+ */
+interface NoteTemplate {
+	noteType: LocalNoteType;
+	fieldTypes: LocalNoteFieldType[];
+}
+
+/**
+ * Load a note type and its field types, or undefined when the note type is
+ * missing or soft-deleted.
+ */
+async function loadNoteTemplate(
+	noteTypeId: string,
+): Promise<NoteTemplate | undefined> {
+	const noteType = await db.noteTypes.get(noteTypeId);
+	if (!noteType || noteType.deletedAt !== null) return undefined;
+
+	const fieldTypes = (
+		await db.noteFieldTypes
+			.where("noteTypeId")
+			.equals(noteTypeId)
+			.filter((ft) => ft.deletedAt === null)
+			.toArray()
+	).sort((a, b) => a.order - b.order);
+
+	return { noteType, fieldTypes };
+}
+
+/**
+ * Build a note, its field values and its generated cards in memory. Callers
+ * are responsible for writing the rows, so a single note and a bulk import can
+ * share the same materialization logic.
+ */
+function buildNoteRows(input: {
+	deckId: string;
+	template: NoteTemplate;
+	fields: Record<string, string>;
+	now: Date;
+}): {
+	note: LocalNote;
+	fieldValues: LocalNoteFieldValue[];
+	cards: LocalCard[];
+} {
+	const { deckId, template, fields, now } = input;
+
+	const note: LocalNote = {
+		id: uuidv4(),
+		deckId,
+		noteTypeId: template.noteType.id,
+		createdAt: now,
+		updatedAt: now,
+		deletedAt: null,
+		syncVersion: 0,
+		_synced: false,
+	};
+
+	const fieldValues: LocalNoteFieldValue[] = template.fieldTypes.map((ft) => ({
+		id: uuidv4(),
+		noteId: note.id,
+		noteFieldTypeId: ft.id,
+		value: fields[ft.id] ?? "",
+		createdAt: now,
+		updatedAt: now,
+		syncVersion: 0,
+		_synced: false,
+	}));
+
+	const noteTypeForGeneration: NoteTypeForGeneration = {
+		frontTemplate: template.noteType.frontTemplate,
+		backTemplate: template.noteType.backTemplate,
+		isReversible: template.noteType.isReversible,
+	};
+	const fieldTypesForGeneration: FieldTypeForGeneration[] =
+		template.fieldTypes.map((ft) => ({ id: ft.id, name: ft.name }));
+	const fieldValuesForGeneration: FieldValueForGeneration[] = fieldValues.map(
+		(fv) => ({ noteFieldTypeId: fv.noteFieldTypeId, value: fv.value }),
+	);
+
+	const cards: LocalCard[] = generateCardsForNote({
+		noteType: noteTypeForGeneration,
+		fieldTypes: fieldTypesForGeneration,
+		fieldValues: fieldValuesForGeneration,
+		now,
+	}).map((generated) => ({
+		id: uuidv4(),
+		deckId,
+		noteId: note.id,
+		isReversed: generated.isReversed,
+		front: generated.front,
+		back: generated.back,
+		state: generated.state as LocalCard["state"],
+		due: generated.due,
+		stability: generated.stability,
+		difficulty: generated.difficulty,
+		elapsedDays: generated.elapsedDays,
+		scheduledDays: generated.scheduledDays,
+		reps: generated.reps,
+		lapses: generated.lapses,
+		lastReview: null,
+		createdAt: now,
+		updatedAt: now,
+		deletedAt: null,
+		syncVersion: 0,
+		_synced: false,
+	}));
+
+	return { note, fieldValues, cards };
+}
+
+/**
+ * One row of a bulk import.
+ */
+export interface BulkNoteInput {
+	noteTypeId: string;
+	fields: Record<string, string>;
+}
+
+export interface BulkCreateOptions {
+	/**
+	 * Number of notes written per transaction. Default: 100.
+	 */
+	chunkSize?: number;
+	/**
+	 * Called after each chunk with the number of processed rows (successes and
+	 * failures) and the total.
+	 */
+	onProgress?: (done: number, total: number) => void;
+}
+
+export interface BulkCreateResult {
+	created: number;
+	failed: { index: number; error: string }[];
+}
+
+const DEFAULT_BULK_CHUNK_SIZE = 100;
+
+/**
+ * Hand the event loop back to the browser so the progress UI can repaint
+ * between chunks.
+ */
+function yieldToEventLoop(): Promise<void> {
+	return new Promise((resolve) => {
+		setTimeout(resolve, 0);
+	});
+}
+
+/**
  * Local note repository for IndexedDB operations
  */
 export const localNoteRepository = {
@@ -729,99 +877,120 @@ export const localNoteRepository = {
 			"rw",
 			[db.notes, db.noteFieldValues, db.cards, db.noteTypes, db.noteFieldTypes],
 			async () => {
-				const noteType = await db.noteTypes.get(input.noteTypeId);
-				if (!noteType || noteType.deletedAt !== null) {
+				const template = await loadNoteTemplate(input.noteTypeId);
+				if (!template) {
 					throw new Error("Note type not found");
 				}
 
-				const fieldTypes = (
-					await db.noteFieldTypes
-						.where("noteTypeId")
-						.equals(input.noteTypeId)
-						.filter((ft) => ft.deletedAt === null)
-						.toArray()
-				).sort((a, b) => a.order - b.order);
-
-				const now = new Date();
-				const note: LocalNote = {
-					id: uuidv4(),
+				const rows = buildNoteRows({
 					deckId: input.deckId,
-					noteTypeId: input.noteTypeId,
-					createdAt: now,
-					updatedAt: now,
-					deletedAt: null,
-					syncVersion: 0,
-					_synced: false,
-				};
-				await db.notes.add(note);
-
-				const fieldValues: LocalNoteFieldValue[] = [];
-				for (const fieldType of fieldTypes) {
-					const fieldValue: LocalNoteFieldValue = {
-						id: uuidv4(),
-						noteId: note.id,
-						noteFieldTypeId: fieldType.id,
-						value: input.fields[fieldType.id] ?? "",
-						createdAt: now,
-						updatedAt: now,
-						syncVersion: 0,
-						_synced: false,
-					};
-					await db.noteFieldValues.add(fieldValue);
-					fieldValues.push(fieldValue);
-				}
-
-				const noteTypeForGeneration: NoteTypeForGeneration = {
-					frontTemplate: noteType.frontTemplate,
-					backTemplate: noteType.backTemplate,
-					isReversible: noteType.isReversible,
-				};
-				const fieldTypesForGeneration: FieldTypeForGeneration[] =
-					fieldTypes.map((ft) => ({ id: ft.id, name: ft.name }));
-				const fieldValuesForGeneration: FieldValueForGeneration[] =
-					fieldValues.map((fv) => ({
-						noteFieldTypeId: fv.noteFieldTypeId,
-						value: fv.value,
-					}));
-
-				const generatedCards = generateCardsForNote({
-					noteType: noteTypeForGeneration,
-					fieldTypes: fieldTypesForGeneration,
-					fieldValues: fieldValuesForGeneration,
-					now,
+					template,
+					fields: input.fields,
+					now: new Date(),
 				});
 
-				const cards: LocalCard[] = [];
-				for (const generated of generatedCards) {
-					const card: LocalCard = {
-						id: uuidv4(),
-						deckId: input.deckId,
-						noteId: note.id,
-						isReversed: generated.isReversed,
-						front: generated.front,
-						back: generated.back,
-						state: generated.state as LocalCard["state"],
-						due: generated.due,
-						stability: generated.stability,
-						difficulty: generated.difficulty,
-						elapsedDays: generated.elapsedDays,
-						scheduledDays: generated.scheduledDays,
-						reps: generated.reps,
-						lapses: generated.lapses,
-						lastReview: null,
-						createdAt: now,
-						updatedAt: now,
-						deletedAt: null,
-						syncVersion: 0,
-						_synced: false,
-					};
-					await db.cards.add(card);
-					cards.push(card);
-				}
+				await db.notes.add(rows.note);
+				await db.noteFieldValues.bulkAdd(rows.fieldValues);
+				await db.cards.bulkAdd(rows.cards);
 
-				return { note, fieldValues, cards };
+				return rows;
 			},
 		);
+	},
+
+	/**
+	 * Create many notes at once (bulk import).
+	 *
+	 * Rows are written in chunked transactions instead of one giant one: a
+	 * multi-thousand row import stays responsive because the event loop is
+	 * released between chunks, and `onProgress` can drive a progress bar. Rows
+	 * whose note type is missing are reported in `failed` rather than aborting
+	 * the whole import.
+	 */
+	async bulkCreateWithCards(
+		input: { deckId: string; notes: BulkNoteInput[] },
+		options: BulkCreateOptions = {},
+	): Promise<BulkCreateResult> {
+		const total = input.notes.length;
+		const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_BULK_CHUNK_SIZE);
+		const failed: { index: number; error: string }[] = [];
+		let created = 0;
+
+		if (total === 0) {
+			return { created, failed };
+		}
+
+		// Load each distinct note type once instead of per row.
+		const templates = new Map<string, NoteTemplate>();
+		for (const noteTypeId of new Set(input.notes.map((n) => n.noteTypeId))) {
+			const template = await loadNoteTemplate(noteTypeId);
+			if (template) {
+				templates.set(noteTypeId, template);
+			}
+		}
+
+		for (let start = 0; start < total; start += chunkSize) {
+			const chunk = input.notes.slice(start, start + chunkSize);
+			const now = new Date();
+			const notes: LocalNote[] = [];
+			const fieldValues: LocalNoteFieldValue[] = [];
+			const cards: LocalCard[] = [];
+			const writtenIndexes: number[] = [];
+
+			for (let i = 0; i < chunk.length; i++) {
+				const entry = chunk[i];
+				if (!entry) continue;
+
+				const index = start + i;
+				const template = templates.get(entry.noteTypeId);
+				if (!template) {
+					failed.push({ index, error: "Note type not found" });
+					continue;
+				}
+
+				const rows = buildNoteRows({
+					deckId: input.deckId,
+					template,
+					fields: entry.fields,
+					now,
+				});
+				notes.push(rows.note);
+				fieldValues.push(...rows.fieldValues);
+				cards.push(...rows.cards);
+				writtenIndexes.push(index);
+			}
+
+			if (notes.length > 0) {
+				try {
+					await db.transaction(
+						"rw",
+						[db.notes, db.noteFieldValues, db.cards],
+						async () => {
+							await db.notes.bulkAdd(notes);
+							await db.noteFieldValues.bulkAdd(fieldValues);
+							await db.cards.bulkAdd(cards);
+						},
+					);
+					created += notes.length;
+				} catch (err) {
+					const message =
+						err instanceof Error ? err.message : "Failed to import notes";
+					for (const index of writtenIndexes) {
+						failed.push({ index, error: message });
+					}
+				}
+			}
+
+			const done = Math.min(start + chunk.length, total);
+			options.onProgress?.(done, total);
+
+			if (done < total) {
+				await yieldToEventLoop();
+			}
+		}
+
+		failed.sort((a, b) => a.index - b.index);
+		return { created, failed };
 	},
 
 	/**

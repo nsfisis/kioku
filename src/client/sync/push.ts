@@ -144,7 +144,20 @@ export interface SyncPushResult {
 export interface PushServiceOptions {
 	syncQueue: SyncQueue;
 	pushToServer: (data: SyncPushData) => Promise<SyncPushResult>;
+	/**
+	 * Maximum number of records sent in a single push request.
+	 * Default: {@link DEFAULT_MAX_RECORDS_PER_REQUEST}
+	 */
+	maxRecordsPerRequest?: number;
 }
+
+/**
+ * A bulk import can queue thousands of rows at once. Splitting them across
+ * requests keeps each one small enough for the server to process without
+ * hitting request size or timeout limits, and lets a partially completed push
+ * keep the progress it already made.
+ */
+export const DEFAULT_MAX_RECORDS_PER_REQUEST = 500;
 
 /**
  * Convert local deck to sync format
@@ -355,6 +368,124 @@ export function generateCrdtChanges(
 	return crdtChanges;
 }
 
+function createEmptyPendingChanges(): PendingChanges {
+	return {
+		decks: [],
+		cards: [],
+		reviewLogs: [],
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+	};
+}
+
+function createEmptyPushResult(): SyncPushResult {
+	return {
+		decks: [],
+		cards: [],
+		reviewLogs: [],
+		noteTypes: [],
+		noteFieldTypes: [],
+		notes: [],
+		noteFieldValues: [],
+		conflicts: {
+			decks: [],
+			cards: [],
+			noteTypes: [],
+			noteFieldTypes: [],
+			notes: [],
+			noteFieldValues: [],
+		},
+	};
+}
+
+interface BatchState {
+	batches: PendingChanges[];
+	current: PendingChanges;
+	count: number;
+}
+
+function appendToBatches<T>(
+	items: T[],
+	select: (batch: PendingChanges) => T[],
+	state: BatchState,
+	limit: number,
+): void {
+	for (const item of items) {
+		if (state.count >= limit) {
+			state.batches.push(state.current);
+			state.current = createEmptyPendingChanges();
+			state.count = 0;
+		}
+		select(state.current).push(item);
+		state.count++;
+	}
+}
+
+/**
+ * Split pending changes into batches of at most `maxRecords` records each.
+ *
+ * Entities are laid out in dependency order (note types → field types → decks
+ * → notes → field values → cards → review logs), so a referenced row is always
+ * pushed in the same batch as, or an earlier batch than, the rows referencing
+ * it. Returns an empty array when there is nothing to push.
+ */
+export function splitPendingChanges(
+	changes: PendingChanges,
+	maxRecords: number,
+): PendingChanges[] {
+	const limit = Math.max(1, maxRecords);
+	const state: BatchState = {
+		batches: [],
+		current: createEmptyPendingChanges(),
+		count: 0,
+	};
+
+	appendToBatches(changes.noteTypes, (b) => b.noteTypes, state, limit);
+	appendToBatches(
+		changes.noteFieldTypes,
+		(b) => b.noteFieldTypes,
+		state,
+		limit,
+	);
+	appendToBatches(changes.decks, (b) => b.decks, state, limit);
+	appendToBatches(changes.notes, (b) => b.notes, state, limit);
+	appendToBatches(
+		changes.noteFieldValues,
+		(b) => b.noteFieldValues,
+		state,
+		limit,
+	);
+	appendToBatches(changes.cards, (b) => b.cards, state, limit);
+	appendToBatches(changes.reviewLogs, (b) => b.reviewLogs, state, limit);
+
+	if (state.count > 0) {
+		state.batches.push(state.current);
+	}
+
+	return state.batches;
+}
+
+/**
+ * Accumulate a batch's push result into the combined result
+ */
+function mergePushResult(target: SyncPushResult, source: SyncPushResult): void {
+	target.decks.push(...source.decks);
+	target.cards.push(...source.cards);
+	target.reviewLogs.push(...source.reviewLogs);
+	target.noteTypes.push(...source.noteTypes);
+	target.noteFieldTypes.push(...source.noteFieldTypes);
+	target.notes.push(...source.notes);
+	target.noteFieldValues.push(...source.noteFieldValues);
+	target.conflicts.decks.push(...source.conflicts.decks);
+	target.conflicts.cards.push(...source.conflicts.cards);
+	target.conflicts.noteTypes.push(...source.conflicts.noteTypes);
+	target.conflicts.noteFieldTypes.push(...source.conflicts.noteFieldTypes);
+	target.conflicts.notes.push(...source.conflicts.notes);
+	target.conflicts.noteFieldValues.push(...source.conflicts.noteFieldValues);
+}
+
 /**
  * Convert pending changes to sync push data format
  */
@@ -386,10 +517,13 @@ export function pendingChangesToPushData(
 export class PushService {
 	private syncQueue: SyncQueue;
 	private pushToServer: (data: SyncPushData) => Promise<SyncPushResult>;
+	private maxRecordsPerRequest: number;
 
 	constructor(options: PushServiceOptions) {
 		this.syncQueue = options.syncQueue;
 		this.pushToServer = options.pushToServer;
+		this.maxRecordsPerRequest =
+			options.maxRecordsPerRequest ?? DEFAULT_MAX_RECORDS_PER_REQUEST;
 	}
 
 	/**
@@ -400,54 +534,34 @@ export class PushService {
 	 */
 	async push(): Promise<SyncPushResult> {
 		const pendingChanges = await this.syncQueue.getPendingChanges();
+		const batches = splitPendingChanges(
+			pendingChanges,
+			this.maxRecordsPerRequest,
+		);
 
-		// If no pending changes, return empty result
-		if (
-			pendingChanges.decks.length === 0 &&
-			pendingChanges.cards.length === 0 &&
-			pendingChanges.reviewLogs.length === 0 &&
-			pendingChanges.noteTypes.length === 0 &&
-			pendingChanges.noteFieldTypes.length === 0 &&
-			pendingChanges.notes.length === 0 &&
-			pendingChanges.noteFieldValues.length === 0
-		) {
-			return {
-				decks: [],
-				cards: [],
-				reviewLogs: [],
-				noteTypes: [],
-				noteFieldTypes: [],
-				notes: [],
-				noteFieldValues: [],
-				conflicts: {
-					decks: [],
-					cards: [],
-					noteTypes: [],
-					noteFieldTypes: [],
-					notes: [],
-					noteFieldValues: [],
-				},
-			};
+		// With nothing pending there are no batches, so no request is made.
+		const merged = createEmptyPushResult();
+
+		for (const batch of batches) {
+			const result = await this.pushToServer(pendingChangesToPushData(batch));
+
+			// Mark this batch's items as synced before sending the next one, so a
+			// failure halfway through a large import does not re-push what the
+			// server already accepted.
+			await this.syncQueue.markSynced({
+				decks: result.decks,
+				cards: result.cards,
+				reviewLogs: result.reviewLogs,
+				noteTypes: result.noteTypes,
+				noteFieldTypes: result.noteFieldTypes,
+				notes: result.notes,
+				noteFieldValues: result.noteFieldValues,
+			});
+
+			mergePushResult(merged, result);
 		}
 
-		// Convert to API format
-		const pushData = pendingChangesToPushData(pendingChanges);
-
-		// Push to server
-		const result = await this.pushToServer(pushData);
-
-		// Mark successfully synced items
-		await this.syncQueue.markSynced({
-			decks: result.decks,
-			cards: result.cards,
-			reviewLogs: result.reviewLogs,
-			noteTypes: result.noteTypes,
-			noteFieldTypes: result.noteFieldTypes,
-			notes: result.notes,
-			noteFieldValues: result.noteFieldValues,
-		});
-
-		return result;
+		return merged;
 	}
 
 	/**

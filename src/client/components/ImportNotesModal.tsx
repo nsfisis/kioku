@@ -5,10 +5,14 @@ import {
 	faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type ChangeEvent, useCallback, useEffect, useState } from "react";
-import { ApiClientError, apiClient } from "../api";
-import { isOnlineAtom } from "../atoms";
+import { syncActionAtom, userAtom } from "../atoms";
+import {
+	localNoteFieldTypeRepository,
+	localNoteRepository,
+	localNoteTypeRepository,
+} from "../db/repositories";
 import { parseCSV } from "../utils/csvParser";
 
 interface NoteField {
@@ -66,50 +70,57 @@ export function ImportNotesModal({
 }: ImportNotesModalProps) {
 	const [phase, setPhase] = useState<ImportPhase>("upload");
 	const [error, setError] = useState<string | null>(null);
-	const isOnline = useAtomValue(isOnlineAtom);
+	const user = useAtomValue(userAtom);
+	const triggerSync = useSetAtom(syncActionAtom);
 	const [noteTypes, setNoteTypes] = useState<NoteType[]>([]);
+	const [hasLoadedNoteTypes, setHasLoadedNoteTypes] = useState(false);
 	const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
 	const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
 		[],
 	);
 	const [importResult, setImportResult] = useState<ImportResult | null>(null);
+	const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
 
 	const fetchNoteTypes = useCallback(async () => {
 		try {
-			const res = await apiClient.rpc.api["note-types"].$get();
-			const data = await apiClient.handleResponse<{
-				noteTypes: { id: string; name: string }[];
-			}>(res);
+			const localNoteTypes = user
+				? await localNoteTypeRepository.findByUserId(user.id)
+				: [];
+			localNoteTypes.sort(
+				(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+			);
 
-			// Fetch details for each note type to get fields
 			const noteTypesWithFields: NoteType[] = [];
-			for (const nt of data.noteTypes) {
-				const detailRes = await apiClient.rpc.api["note-types"][":id"].$get({
-					param: { id: nt.id },
+			for (const noteType of localNoteTypes) {
+				const fields = await localNoteFieldTypeRepository.findByNoteTypeId(
+					noteType.id,
+				);
+				noteTypesWithFields.push({
+					id: noteType.id,
+					name: noteType.name,
+					frontTemplate: noteType.frontTemplate,
+					backTemplate: noteType.backTemplate,
+					isReversible: noteType.isReversible,
+					fields: fields.map((field) => ({
+						id: field.id,
+						name: field.name,
+						order: field.order,
+					})),
 				});
-				if (detailRes.ok) {
-					const detailData = await apiClient.handleResponse<{
-						noteType: NoteType;
-					}>(detailRes);
-					noteTypesWithFields.push(detailData.noteType);
-				}
 			}
 
 			setNoteTypes(noteTypesWithFields);
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to load note types. Please try again.");
-			}
+			setHasLoadedNoteTypes(true);
+		} catch {
+			setError("Failed to load note types. Please try again.");
 		}
-	}, []);
+	}, [user]);
 
 	useEffect(() => {
-		if (isOpen && noteTypes.length === 0) {
+		if (isOpen && !hasLoadedNoteTypes) {
 			fetchNoteTypes();
 		}
-	}, [isOpen, noteTypes.length, fetchNoteTypes]);
+	}, [isOpen, hasLoadedNoteTypes, fetchNoteTypes]);
 
 	const resetState = () => {
 		setPhase("upload");
@@ -117,6 +128,7 @@ export function ImportNotesModal({
 		setValidatedRows([]);
 		setValidationErrors([]);
 		setImportResult(null);
+		setImportProgress({ done: 0, total: 0 });
 	};
 
 	const handleClose = () => {
@@ -233,30 +245,35 @@ export function ImportNotesModal({
 
 		setPhase("importing");
 		setError(null);
+		setImportProgress({ done: 0, total: validatedRows.length });
 
 		try {
-			const res = await apiClient.rpc.api.decks[":deckId"].notes.import.$post({
-				param: { deckId },
-				json: {
+			const result = await localNoteRepository.bulkCreateWithCards(
+				{
+					deckId,
 					notes: validatedRows.map((row) => ({
 						noteTypeId: row.noteTypeId,
 						fields: row.fields,
 					})),
 				},
-			});
-			const result = await apiClient.handleResponse<ImportResult>(res);
+				{
+					onProgress: (done, total) => setImportProgress({ done, total }),
+				},
+			);
 			setImportResult(result);
 			setPhase("complete");
 			onImportComplete();
-		} catch (err) {
-			if (err instanceof ApiClientError) {
-				setError(err.message);
-			} else {
-				setError("Failed to import notes. Please try again.");
-			}
+			void triggerSync().catch(() => {});
+		} catch {
+			setError("Failed to import notes. Please try again.");
 			setPhase("preview");
 		}
 	};
+
+	const importPercent =
+		importProgress.total > 0
+			? Math.round((importProgress.done / importProgress.total) * 100)
+			: 0;
 
 	if (!isOpen) return null;
 
@@ -316,8 +333,12 @@ export function ImportNotesModal({
 							</div>
 							<div className="bg-ivory rounded-lg px-4 py-3 text-sm text-muted">
 								<p className="font-medium text-slate mb-1">Expected format:</p>
-								{noteTypes.length === 0 ? (
+								{!hasLoadedNoteTypes ? (
 									<p className="text-xs text-muted">Loading note types...</p>
+								) : noteTypes.length === 0 ? (
+									<p className="text-xs text-muted">
+										No note types available. Please create a note type first.
+									</p>
 								) : (
 									<div className="text-xs space-y-2">
 										{noteTypes.map((nt) => {
@@ -424,12 +445,28 @@ export function ImportNotesModal({
 
 				{/* Phase: Importing */}
 				{phase === "importing" && (
-					<div className="px-6 flex items-center justify-center py-8">
-						<FontAwesomeIcon
-							icon={faSpinner}
-							className="w-8 h-8 text-primary animate-spin"
-						/>
-						<span className="ml-3 text-muted">Importing notes...</span>
+					<div className="px-6 py-8">
+						<div className="flex items-center justify-center mb-4">
+							<FontAwesomeIcon
+								icon={faSpinner}
+								className="w-8 h-8 text-primary animate-spin"
+							/>
+							<span className="ml-3 text-muted">
+								Importing notes... {importProgress.done} /{" "}
+								{importProgress.total}
+							</span>
+						</div>
+						<div className="h-2 w-full bg-ivory rounded-full overflow-hidden">
+							<div
+								role="progressbar"
+								aria-label="Import progress"
+								aria-valuemin={0}
+								aria-valuemax={importProgress.total}
+								aria-valuenow={importProgress.done}
+								className="h-full bg-primary transition-all duration-200"
+								style={{ width: `${importPercent}%` }}
+							/>
+						</div>
 					</div>
 				)}
 
@@ -493,8 +530,7 @@ export function ImportNotesModal({
 								<button
 									type="button"
 									onClick={handleImport}
-									disabled={validatedRows.length === 0 || !isOnline}
-									title={!isOnline ? "Reconnect to import notes" : undefined}
+									disabled={validatedRows.length === 0}
 									className="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									Import {validatedRows.length} Note(s)
