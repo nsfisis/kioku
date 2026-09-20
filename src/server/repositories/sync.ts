@@ -173,8 +173,11 @@ export interface SyncPullResult {
 }
 
 export interface SyncRepository {
-	pushChanges(userId: string, data: SyncPushData): Promise<SyncPushResult>;
-	pullChanges(userId: string, query: SyncPullQuery): Promise<SyncPullResult>;
+	pushChanges: (userId: string, data: SyncPushData) => Promise<SyncPushResult>;
+	pullChanges: (
+		userId: string,
+		query: SyncPullQuery,
+	) => Promise<SyncPullResult>;
 }
 
 export const syncRepository: SyncRepository = {

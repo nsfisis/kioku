@@ -93,12 +93,6 @@ export const cardSchema = z.object({
 	syncVersion: z.number().int().min(0),
 });
 
-// Card creation input schema
-export const createCardSchema = z.object({
-	front: z.string().min(1),
-	back: z.string().min(1),
-});
-
 // Card update input schema
 export const updateCardSchema = z.object({
 	front: z.string().min(1).optional(),
@@ -236,7 +230,6 @@ export type DeckSchema = z.infer<typeof deckSchema>;
 export type CreateDeckSchema = z.infer<typeof createDeckSchema>;
 export type UpdateDeckSchema = z.infer<typeof updateDeckSchema>;
 export type CardSchema = z.infer<typeof cardSchema>;
-export type CreateCardSchema = z.infer<typeof createCardSchema>;
 export type UpdateCardSchema = z.infer<typeof updateCardSchema>;
 export type ReviewLogSchema = z.infer<typeof reviewLogSchema>;
 export type SubmitReviewSchema = z.infer<typeof submitReviewSchema>;

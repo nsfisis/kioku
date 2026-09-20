@@ -25,24 +25,27 @@ export interface RefreshToken {
 }
 
 export interface UserRepository {
-	findByUsername(
+	findByUsername: (
 		username: string,
-	): Promise<Pick<User, "id" | "username" | "passwordHash"> | undefined>;
-	existsByUsername(username: string): Promise<boolean>;
-	create(data: { username: string; passwordHash: string }): Promise<UserPublic>;
-	findById(id: string): Promise<Pick<User, "id" | "username"> | undefined>;
+	) => Promise<Pick<User, "id" | "username" | "passwordHash"> | undefined>;
+	existsByUsername: (username: string) => Promise<boolean>;
+	create: (data: {
+		username: string;
+		passwordHash: string;
+	}) => Promise<UserPublic>;
+	findById: (id: string) => Promise<Pick<User, "id" | "username"> | undefined>;
 }
 
 export interface RefreshTokenRepository {
-	findValidToken(
+	findValidToken: (
 		tokenHash: string,
-	): Promise<Pick<RefreshToken, "id" | "userId" | "expiresAt"> | undefined>;
-	create(data: {
+	) => Promise<Pick<RefreshToken, "id" | "userId" | "expiresAt"> | undefined>;
+	create: (data: {
 		userId: string;
 		tokenHash: string;
 		expiresAt: Date;
-	}): Promise<void>;
-	deleteById(id: string): Promise<void>;
+	}) => Promise<void>;
+	deleteById: (id: string) => Promise<void>;
 }
 
 export interface Deck {
@@ -58,15 +61,15 @@ export interface Deck {
 }
 
 export interface DeckRepository {
-	findByUserId(userId: string): Promise<Deck[]>;
-	findById(id: string, userId: string): Promise<Deck | undefined>;
-	create(data: {
+	findByUserId: (userId: string) => Promise<Deck[]>;
+	findById: (id: string, userId: string) => Promise<Deck | undefined>;
+	create: (data: {
 		userId: string;
 		name: string;
 		description?: string | null;
 		defaultNoteTypeId?: string | null;
-	}): Promise<Deck>;
-	update(
+	}) => Promise<Deck>;
+	update: (
 		id: string,
 		userId: string,
 		data: {
@@ -74,8 +77,8 @@ export interface DeckRepository {
 			description?: string | null;
 			defaultNoteTypeId?: string | null;
 		},
-	): Promise<Deck | undefined>;
-	softDelete(id: string, userId: string): Promise<boolean>;
+	) => Promise<Deck | undefined>;
+	softDelete: (id: string, userId: string) => Promise<boolean>;
 }
 
 export interface Card {
@@ -122,41 +125,43 @@ export interface CardForStudy extends Card {
 }
 
 export interface CardRepository {
-	findByDeckId(deckId: string): Promise<Card[]>;
-	findById(id: string, deckId: string): Promise<Card | undefined>;
-	findByIdWithNoteData(
+	findByDeckId: (deckId: string) => Promise<Card[]>;
+	findById: (id: string, deckId: string) => Promise<Card | undefined>;
+	findByIdWithNoteData: (
 		id: string,
 		deckId: string,
-	): Promise<CardWithNoteData | undefined>;
-	findByNoteId(noteId: string): Promise<Card[]>;
-	create(
+	) => Promise<CardWithNoteData | undefined>;
+	findByNoteId: (noteId: string) => Promise<Card[]>;
+	create: (
 		deckId: string,
 		data: {
+			noteId: string;
+			isReversed: boolean;
 			front: string;
 			back: string;
 		},
-	): Promise<Card>;
-	update(
+	) => Promise<Card>;
+	update: (
 		id: string,
 		deckId: string,
 		data: {
 			front?: string;
 			back?: string;
 		},
-	): Promise<Card | undefined>;
-	softDelete(id: string, deckId: string): Promise<boolean>;
-	softDeleteByNoteId(noteId: string): Promise<boolean>;
-	findDueCards(deckId: string, now: Date): Promise<Card[]>;
-	countDueCards(deckId: string, now: Date): Promise<number>;
-	countNewCards(deckId: string): Promise<number>;
-	countTotalCards(deckId: string): Promise<number>;
-	countReviewStateCards(deckId: string): Promise<number>;
-	findDueCardsWithNoteData(
+	) => Promise<Card | undefined>;
+	softDelete: (id: string, deckId: string) => Promise<boolean>;
+	softDeleteByNoteId: (noteId: string) => Promise<boolean>;
+	findDueCards: (deckId: string, now: Date) => Promise<Card[]>;
+	countDueCards: (deckId: string, now: Date) => Promise<number>;
+	countNewCards: (deckId: string) => Promise<number>;
+	countTotalCards: (deckId: string) => Promise<number>;
+	countReviewStateCards: (deckId: string) => Promise<number>;
+	findDueCardsWithNoteData: (
 		deckId: string,
 		now: Date,
-	): Promise<CardWithNoteData[]>;
-	findDueCardsForStudy(deckId: string, now: Date): Promise<CardForStudy[]>;
-	updateFSRSFields(
+	) => Promise<CardWithNoteData[]>;
+	findDueCardsForStudy: (deckId: string, now: Date) => Promise<CardForStudy[]>;
+	updateFSRSFields: (
 		id: string,
 		deckId: string,
 		data: {
@@ -170,7 +175,7 @@ export interface CardRepository {
 			lapses: number;
 			lastReview: Date;
 		},
-	): Promise<Card | undefined>;
+	) => Promise<Card | undefined>;
 }
 
 export interface ReviewLog {
@@ -187,7 +192,7 @@ export interface ReviewLog {
 }
 
 export interface ReviewLogRepository {
-	create(data: {
+	create: (data: {
 		cardId: string;
 		userId: string;
 		rating: number;
@@ -195,7 +200,7 @@ export interface ReviewLogRepository {
 		scheduledDays: number;
 		elapsedDays: number;
 		durationMs?: number | null;
-	}): Promise<ReviewLog>;
+	}) => Promise<ReviewLog>;
 }
 
 export interface NoteType {
@@ -228,20 +233,20 @@ export interface NoteTypeWithFields extends NoteType {
 }
 
 export interface NoteTypeRepository {
-	findByUserId(userId: string): Promise<NoteType[]>;
-	findById(id: string, userId: string): Promise<NoteType | undefined>;
-	findByIdWithFields(
+	findByUserId: (userId: string) => Promise<NoteType[]>;
+	findById: (id: string, userId: string) => Promise<NoteType | undefined>;
+	findByIdWithFields: (
 		id: string,
 		userId: string,
-	): Promise<NoteTypeWithFields | undefined>;
-	create(data: {
+	) => Promise<NoteTypeWithFields | undefined>;
+	create: (data: {
 		userId: string;
 		name: string;
 		frontTemplate: string;
 		backTemplate: string;
 		isReversible?: boolean;
-	}): Promise<NoteType>;
-	update(
+	}) => Promise<NoteType>;
+	update: (
 		id: string,
 		userId: string,
 		data: {
@@ -250,33 +255,36 @@ export interface NoteTypeRepository {
 			backTemplate?: string;
 			isReversible?: boolean;
 		},
-	): Promise<NoteType | undefined>;
-	softDelete(id: string, userId: string): Promise<boolean>;
-	hasNotes(id: string, userId: string): Promise<boolean>;
+	) => Promise<NoteType | undefined>;
+	softDelete: (id: string, userId: string) => Promise<boolean>;
+	hasNotes: (id: string, userId: string) => Promise<boolean>;
 }
 
 export interface NoteFieldTypeRepository {
-	findByNoteTypeId(noteTypeId: string): Promise<NoteFieldType[]>;
-	findById(id: string, noteTypeId: string): Promise<NoteFieldType | undefined>;
-	create(
+	findByNoteTypeId: (noteTypeId: string) => Promise<NoteFieldType[]>;
+	findById: (
+		id: string,
+		noteTypeId: string,
+	) => Promise<NoteFieldType | undefined>;
+	create: (
 		noteTypeId: string,
 		data: {
 			name: string;
 			order: number;
 			fieldType?: string;
 		},
-	): Promise<NoteFieldType>;
-	update(
+	) => Promise<NoteFieldType>;
+	update: (
 		id: string,
 		noteTypeId: string,
 		data: {
 			name?: string;
 			order?: number;
 		},
-	): Promise<NoteFieldType | undefined>;
-	softDelete(id: string, noteTypeId: string): Promise<boolean>;
-	reorder(noteTypeId: string, fieldIds: string[]): Promise<NoteFieldType[]>;
-	hasNoteFieldValues(id: string): Promise<boolean>;
+	) => Promise<NoteFieldType | undefined>;
+	softDelete: (id: string, noteTypeId: string) => Promise<boolean>;
+	reorder: (noteTypeId: string, fieldIds: string[]) => Promise<NoteFieldType[]>;
+	hasNoteFieldValues: (id: string) => Promise<boolean>;
 }
 
 export interface Note {
@@ -325,27 +333,27 @@ export interface BulkCreateNoteResult {
 }
 
 export interface NoteRepository {
-	findByDeckId(deckId: string): Promise<Note[]>;
-	findById(id: string, deckId: string): Promise<Note | undefined>;
-	findByIdWithFieldValues(
+	findByDeckId: (deckId: string) => Promise<Note[]>;
+	findById: (id: string, deckId: string) => Promise<Note | undefined>;
+	findByIdWithFieldValues: (
 		id: string,
 		deckId: string,
-	): Promise<NoteWithFieldValues | undefined>;
-	create(
+	) => Promise<NoteWithFieldValues | undefined>;
+	create: (
 		deckId: string,
 		data: {
 			noteTypeId: string;
 			fields: Record<string, string>;
 		},
-	): Promise<CreateNoteResult>;
-	update(
+	) => Promise<CreateNoteResult>;
+	update: (
 		id: string,
 		deckId: string,
 		fields: Record<string, string>,
-	): Promise<NoteWithFieldValues | undefined>;
-	softDelete(id: string, deckId: string): Promise<boolean>;
-	createMany(
+	) => Promise<NoteWithFieldValues | undefined>;
+	softDelete: (id: string, deckId: string) => Promise<boolean>;
+	createMany: (
 		deckId: string,
 		notes: BulkCreateNoteInput[],
-	): Promise<BulkCreateNoteResult>;
+	) => Promise<BulkCreateNoteResult>;
 }

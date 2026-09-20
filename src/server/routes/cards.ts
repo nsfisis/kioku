@@ -8,7 +8,7 @@ import {
 	type DeckRepository,
 	deckRepository,
 } from "../repositories/index.js";
-import { createCardSchema, updateCardSchema } from "../schemas/index.js";
+import { updateCardSchema } from "../schemas/index.js";
 
 export interface CardDependencies {
 	cardRepo: CardRepository;
@@ -42,29 +42,6 @@ export function createCardsRouter(deps: CardDependencies) {
 			const cards = await cardRepo.findByDeckId(deckId);
 			return c.json({ cards }, 200);
 		})
-		.post(
-			"/",
-			zValidator("param", deckIdParamSchema),
-			zValidator("json", createCardSchema),
-			async (c) => {
-				const user = getAuthUser(c);
-				const { deckId } = c.req.valid("param");
-				const data = c.req.valid("json");
-
-				// Verify deck ownership
-				const deck = await deckRepo.findById(deckId, user.id);
-				if (!deck) {
-					throw Errors.notFound("Deck not found", "DECK_NOT_FOUND");
-				}
-
-				const card = await cardRepo.create(deckId, {
-					front: data.front,
-					back: data.back,
-				});
-
-				return c.json({ card }, 201);
-			},
-		)
 		.get("/:cardId", zValidator("param", cardIdParamSchema), async (c) => {
 			const user = getAuthUser(c);
 			const { deckId, cardId } = c.req.valid("param");

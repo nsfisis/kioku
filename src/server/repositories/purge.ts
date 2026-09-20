@@ -26,7 +26,7 @@ export interface PurgeOptions {
 }
 
 export interface PurgeRepository {
-	purgeDeletedRecords(options: PurgeOptions): Promise<PurgeResult>;
+	purgeDeletedRecords: (options: PurgeOptions) => Promise<PurgeResult>;
 }
 
 const DEFAULT_BATCH_SIZE = 1000;
