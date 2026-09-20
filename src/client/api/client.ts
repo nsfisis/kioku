@@ -6,7 +6,10 @@ import type { ApiError, Tokens } from "./types";
 const _rpc = hc<AppType>("");
 
 // Infer response types from server definitions
-export type LoginResponse = InferResponseType<typeof _rpc.api.auth.login.$post>;
+export type LoginResponse = InferResponseType<
+	typeof _rpc.api.auth.login.$post,
+	200
+>;
 export type User = LoginResponse["user"];
 
 export class ApiClientError extends Error {

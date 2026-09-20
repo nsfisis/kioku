@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
 import * as schemaCrdt from "./schema-crdt.js";
 
@@ -10,9 +10,11 @@ const {
 	POSTGRES_PORT,
 } = process.env;
 
-export const db = drizzle(
+const fullSchema = { ...schema, ...schemaCrdt };
+
+export const db: NodePgDatabase<typeof fullSchema> = drizzle(
 	`postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,
-	{ schema: { ...schema, ...schemaCrdt } },
+	{ schema: fullSchema },
 );
 
 export * from "./schema.js";
