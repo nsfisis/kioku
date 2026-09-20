@@ -102,11 +102,12 @@ describe("CRDT Schema", () => {
 			expect(binaryColumn.notNull).toBe(true);
 		});
 
-		it("should have syncVersion as integer with default 0", () => {
+		it("should have syncVersion as integer with default 1", () => {
+			// 0 is reserved for a client that has never pulled, so rows start at 1.
 			const syncVersionColumn = crdtDocuments.syncVersion;
 			expect(syncVersionColumn.dataType).toBe("number");
 			expect(syncVersionColumn.notNull).toBe(true);
-			expect(syncVersionColumn.default).toBe(0);
+			expect(syncVersionColumn.default).toBe(1);
 		});
 
 		it("should have createdAt as timestamp with timezone", () => {

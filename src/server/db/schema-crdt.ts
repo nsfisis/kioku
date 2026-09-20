@@ -59,7 +59,7 @@ export const crdtDocuments = pgTable(
 		/** Serialized Automerge document binary (stored as base64 text for simplicity) */
 		binary: varchar("binary", { length: 1048576 }).notNull(),
 		/** Sync version for incremental sync */
-		syncVersion: integer("sync_version").notNull().default(0),
+		syncVersion: integer("sync_version").notNull().default(1),
 		/** When the document was created */
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()

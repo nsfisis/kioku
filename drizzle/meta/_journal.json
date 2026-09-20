@@ -43,6 +43,13 @@
       "when": 1772025984247,
       "tag": "0005_certain_stick",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789925590806,
+      "tag": "0006_wonderful_excalibur",
+      "breakpoints": true
     }
   ]
 }

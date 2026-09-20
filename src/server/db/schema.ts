@@ -71,7 +71,7 @@ export const noteTypes = pgTable("note_types", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const noteFieldTypes = pgTable("note_field_types", {
@@ -91,7 +91,7 @@ export const noteFieldTypes = pgTable("note_field_types", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const decks = pgTable("decks", {
@@ -111,7 +111,7 @@ export const decks = pgTable("decks", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const notes = pgTable("notes", {
@@ -129,7 +129,7 @@ export const notes = pgTable("notes", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const noteFieldValues = pgTable("note_field_values", {
@@ -147,7 +147,7 @@ export const noteFieldValues = pgTable("note_field_values", {
 	updatedAt: timestamp("updated_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const cards = pgTable("cards", {
@@ -180,7 +180,7 @@ export const cards = pgTable("cards", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 export const reviewLogs = pgTable("review_logs", {
@@ -199,7 +199,7 @@ export const reviewLogs = pgTable("review_logs", {
 		.notNull()
 		.defaultNow(),
 	durationMs: integer("duration_ms"),
-	syncVersion: integer("sync_version").notNull().default(0),
+	syncVersion: integer("sync_version").notNull().default(1),
 });
 
 // Re-export CRDT schema
