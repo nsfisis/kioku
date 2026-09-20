@@ -15,13 +15,10 @@ import {
 	localNoteTypeRepository,
 } from "../db/repositories";
 import {
+	CrdtEntityType,
+	type CrdtEntityTypeValue,
 	type CrdtSyncPayload,
-	crdtCardRepository,
-	crdtDeckRepository,
-	crdtNoteFieldTypeRepository,
 	crdtNoteFieldValueRepository,
-	crdtNoteRepository,
-	crdtNoteTypeRepository,
 	crdtSyncStateManager,
 } from "./crdt";
 import { base64ToBinary } from "./crdt/sync-state";
@@ -39,6 +36,9 @@ import type { SyncPushResult } from "./push";
 /**
  * Result of conflict resolution process
  * Each array contains the IDs of resolved items
+ *
+ * There is deliberately no `reviewLogs` entry: review logs are append-only and
+ * can never conflict (see {@link entityConflictPolicies}).
  */
 export interface ConflictResolutionResult {
 	decks: string[];
@@ -47,6 +47,81 @@ export interface ConflictResolutionResult {
 	noteFieldTypes: string[];
 	notes: string[];
 	noteFieldValues: string[];
+}
+
+/**
+ * How a conflict on a given entity type is resolved.
+ *
+ * The server (`src/server/repositories/sync.ts`) is the one that decides *that*
+ * a conflict happened: on push it compares `updatedAt` per row and only reports
+ * a conflict when its own row is the newer one. These policies decide what the
+ * client does with that verdict.
+ */
+export const ConflictPolicy = {
+	/**
+	 * Last-Write-Wins on `updatedAt`, at whole-row granularity.
+	 *
+	 * The server already applied LWW when it rejected our push, so the only
+	 * consistent thing the client can do is take the server row verbatim.
+	 * Merging field-by-field here would resurrect values the server has already
+	 * discarded and leave the client permanently out of step with the server.
+	 */
+	Lww: "lww",
+	/**
+	 * Automerge CRDT merge, with LWW as the fallback.
+	 *
+	 * Used for free-form text that two devices may legitimately edit at the same
+	 * time. Both sides' edits survive the merge, and the merge is deterministic:
+	 * merging A into B and B into A yields the same document.
+	 */
+	Crdt: "crdt",
+	/**
+	 * Append-only: rows are immutable once written, so conflicts cannot happen.
+	 * The server de-duplicates by primary key and the client never resolves them.
+	 */
+	AppendOnly: "append-only",
+} as const;
+
+export type ConflictPolicyValue =
+	(typeof ConflictPolicy)[keyof typeof ConflictPolicy];
+
+/**
+ * The conflict resolution policy of every synced entity type.
+ *
+ * | Entity           | Policy      | Why                                                |
+ * | ---------------- | ----------- | -------------------------------------------------- |
+ * | `deck`           | LWW         | Metadata; single-user edits, rarely concurrent      |
+ * | `noteType`       | LWW         | Template/config metadata                            |
+ * | `noteFieldType`  | LWW         | Field definition metadata                           |
+ * | `note`           | LWW         | Note metadata only (deck/note type/timestamps)      |
+ * | `noteFieldValue` | CRDT        | The actual note text; concurrent editing is real    |
+ * | `card`           | LWW         | FSRS state is one coherent unit, never field-merged |
+ * | `reviewLog`      | append-only | Immutable rows, keyed by client-generated UUID      |
+ *
+ * Note that `note` and `noteFieldValue` are split on purpose: the note row only
+ * carries metadata (which deck, which note type), so LWW is fine for it, while
+ * the text a user actually types lives in `noteFieldValue` and goes through the
+ * CRDT path.
+ */
+export const entityConflictPolicies: Readonly<
+	Record<CrdtEntityTypeValue, ConflictPolicyValue>
+> = {
+	[CrdtEntityType.Deck]: ConflictPolicy.Lww,
+	[CrdtEntityType.NoteType]: ConflictPolicy.Lww,
+	[CrdtEntityType.NoteFieldType]: ConflictPolicy.Lww,
+	[CrdtEntityType.Note]: ConflictPolicy.Lww,
+	[CrdtEntityType.NoteFieldValue]: ConflictPolicy.Crdt,
+	[CrdtEntityType.Card]: ConflictPolicy.Lww,
+	[CrdtEntityType.ReviewLog]: ConflictPolicy.AppendOnly,
+};
+
+/**
+ * Get the conflict resolution policy for an entity type
+ */
+export function getConflictPolicy(
+	entityType: CrdtEntityTypeValue,
+): ConflictPolicyValue {
+	return entityConflictPolicies[entityType];
 }
 
 /**
@@ -181,11 +256,14 @@ function serverNoteFieldValueToLocal(
  * Conflict Resolver
  *
  * Handles conflicts reported by the server during push operations.
- * When a conflict occurs (server has newer data), this resolver:
- * 1. Identifies conflicting items from push result
- * 2. Uses Automerge CRDT merge for conflict-free resolution
- * 3. Falls back to server_wins when CRDT data is unavailable
- * 4. Updates local database accordingly
+ * Every entity type is resolved according to {@link entityConflictPolicies}:
+ *
+ * - LWW entities take the server row as-is, because the server only reports a
+ *   conflict after it has already decided its row is the newer one.
+ * - CRDT entities (note field values) are merged with Automerge so that text
+ *   typed on two devices survives, falling back to LWW when no CRDT binary is
+ *   available or the merge throws.
+ * - Append-only entities (review logs) never reach this class.
  */
 export class ConflictResolver {
 	/**
@@ -217,371 +295,72 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve deck conflict using CRDT merge with server_wins fallback
+	 * Resolve deck conflict (policy: LWW, so the server row wins)
 	 */
 	async resolveDeckConflict(
 		localDeck: LocalDeck,
 		serverDeck: ServerDeck,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeDeckWithCrdt(
-				localDeck,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				const localData: LocalDeck = {
-					...mergeResult.entity,
-					_synced: true,
-				};
-				await localDeckRepository.upsertFromServer(localData);
-				// Store the merged CRDT binary
-				await crdtSyncStateManager.setDocumentBinary(
-					"deck",
-					localDeck.id,
-					mergeResult.binary,
-					serverDeck.syncVersion,
-				);
-				return localDeck.id;
-			}
-		}
-
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverDeckToLocal(serverDeck);
-		await localDeckRepository.upsertFromServer(localData);
-
+		await localDeckRepository.upsertFromServer(serverDeckToLocal(serverDeck));
 		return localDeck.id;
 	}
 
 	/**
-	 * Merge deck using CRDT
-	 */
-	private async mergeDeckWithCrdt(
-		localDeck: LocalDeck,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalDeck> | null> {
-		try {
-			// Get local CRDT binary if it exists
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"deck",
-				localDeck.id,
-			);
-
-			// If no local CRDT binary, create one from local entity
-			const localDoc = localBinary
-				? crdtDeckRepository.fromBinary(localBinary)
-				: crdtDeckRepository.toCrdtDocument(localDeck).doc;
-
-			// Load server document
-			const serverDoc = crdtDeckRepository.fromBinary(serverBinary);
-
-			// Merge documents
-			const mergeResult = crdtDeckRepository.merge(localDoc, serverDoc);
-
-			return {
-				entity: crdtDeckRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for deck, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Resolve card conflict using CRDT merge with server_wins fallback
+	 * Resolve card conflict (policy: LWW, so the server row wins)
+	 *
+	 * FSRS scheduling state is only meaningful as a whole, so the losing device's
+	 * review is discarded rather than merged field by field.
 	 */
 	async resolveCardConflict(
 		localCard: LocalCard,
 		serverCard: ServerCard,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeCardWithCrdt(
-				localCard,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				const localData: LocalCard = {
-					...mergeResult.entity,
-					_synced: true,
-				};
-				await localCardRepository.upsertFromServer(localData);
-				await crdtSyncStateManager.setDocumentBinary(
-					"card",
-					localCard.id,
-					mergeResult.binary,
-					serverCard.syncVersion,
-				);
-				return localCard.id;
-			}
-		}
-
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverCardToLocal(serverCard);
-		await localCardRepository.upsertFromServer(localData);
-
+		await localCardRepository.upsertFromServer(serverCardToLocal(serverCard));
 		return localCard.id;
 	}
 
 	/**
-	 * Merge card using CRDT
-	 */
-	private async mergeCardWithCrdt(
-		localCard: LocalCard,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalCard> | null> {
-		try {
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"card",
-				localCard.id,
-			);
-
-			const localDoc = localBinary
-				? crdtCardRepository.fromBinary(localBinary)
-				: crdtCardRepository.toCrdtDocument(localCard).doc;
-
-			const serverDoc = crdtCardRepository.fromBinary(serverBinary);
-			const mergeResult = crdtCardRepository.merge(localDoc, serverDoc);
-
-			return {
-				entity: crdtCardRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for card, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Resolve note type conflict using CRDT merge with server_wins fallback
+	 * Resolve note type conflict (policy: LWW, so the server row wins)
 	 */
 	async resolveNoteTypeConflict(
 		localNoteType: LocalNoteType,
 		serverNoteType: ServerNoteType,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeNoteTypeWithCrdt(
-				localNoteType,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				const localData: LocalNoteType = {
-					...mergeResult.entity,
-					_synced: true,
-				};
-				await localNoteTypeRepository.upsertFromServer(localData);
-				await crdtSyncStateManager.setDocumentBinary(
-					"noteType",
-					localNoteType.id,
-					mergeResult.binary,
-					serverNoteType.syncVersion,
-				);
-				return localNoteType.id;
-			}
-		}
-
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverNoteTypeToLocal(serverNoteType);
-		await localNoteTypeRepository.upsertFromServer(localData);
-
+		await localNoteTypeRepository.upsertFromServer(
+			serverNoteTypeToLocal(serverNoteType),
+		);
 		return localNoteType.id;
 	}
 
 	/**
-	 * Merge note type using CRDT
-	 */
-	private async mergeNoteTypeWithCrdt(
-		localNoteType: LocalNoteType,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalNoteType> | null> {
-		try {
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"noteType",
-				localNoteType.id,
-			);
-
-			const localDoc = localBinary
-				? crdtNoteTypeRepository.fromBinary(localBinary)
-				: crdtNoteTypeRepository.toCrdtDocument(localNoteType).doc;
-
-			const serverDoc = crdtNoteTypeRepository.fromBinary(serverBinary);
-			const mergeResult = crdtNoteTypeRepository.merge(localDoc, serverDoc);
-
-			return {
-				entity: crdtNoteTypeRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for note type, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Resolve note field type conflict using CRDT merge with server_wins fallback
+	 * Resolve note field type conflict (policy: LWW, so the server row wins)
 	 */
 	async resolveNoteFieldTypeConflict(
 		localFieldType: LocalNoteFieldType,
 		serverFieldType: ServerNoteFieldType,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeNoteFieldTypeWithCrdt(
-				localFieldType,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				const localData: LocalNoteFieldType = {
-					...mergeResult.entity,
-					_synced: true,
-				};
-				await localNoteFieldTypeRepository.upsertFromServer(localData);
-				await crdtSyncStateManager.setDocumentBinary(
-					"noteFieldType",
-					localFieldType.id,
-					mergeResult.binary,
-					serverFieldType.syncVersion,
-				);
-				return localFieldType.id;
-			}
-		}
-
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverNoteFieldTypeToLocal(serverFieldType);
-		await localNoteFieldTypeRepository.upsertFromServer(localData);
-
+		await localNoteFieldTypeRepository.upsertFromServer(
+			serverNoteFieldTypeToLocal(serverFieldType),
+		);
 		return localFieldType.id;
 	}
 
 	/**
-	 * Merge note field type using CRDT
-	 */
-	private async mergeNoteFieldTypeWithCrdt(
-		localFieldType: LocalNoteFieldType,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalNoteFieldType> | null> {
-		try {
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"noteFieldType",
-				localFieldType.id,
-			);
-
-			const localDoc = localBinary
-				? crdtNoteFieldTypeRepository.fromBinary(localBinary)
-				: crdtNoteFieldTypeRepository.toCrdtDocument(localFieldType).doc;
-
-			const serverDoc = crdtNoteFieldTypeRepository.fromBinary(serverBinary);
-			const mergeResult = crdtNoteFieldTypeRepository.merge(
-				localDoc,
-				serverDoc,
-			);
-
-			return {
-				entity: crdtNoteFieldTypeRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for note field type, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Resolve note conflict using CRDT merge with server_wins fallback
+	 * Resolve note conflict (policy: LWW, so the server row wins)
+	 *
+	 * Only note metadata lives on this row; the text goes through
+	 * {@link resolveNoteFieldValueConflict}.
 	 */
 	async resolveNoteConflict(
 		localNote: LocalNote,
 		serverNote: ServerNote,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeNoteWithCrdt(
-				localNote,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				const localData: LocalNote = {
-					...mergeResult.entity,
-					_synced: true,
-				};
-				await localNoteRepository.upsertFromServer(localData);
-				await crdtSyncStateManager.setDocumentBinary(
-					"note",
-					localNote.id,
-					mergeResult.binary,
-					serverNote.syncVersion,
-				);
-				return localNote.id;
-			}
-		}
-
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverNoteToLocal(serverNote);
-		await localNoteRepository.upsertFromServer(localData);
-
+		await localNoteRepository.upsertFromServer(serverNoteToLocal(serverNote));
 		return localNote.id;
 	}
 
 	/**
-	 * Merge note using CRDT
-	 */
-	private async mergeNoteWithCrdt(
-		localNote: LocalNote,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalNote> | null> {
-		try {
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"note",
-				localNote.id,
-			);
-
-			const localDoc = localBinary
-				? crdtNoteRepository.fromBinary(localBinary)
-				: crdtNoteRepository.toCrdtDocument(localNote).doc;
-
-			const serverDoc = crdtNoteRepository.fromBinary(serverBinary);
-			const mergeResult = crdtNoteRepository.merge(localDoc, serverDoc);
-
-			return {
-				entity: crdtNoteRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for note, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Resolve note field value conflict using CRDT merge with server_wins fallback
+	 * Resolve note field value conflict (policy: CRDT merge, LWW fallback)
 	 */
 	async resolveNoteFieldValueConflict(
 		localFieldValue: LocalNoteFieldValue,
@@ -595,13 +374,24 @@ export class ConflictResolver {
 				serverCrdtBinary,
 			);
 			if (mergeResult) {
+				// The merged text exists on this device only, so it has to win the
+				// next push: stamp it past the server row we just merged with and
+				// leave the row unsynced. Without this the client would keep a value
+				// the server never sees and the two would diverge forever.
 				const localData: LocalNoteFieldValue = {
 					...mergeResult.entity,
-					_synced: true,
+					updatedAt: new Date(
+						Math.max(
+							Date.now(),
+							new Date(serverFieldValue.updatedAt).getTime() + 1,
+						),
+					),
+					syncVersion: serverFieldValue.syncVersion,
+					_synced: false,
 				};
-				await localNoteFieldValueRepository.upsertFromServer(localData);
+				await localNoteFieldValueRepository.upsertMerged(localData);
 				await crdtSyncStateManager.setDocumentBinary(
-					"noteFieldValue",
+					CrdtEntityType.NoteFieldValue,
 					localFieldValue.id,
 					mergeResult.binary,
 					serverFieldValue.syncVersion,
@@ -610,9 +400,10 @@ export class ConflictResolver {
 			}
 		}
 
-		// Fallback to server_wins when CRDT merge is not available
-		const localData = serverNoteFieldValueToLocal(serverFieldValue);
-		await localNoteFieldValueRepository.upsertFromServer(localData);
+		// Fallback to LWW (server wins) when CRDT merge is not available
+		await localNoteFieldValueRepository.upsertFromServer(
+			serverNoteFieldValueToLocal(serverFieldValue),
+		);
 
 		return localFieldValue.id;
 	}
@@ -626,7 +417,7 @@ export class ConflictResolver {
 	): Promise<CrdtMergeConflictResult<LocalNoteFieldValue> | null> {
 		try {
 			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				"noteFieldValue",
+				CrdtEntityType.NoteFieldValue,
 				localFieldValue.id,
 			);
 
@@ -657,7 +448,6 @@ export class ConflictResolver {
 	/**
 	 * Resolve all conflicts from a push result
 	 * Uses pull result to get server data for conflicting items
-	 * When CRDT changes are available, uses Automerge merge for resolution
 	 */
 	async resolveConflicts(
 		pushResult: SyncPushResult,
@@ -682,7 +472,7 @@ export class ConflictResolver {
 
 		// Helper to get CRDT binary for an entity
 		const getCrdtBinary = (
-			entityType: string,
+			entityType: CrdtEntityTypeValue,
 			entityId: string,
 		): Uint8Array | undefined => {
 			const payload = crdtPayloadMap.get(`${entityType}:${entityId}`);
@@ -701,13 +491,11 @@ export class ConflictResolver {
 		for (const deckId of pushResult.conflicts.decks) {
 			const localDeck = await localDeckRepository.findById(deckId);
 			const serverDeck = pullResult.decks.find((d) => d.id === deckId);
-			const crdtBinary = getCrdtBinary("deck", deckId);
 
 			if (localDeck && serverDeck) {
 				const resolution = await this.resolveDeckConflict(
 					localDeck,
 					serverDeck,
-					crdtBinary,
 				);
 				result.decks.push(resolution);
 			} else if (serverDeck) {
@@ -723,13 +511,11 @@ export class ConflictResolver {
 		for (const cardId of pushResult.conflicts.cards) {
 			const localCard = await localCardRepository.findById(cardId);
 			const serverCard = pullResult.cards.find((c) => c.id === cardId);
-			const crdtBinary = getCrdtBinary("card", cardId);
 
 			if (localCard && serverCard) {
 				const resolution = await this.resolveCardConflict(
 					localCard,
 					serverCard,
-					crdtBinary,
 				);
 				result.cards.push(resolution);
 			} else if (serverCard) {
@@ -747,13 +533,11 @@ export class ConflictResolver {
 			const serverNoteType = pullResult.noteTypes.find(
 				(nt) => nt.id === noteTypeId,
 			);
-			const crdtBinary = getCrdtBinary("noteType", noteTypeId);
 
 			if (localNoteType && serverNoteType) {
 				const resolution = await this.resolveNoteTypeConflict(
 					localNoteType,
 					serverNoteType,
-					crdtBinary,
 				);
 				result.noteTypes.push(resolution);
 			} else if (serverNoteType) {
@@ -770,13 +554,11 @@ export class ConflictResolver {
 			const serverFieldType = pullResult.noteFieldTypes.find(
 				(ft) => ft.id === fieldTypeId,
 			);
-			const crdtBinary = getCrdtBinary("noteFieldType", fieldTypeId);
 
 			if (localFieldType && serverFieldType) {
 				const resolution = await this.resolveNoteFieldTypeConflict(
 					localFieldType,
 					serverFieldType,
-					crdtBinary,
 				);
 				result.noteFieldTypes.push(resolution);
 			} else if (serverFieldType) {
@@ -790,13 +572,11 @@ export class ConflictResolver {
 		for (const noteId of pushResult.conflicts.notes) {
 			const localNote = await localNoteRepository.findById(noteId);
 			const serverNote = pullResult.notes.find((n) => n.id === noteId);
-			const crdtBinary = getCrdtBinary("note", noteId);
 
 			if (localNote && serverNote) {
 				const resolution = await this.resolveNoteConflict(
 					localNote,
 					serverNote,
-					crdtBinary,
 				);
 				result.notes.push(resolution);
 			} else if (serverNote) {
@@ -806,14 +586,17 @@ export class ConflictResolver {
 			}
 		}
 
-		// Resolve note field value conflicts
+		// Resolve note field value conflicts (the only CRDT-merged entity)
 		for (const fieldValueId of pushResult.conflicts.noteFieldValues) {
 			const localFieldValue =
 				await localNoteFieldValueRepository.findById(fieldValueId);
 			const serverFieldValue = pullResult.noteFieldValues.find(
 				(fv) => fv.id === fieldValueId,
 			);
-			const crdtBinary = getCrdtBinary("noteFieldValue", fieldValueId);
+			const crdtBinary = getCrdtBinary(
+				CrdtEntityType.NoteFieldValue,
+				fieldValueId,
+			);
 
 			if (localFieldValue && serverFieldValue) {
 				const resolution = await this.resolveNoteFieldValueConflict(
@@ -841,7 +624,8 @@ export function createConflictResolver(): ConflictResolver {
 }
 
 /**
- * Default conflict resolver using CRDT (Automerge) merge
- * Falls back to server_wins when CRDT data is unavailable
+ * Default conflict resolver
+ *
+ * Resolution per entity type follows {@link entityConflictPolicies}.
  */
 export const conflictResolver = new ConflictResolver();

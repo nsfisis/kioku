@@ -1210,4 +1210,15 @@ export const localNoteFieldValueRepository = {
 	async upsertFromServer(fieldValue: LocalNoteFieldValue): Promise<void> {
 		await db.noteFieldValues.put({ ...fieldValue, _synced: true });
 	},
+
+	/**
+	 * Upsert a field value produced by CRDT conflict resolution.
+	 *
+	 * Unlike `upsertFromServer` the row deliberately stays unsynced: the merged
+	 * text exists on this device only, so it has to be pushed back or the client
+	 * would silently diverge from the server.
+	 */
+	async upsertMerged(fieldValue: LocalNoteFieldValue): Promise<void> {
+		await db.noteFieldValues.put({ ...fieldValue, _synced: false });
+	},
 };
