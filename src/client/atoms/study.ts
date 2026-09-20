@@ -4,6 +4,7 @@ import { getStartOfStudyDayBoundary } from "../../shared/date";
 import { localDeckRepository } from "../db/repositories";
 import { buildStudyCards, type StudyCardView } from "../db/study-builder";
 import { createSeededRandom, shuffle } from "../utils/random";
+import { sessionGenerationAtom } from "./auth";
 import { ensureBootstrap } from "./sync";
 
 export type StudyCard = StudyCardView;
@@ -34,20 +35,24 @@ async function loadStudyData(deckId: string): Promise<StudyData | null> {
 // =====================
 
 export const studyDataAtomFamily = atomFamily((deckId: string) =>
-	atomWithSuspenseQuery(() => ({
-		queryKey: ["decks", deckId, "study"],
-		queryFn: async (): Promise<StudyData> => {
-			let data = await loadStudyData(deckId);
-			if (data) {
-				ensureBootstrap();
+	atomWithSuspenseQuery((get) => {
+		// Rebuild on sign-in/out; see sessionGenerationAtom.
+		get(sessionGenerationAtom);
+		return {
+			queryKey: ["decks", deckId, "study"],
+			queryFn: async (): Promise<StudyData> => {
+				let data = await loadStudyData(deckId);
+				if (data) {
+					ensureBootstrap();
+					return data;
+				}
+				await ensureBootstrap();
+				data = await loadStudyData(deckId);
+				if (!data) {
+					throw new Error(`Deck not found: ${deckId}`);
+				}
 				return data;
-			}
-			await ensureBootstrap();
-			data = await loadStudyData(deckId);
-			if (!data) {
-				throw new Error(`Deck not found: ${deckId}`);
-			}
-			return data;
-		},
-	})),
+			},
+		};
+	}),
 );

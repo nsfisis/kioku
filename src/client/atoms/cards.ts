@@ -2,6 +2,7 @@ import { atomFamily } from "jotai-family";
 import { atomWithSuspenseQuery } from "jotai-tanstack-query";
 import type { CardStateType, LocalCard } from "../db";
 import { localCardRepository } from "../db/repositories";
+import { sessionGenerationAtom } from "./auth";
 import { ensureBootstrap } from "./sync";
 
 export interface Card {
@@ -61,16 +62,20 @@ async function loadCardsByDeck(deckId: string): Promise<Card[]> {
 // =====================
 
 export const cardsByDeckAtomFamily = atomFamily((deckId: string) =>
-	atomWithSuspenseQuery(() => ({
-		queryKey: ["decks", deckId, "cards"],
-		queryFn: async (): Promise<Card[]> => {
-			const cards = await loadCardsByDeck(deckId);
-			if (cards.length > 0) {
-				ensureBootstrap();
-				return cards;
-			}
-			await ensureBootstrap();
-			return loadCardsByDeck(deckId);
-		},
-	})),
+	atomWithSuspenseQuery((get) => {
+		// Rebuild on sign-in/out; see sessionGenerationAtom.
+		get(sessionGenerationAtom);
+		return {
+			queryKey: ["decks", deckId, "cards"],
+			queryFn: async (): Promise<Card[]> => {
+				const cards = await loadCardsByDeck(deckId);
+				if (cards.length > 0) {
+					ensureBootstrap();
+					return cards;
+				}
+				await ensureBootstrap();
+				return loadCardsByDeck(deckId);
+			},
+		};
+	}),
 );
