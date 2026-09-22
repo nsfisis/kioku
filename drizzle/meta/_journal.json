@@ -50,6 +50,13 @@
       "when": 1789925590806,
       "tag": "0006_wonderful_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790046199436,
+      "tag": "0007_global_sync_version",
+      "breakpoints": true
     }
   ]
 }

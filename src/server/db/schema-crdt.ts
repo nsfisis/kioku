@@ -20,6 +20,7 @@ import {
 	varchar,
 } from "drizzle-orm/pg-core";
 import { users } from "./schema";
+import { nextSyncVersion } from "./sync-version";
 
 /**
  * Valid entity types for CRDT documents
@@ -59,7 +60,7 @@ export const crdtDocuments = pgTable(
 		/** Serialized Automerge document binary (stored as base64 text for simplicity) */
 		binary: varchar("binary", { length: 1048576 }).notNull(),
 		/** Sync version for incremental sync */
-		syncVersion: integer("sync_version").notNull().default(1),
+		syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 		/** When the document was created */
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()

@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
 	cards,
@@ -10,6 +10,7 @@ import {
 	reviewLogs,
 } from "../db/schema.js";
 import { type CrdtEntityTypeValue, crdtDocuments } from "../db/schema-crdt.js";
+import { nextSyncVersion } from "../db/sync-version.js";
 import type {
 	Card,
 	Deck,
@@ -241,7 +242,7 @@ export const syncRepository: SyncRepository = {
 						deletedAt: noteTypeData.deletedAt
 							? new Date(noteTypeData.deletedAt)
 							: null,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({ id: noteTypes.id, syncVersion: noteTypes.syncVersion });
 
@@ -266,7 +267,7 @@ export const syncRepository: SyncRepository = {
 							deletedAt: noteTypeData.deletedAt
 								? new Date(noteTypeData.deletedAt)
 								: null,
-							syncVersion: sql`${noteTypes.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(noteTypes.id, noteTypeData.id))
 						.returning({
@@ -336,7 +337,7 @@ export const syncRepository: SyncRepository = {
 						deletedAt: fieldTypeData.deletedAt
 							? new Date(fieldTypeData.deletedAt)
 							: null,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({
 						id: noteFieldTypes.id,
@@ -364,7 +365,7 @@ export const syncRepository: SyncRepository = {
 							deletedAt: fieldTypeData.deletedAt
 								? new Date(fieldTypeData.deletedAt)
 								: null,
-							syncVersion: sql`${noteFieldTypes.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(noteFieldTypes.id, fieldTypeData.id))
 						.returning({
@@ -416,7 +417,7 @@ export const syncRepository: SyncRepository = {
 						createdAt: new Date(deckData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: deckData.deletedAt ? new Date(deckData.deletedAt) : null,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({ id: decks.id, syncVersion: decks.syncVersion });
 
@@ -441,7 +442,7 @@ export const syncRepository: SyncRepository = {
 							deletedAt: deckData.deletedAt
 								? new Date(deckData.deletedAt)
 								: null,
-							syncVersion: sql`${decks.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(decks.id, deckData.id))
 						.returning({ id: decks.id, syncVersion: decks.syncVersion });
@@ -499,7 +500,7 @@ export const syncRepository: SyncRepository = {
 						createdAt: new Date(noteData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: noteData.deletedAt ? new Date(noteData.deletedAt) : null,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({ id: notes.id, syncVersion: notes.syncVersion });
 
@@ -522,7 +523,7 @@ export const syncRepository: SyncRepository = {
 							deletedAt: noteData.deletedAt
 								? new Date(noteData.deletedAt)
 								: null,
-							syncVersion: sql`${notes.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(notes.id, noteData.id))
 						.returning({ id: notes.id, syncVersion: notes.syncVersion });
@@ -583,7 +584,7 @@ export const syncRepository: SyncRepository = {
 						value: fieldValueData.value,
 						createdAt: new Date(fieldValueData.createdAt),
 						updatedAt: clientUpdatedAt,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({
 						id: noteFieldValues.id,
@@ -607,7 +608,7 @@ export const syncRepository: SyncRepository = {
 							noteFieldTypeId: fieldValueData.noteFieldTypeId,
 							value: fieldValueData.value,
 							updatedAt: clientUpdatedAt,
-							syncVersion: sql`${noteFieldValues.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(noteFieldValues.id, fieldValueData.id))
 						.returning({
@@ -683,7 +684,7 @@ export const syncRepository: SyncRepository = {
 						createdAt: new Date(cardData.createdAt),
 						updatedAt: clientUpdatedAt,
 						deletedAt: cardData.deletedAt ? new Date(cardData.deletedAt) : null,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({ id: cards.id, syncVersion: cards.syncVersion });
 
@@ -721,7 +722,7 @@ export const syncRepository: SyncRepository = {
 							deletedAt: cardData.deletedAt
 								? new Date(cardData.deletedAt)
 								: null,
-							syncVersion: sql`${cards.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(eq(cards.id, cardData.id))
 						.returning({ id: cards.id, syncVersion: cards.syncVersion });
@@ -777,7 +778,7 @@ export const syncRepository: SyncRepository = {
 						elapsedDays: logData.elapsedDays,
 						reviewedAt: new Date(logData.reviewedAt),
 						durationMs: logData.durationMs,
-						syncVersion: 1,
+						syncVersion: nextSyncVersion,
 					})
 					.returning({
 						id: reviewLogs.id,
@@ -829,7 +830,7 @@ export const syncRepository: SyncRepository = {
 							entityType: crdtChange.entityType,
 							entityId: crdtChange.entityId,
 							binary: crdtChange.binary,
-							syncVersion: 1,
+							syncVersion: nextSyncVersion,
 						})
 						.returning({
 							syncVersion: crdtDocuments.syncVersion,
@@ -850,7 +851,7 @@ export const syncRepository: SyncRepository = {
 						.set({
 							binary: crdtChange.binary,
 							updatedAt: new Date(),
-							syncVersion: sql`${crdtDocuments.syncVersion} + 1`,
+							syncVersion: nextSyncVersion,
 						})
 						.where(
 							and(
@@ -882,6 +883,10 @@ export const syncRepository: SyncRepository = {
 		query: SyncPullQuery,
 	): Promise<SyncPullResult> {
 		const { lastSyncVersion } = query;
+
+		// lastSyncVersion is a cursor into sync_version_seq: every write takes a
+		// fresh value from it, so any row written after the client's previous
+		// pull has a higher sync_version than anything that pull returned.
 
 		// Get all decks with syncVersion > lastSyncVersion
 		const pulledDecks = await db

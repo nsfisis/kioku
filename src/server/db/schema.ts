@@ -9,6 +9,7 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
+import { nextSyncVersion } from "./sync-version";
 
 // Card states for FSRS algorithm
 export const CardState = {
@@ -71,7 +72,7 @@ export const noteTypes = pgTable("note_types", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const noteFieldTypes = pgTable("note_field_types", {
@@ -91,7 +92,7 @@ export const noteFieldTypes = pgTable("note_field_types", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const decks = pgTable("decks", {
@@ -111,7 +112,7 @@ export const decks = pgTable("decks", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const notes = pgTable("notes", {
@@ -129,7 +130,7 @@ export const notes = pgTable("notes", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const noteFieldValues = pgTable("note_field_values", {
@@ -147,7 +148,7 @@ export const noteFieldValues = pgTable("note_field_values", {
 	updatedAt: timestamp("updated_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const cards = pgTable("cards", {
@@ -180,7 +181,7 @@ export const cards = pgTable("cards", {
 		.notNull()
 		.defaultNow(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 export const reviewLogs = pgTable("review_logs", {
@@ -199,8 +200,9 @@ export const reviewLogs = pgTable("review_logs", {
 		.notNull()
 		.defaultNow(),
 	durationMs: integer("duration_ms"),
-	syncVersion: integer("sync_version").notNull().default(1),
+	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
 // Re-export CRDT schema
 export * from "./schema-crdt";
+export { syncVersionSeq } from "./sync-version";

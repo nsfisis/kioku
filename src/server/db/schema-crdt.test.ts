@@ -5,6 +5,7 @@ import {
 	type CrdtEntityTypeValue,
 	crdtDocuments,
 } from "./schema-crdt";
+import { nextSyncVersion } from "./sync-version";
 
 describe("CRDT Schema", () => {
 	describe("CrdtEntityType", () => {
@@ -102,12 +103,13 @@ describe("CRDT Schema", () => {
 			expect(binaryColumn.notNull).toBe(true);
 		});
 
-		it("should have syncVersion as integer with default 1", () => {
-			// 0 is reserved for a client that has never pulled, so rows start at 1.
+		it("should have syncVersion as integer defaulting to the shared sequence", () => {
+			// Pull uses sync_version as a global cursor, so it must come from the
+			// sequence shared by every synced table rather than a per-row counter.
 			const syncVersionColumn = crdtDocuments.syncVersion;
 			expect(syncVersionColumn.dataType).toBe("number");
 			expect(syncVersionColumn.notNull).toBe(true);
-			expect(syncVersionColumn.default).toBe(1);
+			expect(syncVersionColumn.default).toBe(nextSyncVersion);
 		});
 
 		it("should have createdAt as timestamp with timezone", () => {
