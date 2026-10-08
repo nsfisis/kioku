@@ -16,7 +16,6 @@ import { EditDeckModal } from "../components/EditDeckModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SyncButton } from "../components/SyncButton";
-import { SyncStatusIndicator } from "../components/SyncStatusIndicator";
 import { queryClient } from "../queryClient";
 
 function DeckList({
@@ -147,7 +146,6 @@ export function HomePage() {
 						Kioku
 					</h1>
 					<div className="flex items-center gap-3">
-						<SyncStatusIndicator />
 						<SyncButton />
 						<Link
 							href="/note-types"
