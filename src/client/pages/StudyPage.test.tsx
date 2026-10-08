@@ -351,6 +351,62 @@ describe("StudyPage", () => {
 			);
 		});
 
+		it("does not skip a card when study data is refetched mid-session", async () => {
+			const user = userEvent.setup();
+
+			renderWithProviders({
+				initialStudyData: {
+					deck: mockDeck,
+					cards: [mockFirstCard, mockSecondCard, mockThirdCard],
+				},
+			});
+
+			await user.click(screen.getByTestId("card-container"));
+			await user.click(screen.getByTestId("rating-3"));
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			});
+
+			// A background refetch after sync no longer includes the reviewed
+			// card (it is not due anymore).
+			testQueryClient.setQueryData(["decks", "deck-1", "study"], {
+				deck: { ...mockDeck, name: "Refetched" },
+				cards: [mockSecondCard, mockThirdCard],
+			});
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: /Refetched/ }),
+				).toBeDefined();
+			});
+			expect(screen.getByTestId("card-front").textContent).toBe("Goodbye");
+			expect(screen.getByTestId("remaining-count").textContent).toBe(
+				"2 remaining",
+			);
+		});
+
+		it("reflects edited card content from refetched study data", async () => {
+			renderWithProviders({
+				initialStudyData: { deck: mockDeck, cards: mockDueCards },
+			});
+
+			testQueryClient.setQueryData(["decks", "deck-1", "study"], {
+				deck: mockDeck,
+				cards: [
+					{
+						...mockFirstCard,
+						fieldValuesMap: { Front: "Hi", Back: "やあ" },
+					},
+					mockSecondCard,
+				],
+			});
+
+			await waitFor(() => {
+				expect(screen.getByTestId("card-front").textContent).toBe("Hi");
+			});
+		});
+
 		it("triggers sync when online", async () => {
 			const user = userEvent.setup();
 

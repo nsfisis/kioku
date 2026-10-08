@@ -16,7 +16,12 @@ import {
 	useState,
 } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { isOnlineAtom, studyDataAtomFamily, syncActionAtom } from "../atoms";
+import {
+	isOnlineAtom,
+	type StudyData,
+	studyDataAtomFamily,
+	syncActionAtom,
+} from "../atoms";
 import { EditNoteModal } from "../components/EditNoteModal";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import type { CardStateType, LocalCard, RatingType } from "../db";
@@ -51,16 +56,62 @@ const CardStateBadge: Record<
 	3: { label: "Relearning", className: "bg-error/10 text-error" },
 };
 
-function StudySession({
+function StudySkeleton() {
+	return (
+		<div className="flex-1 flex flex-col">
+			<div className="flex items-center justify-between mb-6">
+				<div className="h-7 w-36 bg-muted/20 rounded animate-pulse" />
+				<div className="h-7 w-24 bg-muted/20 rounded-full animate-pulse" />
+			</div>
+			<div className="flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex items-center justify-center">
+				<div className="h-7 w-48 bg-muted/20 rounded animate-pulse" />
+			</div>
+		</div>
+	);
+}
+
+function StudySessionLoader({
 	deckId,
 	onNavigate,
 }: {
 	deckId: string;
 	onNavigate: (href: string) => void;
 }) {
-	const {
-		data: { deck, cards },
-	} = useAtomValue(studyDataAtomFamily(deckId));
+	const { data, isFetching } = useAtomValue(studyDataAtomFamily(deckId));
+
+	// StudySession freezes its queue on mount, so don't start it from a cached
+	// result of a previous session: wait until the refetch has settled.
+	const [isReady, setIsReady] = useState(!isFetching);
+	if (!isReady && !isFetching) {
+		setIsReady(true);
+	}
+
+	if (!isReady) {
+		return <StudySkeleton />;
+	}
+
+	return <StudySession deckId={deckId} data={data} onNavigate={onNavigate} />;
+}
+
+function StudySession({
+	deckId,
+	data: { deck, cards: latestCards },
+	onNavigate,
+}: {
+	deckId: string;
+	data: StudyData;
+	onNavigate: (href: string) => void;
+}) {
+	// The queue is fixed for the whole session. Every sync refetches the study
+	// data, which drops the cards reviewed so far and reshuffles the rest, so
+	// indexing into the live list would move cards under currentIndex.
+	const [sessionCards] = useState(latestCards);
+	// Still pick up content changes (e.g. note edits) for queued cards.
+	const cards = useMemo(() => {
+		const latestById = new Map(latestCards.map((card) => [card.id, card]));
+		return sessionCards.map((card) => latestById.get(card.id) ?? card);
+	}, [sessionCards, latestCards]);
+
 	const isOnline = useAtomValue(isOnlineAtom);
 	const triggerSync = useSetAtom(syncActionAtom);
 
@@ -553,20 +604,12 @@ export function StudyPage() {
 			{/* Main Content */}
 			<main className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 py-6">
 				<ErrorBoundary>
-					<Suspense
-						fallback={
-							<div className="flex-1 flex flex-col">
-								<div className="flex items-center justify-between mb-6">
-									<div className="h-7 w-36 bg-muted/20 rounded animate-pulse" />
-									<div className="h-7 w-24 bg-muted/20 rounded-full animate-pulse" />
-								</div>
-								<div className="flex-1 min-h-[280px] bg-white rounded-2xl border border-border/50 shadow-card p-8 flex items-center justify-center">
-									<div className="h-7 w-48 bg-muted/20 rounded animate-pulse" />
-								</div>
-							</div>
-						}
-					>
-						<StudySession deckId={deckId} onNavigate={navigate} />
+					<Suspense fallback={<StudySkeleton />}>
+						<StudySessionLoader
+							key={deckId}
+							deckId={deckId}
+							onNavigate={navigate}
+						/>
 					</Suspense>
 				</ErrorBoundary>
 			</main>
