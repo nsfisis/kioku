@@ -1247,8 +1247,8 @@ describe("splitPendingChanges", () => {
 });
 
 describe("PushService bulk import", () => {
-	// Kept small so the CRDT payloads stay cheap to build; the batching rules
-	// themselves are covered at import scale in splitPendingChanges.
+	// Kept small so the test stays fast; the batching rules themselves are
+	// covered at import scale in splitPendingChanges.
 	const NOTE_COUNT = 60;
 
 	let syncQueue: SyncQueue;

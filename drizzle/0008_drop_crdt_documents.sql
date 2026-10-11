@@ -1,0 +1,1 @@
+DROP TABLE "crdt_documents" CASCADE;

@@ -203,6 +203,4 @@ export const reviewLogs = pgTable("review_logs", {
 	syncVersion: integer("sync_version").notNull().default(nextSyncVersion),
 });
 
-// Re-export CRDT schema
-export * from "./schema-crdt";
 export { syncVersionSeq } from "./sync-version";

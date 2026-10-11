@@ -57,6 +57,13 @@
       "when": 1790046199436,
       "tag": "0007_global_sync_version",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791690289215,
+      "tag": "0008_drop_crdt_documents",
+      "breakpoints": true
     }
   ]
 }

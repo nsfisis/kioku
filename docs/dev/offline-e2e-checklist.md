@@ -1,7 +1,7 @@
 # Offline / Multi-Device E2E Checklist
 
 Manual test pass for the offline-first write path. The automated equivalents live in
-`src/client/sync/crdt/concurrent-edits.test.ts` ("Multi-device sync scenarios") and
+`src/client/sync/multi-device.test.ts` and
 `src/client/sync/conflict.test.ts`; this checklist covers what they cannot: real
 browsers, real service workers and real network transitions.
 
@@ -108,8 +108,7 @@ Things this checklist intentionally does not assert yet, because the implementat
 does not provide them:
 
 - **Character-level text merge.** `noteFieldValue` is resolved by LWW: the newer
-  edit wins. Automerge documents are no longer sent or stored during sync, because
-  they never shared history between devices and could not merge two edits.
+  edit wins.
 - **Per-row `syncVersion` vs. a global pull watermark.** The server increments
   `syncVersion` per row and pull filters with `syncVersion > lastSyncVersion`, which
   is a global watermark. A freshly inserted row (version 1) can therefore sort below

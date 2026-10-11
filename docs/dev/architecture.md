@@ -408,7 +408,6 @@ resurrect them and leave the device permanently out of step.
 | Store | Contents |
 |-------|----------|
 | IndexedDB `kioku` (Dexie v4) | `decks`, `cards`, `reviewLogs`, `noteTypes`, `noteFieldTypes`, `notes`, `noteFieldValues`. Every row carries `syncVersion` and `_synced` |
-| IndexedDB `kioku-crdt-sync` (Dexie v1) | Legacy: Automerge binaries and sync metadata written by earlier versions. Nothing reads or writes it during sync any more; it is only cleared on logout |
 | `localStorage.kioku_sync_state` | `lastSyncVersion`, `lastSyncAt` |
 | `localStorage.kioku_user` + token storage | Authenticated user and JWTs |
 
@@ -433,10 +432,8 @@ pending rows are found by a full scan of each table.
 
 ### Known Gaps
 
-- `noteFieldValue` is not merged character by character; it is resolved by LWW.
-  The Automerge code in `src/client/sync/crdt/` is not part of the sync path:
-  documents were rebuilt from the row on every push and never shared history
-  between devices, so merging them could not combine two edits.
+- `noteFieldValue` is not merged character by character; it is resolved by LWW,
+  so of two edits to the same field only the newer one survives.
 - The pull watermark is global while `syncVersion` is per row, so a freshly
   inserted row can sort below a long-lived client's watermark.
 

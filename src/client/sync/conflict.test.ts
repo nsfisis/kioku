@@ -14,8 +14,8 @@ import {
 	ConflictResolver,
 	entityConflictPolicies,
 	getConflictPolicy,
+	SyncEntityType,
 } from "./conflict";
-import { CrdtEntityType, crdtSyncDb } from "./crdt";
 import type { SyncPullResult } from "./pull";
 import type { SyncPushResult } from "./push";
 
@@ -51,8 +51,6 @@ describe("ConflictResolver", () => {
 		await db.noteFieldTypes.clear();
 		await db.notes.clear();
 		await db.noteFieldValues.clear();
-		await crdtSyncDb.syncState.clear();
-		await crdtSyncDb.metadata.clear();
 		localStorage.clear();
 	});
 
@@ -64,8 +62,6 @@ describe("ConflictResolver", () => {
 		await db.noteFieldTypes.clear();
 		await db.notes.clear();
 		await db.noteFieldValues.clear();
-		await crdtSyncDb.syncState.clear();
-		await crdtSyncDb.metadata.clear();
 		localStorage.clear();
 	});
 
@@ -162,7 +158,7 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("resolveDeckConflict", () => {
-		it("should use server data when no CRDT data available", async () => {
+		it("should use server data", async () => {
 			const localDeck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Name",
@@ -195,7 +191,7 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("resolveCardConflict", () => {
-		it("should use server data when no CRDT data available", async () => {
+		it("should use server data", async () => {
 			const deck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Test Deck",
@@ -468,7 +464,7 @@ describe("ConflictResolver", () => {
 			expect(localDeck?.name).toBe("Local Only Deck");
 		});
 
-		it("should use CRDT strategy by default", async () => {
+		it("should resolve with the server row by default", async () => {
 			const deck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Name",
@@ -506,8 +502,6 @@ describe("ConflictResolver", () => {
 				...createEmptyPullResult(5),
 			};
 
-			// Create resolver without explicit strategy - defaults to CRDT
-			// Without CRDT data, falls back to server_wins behavior
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
@@ -519,33 +513,33 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("conflict policy table", () => {
-		it("should declare a policy for every CRDT entity type", () => {
-			const entityTypes = Object.values(CrdtEntityType);
+		it("should declare a policy for every entity type", () => {
+			const entityTypes = Object.values(SyncEntityType);
 			expect(Object.keys(entityConflictPolicies).sort()).toEqual(
 				[...entityTypes].sort(),
 			);
 		});
 
 		it("should resolve metadata entities with last-write-wins", () => {
-			expect(getConflictPolicy(CrdtEntityType.Deck)).toBe(ConflictPolicy.Lww);
-			expect(getConflictPolicy(CrdtEntityType.NoteType)).toBe(
+			expect(getConflictPolicy(SyncEntityType.Deck)).toBe(ConflictPolicy.Lww);
+			expect(getConflictPolicy(SyncEntityType.NoteType)).toBe(
 				ConflictPolicy.Lww,
 			);
-			expect(getConflictPolicy(CrdtEntityType.NoteFieldType)).toBe(
+			expect(getConflictPolicy(SyncEntityType.NoteFieldType)).toBe(
 				ConflictPolicy.Lww,
 			);
-			expect(getConflictPolicy(CrdtEntityType.Note)).toBe(ConflictPolicy.Lww);
-			expect(getConflictPolicy(CrdtEntityType.Card)).toBe(ConflictPolicy.Lww);
+			expect(getConflictPolicy(SyncEntityType.Note)).toBe(ConflictPolicy.Lww);
+			expect(getConflictPolicy(SyncEntityType.Card)).toBe(ConflictPolicy.Lww);
 		});
 
 		it("should resolve note field values with last-write-wins", () => {
-			expect(getConflictPolicy(CrdtEntityType.NoteFieldValue)).toBe(
+			expect(getConflictPolicy(SyncEntityType.NoteFieldValue)).toBe(
 				ConflictPolicy.Lww,
 			);
 		});
 
 		it("should treat review logs as append-only", () => {
-			expect(getConflictPolicy(CrdtEntityType.ReviewLog)).toBe(
+			expect(getConflictPolicy(SyncEntityType.ReviewLog)).toBe(
 				ConflictPolicy.AppendOnly,
 			);
 		});

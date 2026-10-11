@@ -2,9 +2,8 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
+import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { crdtSyncStateManager } from "../sync/crdt/sync-state";
-import { CrdtEntityType } from "../sync/crdt/types";
 import { syncQueue } from "../sync/queue";
 import { clearAllLocalData } from "./clear";
 import { CardState, db } from "./index";
@@ -14,14 +13,12 @@ describe("clearAllLocalData", () => {
 		await db.delete();
 		await db.open();
 		await syncQueue.reset();
-		await crdtSyncStateManager.clearAll();
 	});
 
 	afterEach(async () => {
 		await db.delete();
 		await db.open();
 		await syncQueue.reset();
-		await crdtSyncStateManager.clearAll();
 	});
 
 	it("clears all main IndexedDB tables", async () => {
@@ -83,20 +80,16 @@ describe("clearAllLocalData", () => {
 		expect(after.lastError).toBeNull();
 	});
 
-	it("clears the CRDT sync state", async () => {
-		await crdtSyncStateManager.setDocumentBinary(
-			CrdtEntityType.Note,
-			"note-1",
-			new Uint8Array([1, 2, 3]),
-			1,
-		);
-		expect(await crdtSyncStateManager.getTotalDocumentCount()).toBeGreaterThan(
-			0,
-		);
+	it("deletes the legacy CRDT database", async () => {
+		const legacy = new Dexie("kioku-crdt-sync");
+		legacy.version(1).stores({ syncState: "documentId" });
+		await legacy.table("syncState").put({ documentId: "note:note-1" });
+		legacy.close();
+		expect(await Dexie.exists("kioku-crdt-sync")).toBe(true);
 
 		await clearAllLocalData();
 		await db.open();
 
-		expect(await crdtSyncStateManager.getTotalDocumentCount()).toBe(0);
+		expect(await Dexie.exists("kioku-crdt-sync")).toBe(false);
 	});
 });

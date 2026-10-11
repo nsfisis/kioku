@@ -1,6 +1,7 @@
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { apiClient } from "../api/client";
+import { deleteLegacyCrdtDatabase } from "../db/clear";
 import { queryClient } from "../queryClient";
 import {
 	conflictResolver,
@@ -248,6 +249,12 @@ export function useSyncInit() {
 			resetBootstrap();
 		}
 	}, [user]);
+
+	useEffect(() => {
+		// Devices that ran earlier versions still hold a database of Automerge
+		// documents that nothing uses any more.
+		deleteLegacyCrdtDatabase().catch(() => undefined);
+	}, []);
 
 	useEffect(() => {
 		syncManager.start();

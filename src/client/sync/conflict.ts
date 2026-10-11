@@ -14,7 +14,6 @@ import {
 	localNoteRepository,
 	localNoteTypeRepository,
 } from "../db/repositories";
-import { CrdtEntityType, type CrdtEntityTypeValue } from "./crdt";
 import type {
 	ServerCard,
 	ServerDeck,
@@ -41,6 +40,22 @@ export interface ConflictResolutionResult {
 	notes: string[];
 	noteFieldValues: string[];
 }
+
+/**
+ * The entity types that take part in sync.
+ */
+export const SyncEntityType = {
+	Deck: "deck",
+	NoteType: "noteType",
+	NoteFieldType: "noteFieldType",
+	Note: "note",
+	NoteFieldValue: "noteFieldValue",
+	Card: "card",
+	ReviewLog: "reviewLog",
+} as const;
+
+export type SyncEntityTypeValue =
+	(typeof SyncEntityType)[keyof typeof SyncEntityType];
 
 /**
  * How a conflict on a given entity type is resolved.
@@ -83,30 +98,27 @@ export type ConflictPolicyValue =
  * | `card`           | LWW         | FSRS state is one coherent unit, never field-merged |
  * | `reviewLog`      | append-only | Immutable rows, keyed by client-generated UUID      |
  *
- * `noteFieldValue` used to be merged with Automerge, but the documents are
- * rebuilt from the row on every push and never share history between devices,
- * so the "merge" kept one side's text at random and could push an older edit
- * over a newer one. Until documents carry real history, the newer edit wins.
- * Each field is its own row, so edits to different fields of the same note do
- * not conflict.
+ * `noteFieldValue` is not merged: when two devices edit the same field, the
+ * newer edit wins. Each field is its own row, so edits to different fields of
+ * the same note do not conflict.
  */
 export const entityConflictPolicies: Readonly<
-	Record<CrdtEntityTypeValue, ConflictPolicyValue>
+	Record<SyncEntityTypeValue, ConflictPolicyValue>
 > = {
-	[CrdtEntityType.Deck]: ConflictPolicy.Lww,
-	[CrdtEntityType.NoteType]: ConflictPolicy.Lww,
-	[CrdtEntityType.NoteFieldType]: ConflictPolicy.Lww,
-	[CrdtEntityType.Note]: ConflictPolicy.Lww,
-	[CrdtEntityType.NoteFieldValue]: ConflictPolicy.Lww,
-	[CrdtEntityType.Card]: ConflictPolicy.Lww,
-	[CrdtEntityType.ReviewLog]: ConflictPolicy.AppendOnly,
+	[SyncEntityType.Deck]: ConflictPolicy.Lww,
+	[SyncEntityType.NoteType]: ConflictPolicy.Lww,
+	[SyncEntityType.NoteFieldType]: ConflictPolicy.Lww,
+	[SyncEntityType.Note]: ConflictPolicy.Lww,
+	[SyncEntityType.NoteFieldValue]: ConflictPolicy.Lww,
+	[SyncEntityType.Card]: ConflictPolicy.Lww,
+	[SyncEntityType.ReviewLog]: ConflictPolicy.AppendOnly,
 };
 
 /**
  * Get the conflict resolution policy for an entity type
  */
 export function getConflictPolicy(
-	entityType: CrdtEntityTypeValue,
+	entityType: SyncEntityTypeValue,
 ): ConflictPolicyValue {
 	return entityConflictPolicies[entityType];
 }
