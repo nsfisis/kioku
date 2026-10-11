@@ -14,14 +14,7 @@ import {
 	localNoteRepository,
 	localNoteTypeRepository,
 } from "../db/repositories";
-import {
-	CrdtEntityType,
-	type CrdtEntityTypeValue,
-	type CrdtSyncPayload,
-	crdtNoteFieldValueRepository,
-	crdtSyncStateManager,
-} from "./crdt";
-import { base64ToBinary } from "./crdt/sync-state";
+import { CrdtEntityType, type CrdtEntityTypeValue } from "./crdt";
 import type {
 	ServerCard,
 	ServerDeck,
@@ -68,14 +61,6 @@ export const ConflictPolicy = {
 	 */
 	Lww: "lww",
 	/**
-	 * Automerge CRDT merge, with LWW as the fallback.
-	 *
-	 * Used for free-form text that two devices may legitimately edit at the same
-	 * time. Both sides' edits survive the merge, and the merge is deterministic:
-	 * merging A into B and B into A yields the same document.
-	 */
-	Crdt: "crdt",
-	/**
 	 * Append-only: rows are immutable once written, so conflicts cannot happen.
 	 * The server de-duplicates by primary key and the client never resolves them.
 	 */
@@ -94,14 +79,16 @@ export type ConflictPolicyValue =
  * | `noteType`       | LWW         | Template/config metadata                            |
  * | `noteFieldType`  | LWW         | Field definition metadata                           |
  * | `note`           | LWW         | Note metadata only (deck/note type/timestamps)      |
- * | `noteFieldValue` | CRDT        | The actual note text; concurrent editing is real    |
+ * | `noteFieldValue` | LWW         | Note text, one row per field (see below)            |
  * | `card`           | LWW         | FSRS state is one coherent unit, never field-merged |
  * | `reviewLog`      | append-only | Immutable rows, keyed by client-generated UUID      |
  *
- * Note that `note` and `noteFieldValue` are split on purpose: the note row only
- * carries metadata (which deck, which note type), so LWW is fine for it, while
- * the text a user actually types lives in `noteFieldValue` and goes through the
- * CRDT path.
+ * `noteFieldValue` used to be merged with Automerge, but the documents are
+ * rebuilt from the row on every push and never share history between devices,
+ * so the "merge" kept one side's text at random and could push an older edit
+ * over a newer one. Until documents carry real history, the newer edit wins.
+ * Each field is its own row, so edits to different fields of the same note do
+ * not conflict.
  */
 export const entityConflictPolicies: Readonly<
 	Record<CrdtEntityTypeValue, ConflictPolicyValue>
@@ -110,7 +97,7 @@ export const entityConflictPolicies: Readonly<
 	[CrdtEntityType.NoteType]: ConflictPolicy.Lww,
 	[CrdtEntityType.NoteFieldType]: ConflictPolicy.Lww,
 	[CrdtEntityType.Note]: ConflictPolicy.Lww,
-	[CrdtEntityType.NoteFieldValue]: ConflictPolicy.Crdt,
+	[CrdtEntityType.NoteFieldValue]: ConflictPolicy.Lww,
 	[CrdtEntityType.Card]: ConflictPolicy.Lww,
 	[CrdtEntityType.ReviewLog]: ConflictPolicy.AppendOnly,
 };
@@ -122,15 +109,6 @@ export function getConflictPolicy(
 	entityType: CrdtEntityTypeValue,
 ): ConflictPolicyValue {
 	return entityConflictPolicies[entityType];
-}
-
-/**
- * CRDT merge result with entity data
- */
-interface CrdtMergeConflictResult<T> {
-	entity: Omit<T, "_synced">;
-	binary: Uint8Array;
-	hadLocalDocument: boolean;
 }
 
 /**
@@ -260,9 +238,6 @@ function serverNoteFieldValueToLocal(
  *
  * - LWW entities take the server row as-is, because the server only reports a
  *   conflict after it has already decided its row is the newer one.
- * - CRDT entities (note field values) are merged with Automerge so that text
- *   typed on two devices survives, falling back to LWW when no CRDT binary is
- *   available or the merge throws.
  * - Append-only entities (review logs) never reach this class.
  */
 export class ConflictResolver {
@@ -348,8 +323,7 @@ export class ConflictResolver {
 	/**
 	 * Resolve note conflict (policy: LWW, so the server row wins)
 	 *
-	 * Only note metadata lives on this row; the text goes through
-	 * {@link resolveNoteFieldValueConflict}.
+	 * Only note metadata lives on this row; the text lives in note field values.
 	 */
 	async resolveNoteConflict(
 		localNote: LocalNote,
@@ -360,89 +334,16 @@ export class ConflictResolver {
 	}
 
 	/**
-	 * Resolve note field value conflict (policy: CRDT merge, LWW fallback)
+	 * Resolve note field value conflict (policy: LWW, so the server row wins)
 	 */
 	async resolveNoteFieldValueConflict(
 		localFieldValue: LocalNoteFieldValue,
 		serverFieldValue: ServerNoteFieldValue,
-		serverCrdtBinary?: Uint8Array,
 	): Promise<string> {
-		// Try CRDT merge first if we have CRDT data
-		if (serverCrdtBinary) {
-			const mergeResult = await this.mergeNoteFieldValueWithCrdt(
-				localFieldValue,
-				serverCrdtBinary,
-			);
-			if (mergeResult) {
-				// The merged text exists on this device only, so it has to win the
-				// next push: stamp it past the server row we just merged with and
-				// leave the row unsynced. Without this the client would keep a value
-				// the server never sees and the two would diverge forever.
-				const localData: LocalNoteFieldValue = {
-					...mergeResult.entity,
-					updatedAt: new Date(
-						Math.max(
-							Date.now(),
-							new Date(serverFieldValue.updatedAt).getTime() + 1,
-						),
-					),
-					syncVersion: serverFieldValue.syncVersion,
-					_synced: false,
-				};
-				await localNoteFieldValueRepository.upsertMerged(localData);
-				await crdtSyncStateManager.setDocumentBinary(
-					CrdtEntityType.NoteFieldValue,
-					localFieldValue.id,
-					mergeResult.binary,
-					serverFieldValue.syncVersion,
-				);
-				return localFieldValue.id;
-			}
-		}
-
-		// Fallback to LWW (server wins) when CRDT merge is not available
 		await localNoteFieldValueRepository.upsertFromServer(
 			serverNoteFieldValueToLocal(serverFieldValue),
 		);
-
 		return localFieldValue.id;
-	}
-
-	/**
-	 * Merge note field value using CRDT
-	 */
-	private async mergeNoteFieldValueWithCrdt(
-		localFieldValue: LocalNoteFieldValue,
-		serverBinary: Uint8Array,
-	): Promise<CrdtMergeConflictResult<LocalNoteFieldValue> | null> {
-		try {
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				CrdtEntityType.NoteFieldValue,
-				localFieldValue.id,
-			);
-
-			const localDoc = localBinary
-				? crdtNoteFieldValueRepository.fromBinary(localBinary)
-				: crdtNoteFieldValueRepository.toCrdtDocument(localFieldValue).doc;
-
-			const serverDoc = crdtNoteFieldValueRepository.fromBinary(serverBinary);
-			const mergeResult = crdtNoteFieldValueRepository.merge(
-				localDoc,
-				serverDoc,
-			);
-
-			return {
-				entity: crdtNoteFieldValueRepository.toLocalEntity(mergeResult.merged),
-				binary: mergeResult.binary,
-				hadLocalDocument: localBinary !== null,
-			};
-		} catch (error) {
-			console.warn(
-				"CRDT merge failed for note field value, falling back to server_wins:",
-				error,
-			);
-			return null;
-		}
 	}
 
 	/**
@@ -460,31 +361,6 @@ export class ConflictResolver {
 			noteFieldTypes: [],
 			notes: [],
 			noteFieldValues: [],
-		};
-
-		// Build a map of CRDT payloads by document ID for quick lookup
-		const crdtPayloadMap = new Map<string, CrdtSyncPayload>();
-		if (pullResult.crdtChanges) {
-			for (const payload of pullResult.crdtChanges) {
-				crdtPayloadMap.set(payload.documentId, payload);
-			}
-		}
-
-		// Helper to get CRDT binary for an entity
-		const getCrdtBinary = (
-			entityType: CrdtEntityTypeValue,
-			entityId: string,
-		): Uint8Array | undefined => {
-			const payload = crdtPayloadMap.get(`${entityType}:${entityId}`);
-			if (!payload) return undefined;
-			try {
-				return base64ToBinary(payload.binary);
-			} catch {
-				console.warn(
-					`Failed to decode base64 for ${entityType}:${entityId}, skipping CRDT merge`,
-				);
-				return undefined;
-			}
 		};
 
 		// Resolve deck conflicts
@@ -586,23 +462,18 @@ export class ConflictResolver {
 			}
 		}
 
-		// Resolve note field value conflicts (the only CRDT-merged entity)
+		// Resolve note field value conflicts
 		for (const fieldValueId of pushResult.conflicts.noteFieldValues) {
 			const localFieldValue =
 				await localNoteFieldValueRepository.findById(fieldValueId);
 			const serverFieldValue = pullResult.noteFieldValues.find(
 				(fv) => fv.id === fieldValueId,
 			);
-			const crdtBinary = getCrdtBinary(
-				CrdtEntityType.NoteFieldValue,
-				fieldValueId,
-			);
 
 			if (localFieldValue && serverFieldValue) {
 				const resolution = await this.resolveNoteFieldValueConflict(
 					localFieldValue,
 					serverFieldValue,
-					crdtBinary,
 				);
 				result.noteFieldValues.push(resolution);
 			} else if (serverFieldValue) {

@@ -168,15 +168,23 @@ export function EditNoteModal({
 		setIsSubmitting(true);
 
 		try {
-			// Trim all field values
-			const trimmedFields: Record<string, string> = {};
+			// Only write the fields the user actually changed. Each field value is
+			// its own synced row, so rewriting untouched fields would overwrite an
+			// edit another device made to them in the meantime.
+			const originalValues = new Map(
+				note.fieldValues.map((fv) => [fv.noteFieldTypeId, fv.value]),
+			);
+			const changedFields: Record<string, string> = {};
 			for (const [fieldId, value] of Object.entries(fieldValues)) {
-				trimmedFields[fieldId] = value.trim();
+				const trimmed = value.trim();
+				if (originalValues.get(fieldId) !== trimmed) {
+					changedFields[fieldId] = trimmed;
+				}
 			}
 
 			const updated = await localNoteRepository.updateWithFieldValues(
 				note.id,
-				trimmedFields,
+				changedFields,
 			);
 			if (!updated) {
 				setError("Note not found.");

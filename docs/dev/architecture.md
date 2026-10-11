@@ -399,7 +399,7 @@ decides what to do about it, following the policy declared in
 | `noteType` | LWW | Template/config metadata |
 | `noteFieldType` | LWW | Field definition metadata |
 | `note` | LWW | Note metadata only (deck, note type, timestamps) |
-| `noteFieldValue` | CRDT | Automerge merge of the note text, LWW as fallback; the merged value is re-pushed |
+| `noteFieldValue` | LWW | Note text, one row per field; edits to different fields of a note do not conflict |
 | `card` | LWW | FSRS state is one coherent unit, never merged field by field |
 | `reviewLog` | append-only | Immutable rows keyed by client UUID; the server de-duplicates, conflicts cannot occur |
 
@@ -437,9 +437,10 @@ pending rows are found by a full scan of each table.
 
 ### Known Gaps
 
-- `noteFieldValue` converges but does not merge character by character: the push
-  path rebuilds a fresh Automerge document from the row instead of continuing
-  the stored one, so two devices never share document history.
+- `noteFieldValue` is not merged character by character: the push path rebuilds
+  a fresh Automerge document from the row instead of continuing the stored one,
+  so two devices never share document history. It is resolved by LWW until
+  that is fixed.
 - The pull watermark is global while `syncVersion` is per row, so a freshly
   inserted row can sort below a long-lived client's watermark.
 

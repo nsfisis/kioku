@@ -2,7 +2,6 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
-import * as Automerge from "@automerge/automerge";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CardState, db } from "../db/index";
 import {
@@ -546,9 +545,9 @@ describe("ConflictResolver", () => {
 			expect(getConflictPolicy(CrdtEntityType.Card)).toBe(ConflictPolicy.Lww);
 		});
 
-		it("should resolve note field values with CRDT merge", () => {
+		it("should resolve note field values with last-write-wins", () => {
 			expect(getConflictPolicy(CrdtEntityType.NoteFieldValue)).toBe(
-				ConflictPolicy.Crdt,
+				ConflictPolicy.Lww,
 			);
 		});
 
@@ -742,43 +741,24 @@ describe("ConflictResolver", () => {
 		});
 	});
 
-	describe("CRDT conflict resolution (note field values)", () => {
-		/**
-		 * Build a local/server pair of CRDT documents that share a common ancestor,
-		 * the way two devices that both pulled the same note would.
-		 */
-		async function seedDivergedFieldValue(text: string) {
+	describe("note field value conflict resolution", () => {
+		it("should take the server value even when a CRDT binary is available", async () => {
 			const fieldValue = await localNoteFieldValueRepository.create({
 				noteId: "note-1",
 				noteFieldTypeId: "field-type-1",
-				value: text,
+				value: "local edit",
 			});
-
-			const base = crdtNoteFieldValueRepository.toCrdtDocument(fieldValue).doc;
-
-			// Device A (this client) prepends, device B (the server) appends
-			const localDoc = Automerge.change(Automerge.clone(base), (d) => {
-				Automerge.splice(d, ["data", "value"], 0, 0, "A: ");
-			});
-			const serverDoc = Automerge.change(Automerge.clone(base), (d) => {
-				Automerge.splice(d, ["data", "value"], text.length, 0, " :B");
-			});
-
+			// The server echoes back whatever binary was pushed last, which may be
+			// this device's own losing edit.
+			const localBinary =
+				crdtNoteFieldValueRepository.toCrdtDocument(fieldValue).binary;
 			await crdtSyncStateManager.setDocumentBinary(
 				CrdtEntityType.NoteFieldValue,
 				fieldValue.id,
-				Automerge.save(localDoc),
+				localBinary,
 				1,
 			);
 
-			return { fieldValue, serverBinary: Automerge.save(serverDoc) };
-		}
-
-		function buildFieldValueConflict(
-			fieldValueId: string,
-			serverBinary: Uint8Array | null,
-			serverValue: string,
-		): { pushResult: SyncPushResult; pullResult: SyncPullResult } {
 			const pushResult: SyncPushResult = {
 				decks: [],
 				cards: [],
@@ -786,157 +766,49 @@ describe("ConflictResolver", () => {
 				noteTypes: [],
 				noteFieldTypes: [],
 				notes: [],
-				noteFieldValues: [{ id: fieldValueId, syncVersion: 1 }],
+				noteFieldValues: [{ id: fieldValue.id, syncVersion: 5 }],
 				conflicts: {
 					...createEmptyConflicts(),
-					noteFieldValues: [fieldValueId],
+					noteFieldValues: [fieldValue.id],
 				},
 			};
-
 			const pullResult: SyncPullResult = {
 				decks: [],
 				cards: [],
 				reviewLogs: [],
-				...createEmptyPullResult(5),
+				...createEmptyPullResult(6),
 				noteFieldValues: [
 					{
-						id: fieldValueId,
+						id: fieldValue.id,
 						noteId: "note-1",
 						noteFieldTypeId: "field-type-1",
-						value: serverValue,
+						value: "newer server edit",
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						syncVersion: 5,
 					},
 				],
-				crdtChanges:
-					serverBinary === null
-						? undefined
-						: [
-								{
-									documentId: `noteFieldValue:${fieldValueId}`,
-									entityType: CrdtEntityType.NoteFieldValue,
-									entityId: fieldValueId,
-									binary: binaryToBase64(serverBinary),
-								},
-							],
+				crdtChanges: [
+					{
+						documentId: `noteFieldValue:${fieldValue.id}`,
+						entityType: CrdtEntityType.NoteFieldValue,
+						entityId: fieldValue.id,
+						binary: binaryToBase64(localBinary),
+					},
+				],
 			};
-
-			return { pushResult, pullResult };
-		}
-
-		it("should keep both devices' edits to the same text", async () => {
-			const { fieldValue, serverBinary } =
-				await seedDivergedFieldValue("answer");
-			const { pushResult, pullResult } = buildFieldValueConflict(
-				fieldValue.id,
-				serverBinary,
-				"answer :B",
-			);
 
 			const resolver = new ConflictResolver();
 			const result = await resolver.resolveConflicts(pushResult, pullResult);
 
 			expect(result.noteFieldValues).toEqual([fieldValue.id]);
 
-			const merged = await localNoteFieldValueRepository.findById(
-				fieldValue.id,
-			);
-			expect(merged?.value).toBe("A: answer :B");
-		});
-
-		it("should store the merged CRDT binary for the next sync", async () => {
-			const { fieldValue, serverBinary } =
-				await seedDivergedFieldValue("answer");
-			const { pushResult, pullResult } = buildFieldValueConflict(
-				fieldValue.id,
-				serverBinary,
-				"answer :B",
-			);
-
-			const resolver = new ConflictResolver();
-			await resolver.resolveConflicts(pushResult, pullResult);
-
-			const storedBinary = await crdtSyncStateManager.getDocumentBinary(
-				CrdtEntityType.NoteFieldValue,
-				fieldValue.id,
-			);
-			expect(storedBinary).not.toBeNull();
-			if (storedBinary === null) return;
-
-			const reloaded = crdtNoteFieldValueRepository.fromBinary(storedBinary);
-			expect(reloaded.data.value).toBe("A: answer :B");
-		});
-
-		it("should merge deterministically regardless of which side is applied first", async () => {
-			const { fieldValue, serverBinary } =
-				await seedDivergedFieldValue("answer");
-
-			const localBinary = await crdtSyncStateManager.getDocumentBinary(
-				CrdtEntityType.NoteFieldValue,
-				fieldValue.id,
-			);
-			expect(localBinary).not.toBeNull();
-			if (localBinary === null) return;
-
-			const localDoc = crdtNoteFieldValueRepository.fromBinary(localBinary);
-			const serverDoc = crdtNoteFieldValueRepository.fromBinary(serverBinary);
-
-			const mergedLocalFirst = crdtNoteFieldValueRepository.merge(
-				localDoc,
-				serverDoc,
-			);
-			const mergedServerFirst = crdtNoteFieldValueRepository.merge(
-				serverDoc,
-				localDoc,
-			);
-
-			expect(mergedLocalFirst.merged.data.value).toBe(
-				mergedServerFirst.merged.data.value,
-			);
-		});
-
-		it("should fall back to the server value when no CRDT binary is available", async () => {
-			const { fieldValue } = await seedDivergedFieldValue("answer");
-			const { pushResult, pullResult } = buildFieldValueConflict(
-				fieldValue.id,
-				null,
-				"server only",
-			);
-
-			const resolver = new ConflictResolver();
-			await resolver.resolveConflicts(pushResult, pullResult);
-
 			const resolved = await localNoteFieldValueRepository.findById(
 				fieldValue.id,
 			);
-			expect(resolved?.value).toBe("server only");
+			expect(resolved?.value).toBe("newer server edit");
+			// Nothing is left to push back over the server's newer row.
 			expect(resolved?._synced).toBe(true);
-		});
-
-		it("should fall back to the server value when the CRDT payload is corrupt", async () => {
-			const { fieldValue } = await seedDivergedFieldValue("answer");
-			const { pushResult, pullResult } = buildFieldValueConflict(
-				fieldValue.id,
-				null,
-				"server only",
-			);
-			pullResult.crdtChanges = [
-				{
-					documentId: `noteFieldValue:${fieldValue.id}`,
-					entityType: CrdtEntityType.NoteFieldValue,
-					entityId: fieldValue.id,
-					binary: "invalid-base64-data!!!",
-				},
-			];
-
-			const resolver = new ConflictResolver();
-			await resolver.resolveConflicts(pushResult, pullResult);
-
-			const resolved = await localNoteFieldValueRepository.findById(
-				fieldValue.id,
-			);
-			expect(resolved?.value).toBe("server only");
 		});
 	});
 });

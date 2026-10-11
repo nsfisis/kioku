@@ -268,9 +268,10 @@ describe("EditNoteModal", () => {
 		await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
+			// Only the edited field is written, so an edit another device made to
+			// the untouched field is not overwritten.
 			expect(mockUpdateWithFieldValues).toHaveBeenCalledWith("note-456", {
 				"field-1": "Updated front",
-				"field-2": "Existing back",
 			});
 		});
 
@@ -295,7 +296,6 @@ describe("EditNoteModal", () => {
 		await waitFor(() => {
 			expect(mockUpdateWithFieldValues).toHaveBeenCalledWith("note-456", {
 				"field-1": "Trimmed",
-				"field-2": "Existing back",
 			});
 		});
 	});

@@ -48,8 +48,8 @@ reconnect."* with the number of changes still waiting.
 
 If two devices changed the same thing while apart, the conflict is resolved
 automatically on the next sync — see
-[the policy table](./architecture.md#conflict-resolution). Note text is merged
-via CRDT; everything else keeps the most recent edit.
+[the policy table](./architecture.md#conflict-resolution). The most recent edit
+wins.
 
 ### Signing out vs. closing the app
 
@@ -80,9 +80,9 @@ after signing in again.
   local storage grows with review history.
 - **Sign-in needs the network.** A device that has never signed in cannot be
   used offline.
-- **Text merge is convergent, not character-level.** Two devices editing the
-  same field while both offline end up agreeing on one of the two texts, not a
-  blend of both. Different fields of the same note do merge.
+- **Text is not merged.** Two devices editing the same field while both offline
+  end up with the more recent of the two texts, not a blend of both. Edits to
+  different fields of the same note both survive.
 
 ## Troubleshooting
 
@@ -246,26 +246,29 @@ interface CrdtNoteFieldValueDocument {
   data: {
     noteId: string;
     noteFieldTypeId: string;
-    value: string;      // the text that is actually merged
+    value: string;      // the note text
     createdAt: number;  // epoch ms
   };
 }
 ```
 
-All seven entity types have such a document type, but only `noteFieldValue` is
-declared `ConflictPolicy.Crdt` — the rest exist so that the same machinery can
-carry them, and are resolved by LWW. Dates are epoch milliseconds inside
-documents, because Automerge has no `Date`.
+All seven entity types have such a document type, but none of them is merged:
+every entity is resolved by LWW (review logs are append-only). Dates are epoch
+milliseconds inside documents, because Automerge has no `Date`.
 
 On the wire, documents travel in the push/pull payload's `crdtChanges` as
 `{ documentId, entityType, entityId, binary }` with `binary`
 base64-encoded (`binaryToBase64` / `base64ToBinary`).
 
-Known gap: `generateCrdtChanges()` in `src/client/sync/push.ts` rebuilds a fresh
-Automerge document from the row on every push rather than continuing the stored
-one, so two devices never share document history and a same-field conflict
-resolves to one side's text instead of a character-level merge. Convergence
-holds; merging both edits does not.
+Why nothing is merged: `generateCrdtChanges()` in `src/client/sync/push.ts`
+rebuilds a fresh Automerge document from the row on every push rather than
+continuing the stored one, so two devices never share document history, and the
+server stores whichever binary was pushed last even when the row itself lost
+LWW. Merging such documents keeps one side's text at random, and used to push
+an older edit over a newer one. `noteFieldValue` therefore follows LWW like the
+rest until documents carry real history. Each field value is its own row and
+`EditNoteModal` only writes the fields that changed, so edits to different
+fields of the same note on two devices both survive.
 
 ### Where to look
 

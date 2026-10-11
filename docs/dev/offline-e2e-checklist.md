@@ -19,7 +19,7 @@ The policy each entity is resolved with is declared in `src/client/sync/conflict
 | `noteType` | LWW | Newer `updatedAt` wins the whole row |
 | `noteFieldType` | LWW | Newer `updatedAt` wins the whole row |
 | `note` | LWW | Newer `updatedAt` wins the whole row |
-| `noteFieldValue` | CRDT | Automerge merge, pushed back to the server |
+| `noteFieldValue` | LWW | Newer `updatedAt` wins the row (one row per field) |
 | `card` | LWW | FSRS state is taken as one unit, never field-merged |
 | `reviewLog` | append-only | Every log survives; duplicates de-duplicate by ID |
 
@@ -59,9 +59,9 @@ The policy each entity is resolved with is declared in `src/client/sync/conflict
 - [ ] Both devices open the same note, both go offline.
 - [ ] A and B both edit the **same** field to different text.
 - [ ] Both go back online, then reload both.
-- [ ] Both devices and the server agree on the same text — nothing is left holding a
-      value the other side never sees.
-- [ ] Known limitation: the surviving text is one of the two edits, not a
+- [ ] Both devices and the server agree on the text that was edited **last** —
+      also when the device with the older edit is the last one to sync.
+- [ ] Known limitation: the surviving text is the newer edit, not a
       character-level merge of both. See "Known gaps" below.
 
 ## 5. Concurrent delete
@@ -107,12 +107,11 @@ The policy each entity is resolved with is declared in `src/client/sync/conflict
 Things this checklist intentionally does not assert yet, because the implementation
 does not provide them:
 
-- **Character-level text merge.** `noteFieldValue` is declared CRDT and the conflict
-  resolver does merge Automerge documents, but the push path
-  (`generateCrdtChanges` in `src/client/sync/push.ts`) rebuilds a fresh Automerge
-  document from the row on every push instead of continuing the stored one. Two
-  devices therefore never share document history, so Automerge falls back to picking
-  one side's value. Convergence holds; merging both edits does not.
+- **Character-level text merge.** The push path (`generateCrdtChanges` in
+  `src/client/sync/push.ts`) rebuilds a fresh Automerge document from the row on
+  every push instead of continuing the stored one. Two devices therefore never share
+  document history and merging their documents picks one side's value at random, so
+  `noteFieldValue` is resolved by LWW instead: the newer edit wins.
 - **Per-row `syncVersion` vs. a global pull watermark.** The server increments
   `syncVersion` per row and pull filters with `syncVersion > lastSyncVersion`, which
   is a global watermark. A freshly inserted row (version 1) can therefore sort below
