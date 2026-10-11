@@ -153,7 +153,6 @@ describe("SyncRepository mock factory", () => {
 				noteFieldTypes: [],
 				notes: [],
 				noteFieldValues: [],
-				crdtChanges: [],
 				conflicts: {
 					decks: [],
 					cards: [],
@@ -193,7 +192,6 @@ describe("SyncRepository mock factory", () => {
 				noteFieldTypes: [createMockNoteFieldType()],
 				notes: [createMockNote()],
 				noteFieldValues: [createMockNoteFieldValue()],
-				crdtChanges: [],
 				currentSyncVersion: 5,
 			};
 
@@ -228,7 +226,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [],
 				notes: [],
 				noteFieldValues: [],
-				crdtChanges: [],
 				currentSyncVersion: 1,
 			};
 
@@ -257,7 +254,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [],
 				notes: [noteA, noteB, noteC],
 				noteFieldValues: [],
-				crdtChanges: [],
 				currentSyncVersion: 1,
 			};
 
@@ -286,7 +282,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [fieldTypeA, fieldTypeB, fieldTypeC],
 				notes: [],
 				noteFieldValues: [],
-				crdtChanges: [],
 				currentSyncVersion: 1,
 			};
 
@@ -315,7 +310,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [],
 				notes: [],
 				noteFieldValues: [fieldValueA, fieldValueB, fieldValueC],
-				crdtChanges: [],
 				currentSyncVersion: 1,
 			};
 
@@ -346,7 +340,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [],
 				notes: [],
 				noteFieldValues: [],
-				crdtChanges: [],
 				currentSyncVersion: 1,
 			};
 
@@ -380,7 +373,6 @@ describe("SyncPullResult ordering", () => {
 				noteFieldTypes: [],
 				notes: [],
 				noteFieldValues: [],
-				crdtChanges: [],
 				currentSyncVersion: 0,
 			};
 

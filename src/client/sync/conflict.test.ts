@@ -15,14 +15,7 @@ import {
 	entityConflictPolicies,
 	getConflictPolicy,
 } from "./conflict";
-import {
-	binaryToBase64,
-	CrdtEntityType,
-	crdtDeckRepository,
-	crdtNoteFieldValueRepository,
-	crdtSyncDb,
-	crdtSyncStateManager,
-} from "./crdt";
+import { CrdtEntityType, crdtSyncDb } from "./crdt";
 import type { SyncPullResult } from "./pull";
 import type { SyncPushResult } from "./push";
 
@@ -590,22 +583,13 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("LWW conflict resolution", () => {
-		it("should take the server deck even when a CRDT binary is available", async () => {
+		it("should take the server deck as-is", async () => {
 			const localDeck = await localDeckRepository.create({
 				userId: "user-1",
 				name: "Local Deck Name",
 				description: "Local description",
 				defaultNoteTypeId: null,
 			});
-
-			// Local CRDT document exists and disagrees with the server on `name`
-			const localCrdtResult = crdtDeckRepository.toCrdtDocument(localDeck);
-			await crdtSyncStateManager.setDocumentBinary(
-				"deck",
-				localDeck.id,
-				localCrdtResult.binary,
-				1,
-			);
 
 			const serverDeckData = {
 				id: localDeck.id,
@@ -618,11 +602,6 @@ describe("ConflictResolver", () => {
 				deletedAt: null,
 				syncVersion: 5,
 			};
-			const serverCrdtResult = crdtDeckRepository.toCrdtDocument({
-				...serverDeckData,
-				_synced: true,
-			});
-
 			const pushResult: SyncPushResult = {
 				decks: [{ id: localDeck.id, syncVersion: 1 }],
 				cards: [],
@@ -639,14 +618,6 @@ describe("ConflictResolver", () => {
 				cards: [],
 				reviewLogs: [],
 				...createEmptyPullResult(5),
-				crdtChanges: [
-					{
-						documentId: `deck:${localDeck.id}`,
-						entityType: "deck",
-						entityId: localDeck.id,
-						binary: binaryToBase64(serverCrdtResult.binary),
-					},
-				],
 			};
 
 			const resolver = new ConflictResolver();
@@ -742,23 +713,12 @@ describe("ConflictResolver", () => {
 	});
 
 	describe("note field value conflict resolution", () => {
-		it("should take the server value even when a CRDT binary is available", async () => {
+		it("should take the server value as-is", async () => {
 			const fieldValue = await localNoteFieldValueRepository.create({
 				noteId: "note-1",
 				noteFieldTypeId: "field-type-1",
 				value: "local edit",
 			});
-			// The server echoes back whatever binary was pushed last, which may be
-			// this device's own losing edit.
-			const localBinary =
-				crdtNoteFieldValueRepository.toCrdtDocument(fieldValue).binary;
-			await crdtSyncStateManager.setDocumentBinary(
-				CrdtEntityType.NoteFieldValue,
-				fieldValue.id,
-				localBinary,
-				1,
-			);
-
 			const pushResult: SyncPushResult = {
 				decks: [],
 				cards: [],
@@ -786,14 +746,6 @@ describe("ConflictResolver", () => {
 						createdAt: new Date(),
 						updatedAt: new Date(),
 						syncVersion: 5,
-					},
-				],
-				crdtChanges: [
-					{
-						documentId: `noteFieldValue:${fieldValue.id}`,
-						entityType: CrdtEntityType.NoteFieldValue,
-						entityId: fieldValue.id,
-						binary: binaryToBase64(localBinary),
 					},
 				],
 			};

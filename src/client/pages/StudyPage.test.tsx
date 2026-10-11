@@ -49,7 +49,6 @@ vi.mock(import("../atoms"), async (importOriginal) => {
 			pushResult: null,
 			pullResult: null,
 			conflictsResolved: 0,
-			crdtDocumentsStored: 0,
 		};
 	});
 	return {

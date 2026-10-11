@@ -42,7 +42,6 @@ import {
 	saveDocument,
 	updateDocument,
 } from "./document-manager";
-import type { CrdtSyncPayload } from "./sync-state";
 import type { CrdtDeckDocument } from "./types";
 
 /**
@@ -676,10 +675,6 @@ class FakeSyncServer {
 	private noteFieldValues = new Map<string, ServerNoteFieldValue>();
 	private cards = new Map<string, ServerCard>();
 	private reviewLogs = new Map<string, ServerReviewLog>();
-	private crdtDocuments = new Map<
-		string,
-		{ payload: CrdtSyncPayload; syncVersion: number }
-	>();
 
 	/** Rows the server accepted, in the order they were accepted */
 	readonly acceptedPushes: string[] = [];
@@ -845,24 +840,12 @@ class FakeSyncServer {
 			result.reviewLogs.push({ id: log.id, syncVersion: this.version });
 		}
 
-		for (const payload of data.crdtChanges) {
-			this.version += 1;
-			this.crdtDocuments.set(payload.documentId, {
-				payload,
-				syncVersion: this.version,
-			});
-		}
-
 		return result;
 	}
 
 	async pull(lastSyncVersion: number): Promise<SyncPullResult> {
 		const since = <T extends { syncVersion: number }>(store: Map<string, T>) =>
 			[...store.values()].filter((row) => row.syncVersion > lastSyncVersion);
-
-		const crdtChanges = [...this.crdtDocuments.values()]
-			.filter((entry) => entry.syncVersion > lastSyncVersion)
-			.map((entry) => entry.payload);
 
 		return {
 			decks: since(this.decks),
@@ -872,7 +855,6 @@ class FakeSyncServer {
 			noteFieldTypes: since(this.noteFieldTypes),
 			notes: since(this.notes),
 			noteFieldValues: since(this.noteFieldValues),
-			crdtChanges,
 			currentSyncVersion: this.version,
 		};
 	}
@@ -933,7 +915,6 @@ async function createDevice(name: string, server: FakeSyncServer) {
 	const pullModule = await import("../pull");
 	const conflictModule = await import("../conflict");
 	const managerModule = await import("../manager");
-	const crdtModule = await import("./index");
 
 	Dexie.dependencies.indexedDB = previousIndexedDB;
 
@@ -949,7 +930,6 @@ async function createDevice(name: string, server: FakeSyncServer) {
 			pullFromServer: (lastSyncVersion) => server.pull(lastSyncVersion),
 		}),
 		conflictResolver: new conflictModule.ConflictResolver(),
-		crdtSyncStateManager: crdtModule.crdtSyncStateManager,
 		autoSync: false,
 	});
 
@@ -1108,7 +1088,7 @@ describe("Multi-device sync scenarios", () => {
 		}
 	});
 
-	it("converges deterministically when two devices edit the same field", async () => {
+	it("keeps the newer edit when two devices edit the same field", async () => {
 		const { noteType, front } = await seedNoteType(deviceA, server.userId);
 		const deck = await deviceA.repos.localDeckRepository.create({
 			userId: server.userId,
@@ -1131,7 +1111,8 @@ describe("Multi-device sync scenarios", () => {
 		if (!fieldValueId) return;
 
 		// Both edit the same field while offline. Device A's write is the newer
-		// one, so device B is the side that will hit a conflict.
+		// one, and device B, holding the older one, is the last to sync: its edit
+		// must lose the push and must not be pushed back over A's afterwards.
 		await deviceA.repos.localNoteFieldValueRepository.update(fieldValueId, {
 			value: "A's answer",
 		});
@@ -1157,15 +1138,9 @@ describe("Multi-device sync scenarios", () => {
 			await deviceB.repos.localNoteFieldValueRepository.findById(fieldValueId);
 		const onServer = server.getNoteFieldValue(fieldValueId);
 
-		// The whole point: nobody is left holding a value the others never see
-		expect(onA?.value).toBe(onB?.value);
-		expect(onA?.value).toBe(onServer?.value);
-
-		// Automerge picks the winner deterministically from the two documents, so
-		// the surviving text is always one of the two edits, never a mix of bytes.
-		// (Character-level merging of both edits additionally needs the push path
-		// to carry document history, which it does not do yet.)
-		expect(["A's answer", "B's answer"]).toContain(onA?.value);
+		expect(onA?.value).toBe("A's answer");
+		expect(onB?.value).toBe("A's answer");
+		expect(onServer?.value).toBe("A's answer");
 	});
 
 	it("merges an offline device's new deck with a deck created online elsewhere", async () => {

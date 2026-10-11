@@ -107,11 +107,9 @@ The policy each entity is resolved with is declared in `src/client/sync/conflict
 Things this checklist intentionally does not assert yet, because the implementation
 does not provide them:
 
-- **Character-level text merge.** The push path (`generateCrdtChanges` in
-  `src/client/sync/push.ts`) rebuilds a fresh Automerge document from the row on
-  every push instead of continuing the stored one. Two devices therefore never share
-  document history and merging their documents picks one side's value at random, so
-  `noteFieldValue` is resolved by LWW instead: the newer edit wins.
+- **Character-level text merge.** `noteFieldValue` is resolved by LWW: the newer
+  edit wins. Automerge documents are no longer sent or stored during sync, because
+  they never shared history between devices and could not merge two edits.
 - **Per-row `syncVersion` vs. a global pull watermark.** The server increments
   `syncVersion` per row and pull filters with `syncVersion > lastSyncVersion`, which
   is a global watermark. A freshly inserted row (version 1) can therefore sort below

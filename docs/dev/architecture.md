@@ -366,8 +366,7 @@ GET  /api/sync/pull   - Pull server changes
 - **push** sends pending rows in foreign-key dependency order (note types →
   field types → decks → notes → field values → cards → review logs), split into
   batches of at most `DEFAULT_MAX_RECORDS_PER_REQUEST` (500) records, so a
-  referenced row is never pushed after the rows referencing it. CRDT document
-  binaries ride along in `crdtChanges` as base64.
+  referenced row is never pushed after the rows referencing it.
 - **pull** returns every row with `syncVersion > lastSyncVersion`, the watermark
   persisted in `localStorage` under `kioku_sync_state`.
 
@@ -377,13 +376,10 @@ GET  /api/sync/pull   - Pull server changes
 in flight returns `"Sync already in progress"`):
 
 1. Push pending changes; the server replies with applied IDs and conflicts.
-2. Store the Automerge binaries of successfully pushed entities in the CRDT
-   sync state.
-3. Pull server changes since the watermark and apply them to IndexedDB, marking
-   the rows `_synced = true`.
-4. Resolve every conflict the push reported, per the policy table below.
-5. Update the watermark and the CRDT sync metadata; notify listeners so the UI
-   refetches.
+2. Pull server changes since the watermark, apply them to IndexedDB, marking
+   the rows `_synced = true`, and advance the watermark.
+3. Resolve every conflict the push reported, per the policy table below.
+4. Notify listeners so the UI refetches.
 
 ### Conflict Resolution
 
@@ -412,7 +408,7 @@ resurrect them and leave the device permanently out of step.
 | Store | Contents |
 |-------|----------|
 | IndexedDB `kioku` (Dexie v4) | `decks`, `cards`, `reviewLogs`, `noteTypes`, `noteFieldTypes`, `notes`, `noteFieldValues`. Every row carries `syncVersion` and `_synced` |
-| IndexedDB `kioku-crdt-sync` (Dexie v1) | `syncState` — one Automerge binary per document, keyed `entityType:entityId` — and `metadata` (actor ID, sync watermark) |
+| IndexedDB `kioku-crdt-sync` (Dexie v1) | Legacy: Automerge binaries and sync metadata written by earlier versions. Nothing reads or writes it during sync any more; it is only cleared on logout |
 | `localStorage.kioku_sync_state` | `lastSyncVersion`, `lastSyncAt` |
 | `localStorage.kioku_user` + token storage | Authenticated user and JWTs |
 
@@ -437,10 +433,10 @@ pending rows are found by a full scan of each table.
 
 ### Known Gaps
 
-- `noteFieldValue` is not merged character by character: the push path rebuilds
-  a fresh Automerge document from the row instead of continuing the stored one,
-  so two devices never share document history. It is resolved by LWW until
-  that is fixed.
+- `noteFieldValue` is not merged character by character; it is resolved by LWW.
+  The Automerge code in `src/client/sync/crdt/` is not part of the sync path:
+  documents were rebuilt from the row on every push and never shared history
+  between devices, so merging them could not combine two edits.
 - The pull watermark is global while `syncVersion` is per row, so a freshly
   inserted row can sort below a long-lived client's watermark.
 

@@ -1,7 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { CrdtEntityType } from "../db/schema-crdt.js";
 import { authMiddleware, getAuthUser } from "../middleware/index.js";
 import {
 	type SyncPullQuery,
@@ -96,25 +95,6 @@ const syncNoteFieldValueSchema = z.object({
 	updatedAt: z.string().datetime(),
 });
 
-/**
- * Schema for CRDT sync payload
- * Used for conflict-free synchronization of entity data
- */
-const crdtSyncPayloadSchema = z.object({
-	documentId: z.string().min(1),
-	entityType: z.enum([
-		CrdtEntityType.Deck,
-		CrdtEntityType.NoteType,
-		CrdtEntityType.NoteFieldType,
-		CrdtEntityType.Note,
-		CrdtEntityType.NoteFieldValue,
-		CrdtEntityType.Card,
-		CrdtEntityType.ReviewLog,
-	]),
-	entityId: z.uuid(),
-	binary: z.string().min(1), // Base64-encoded Automerge binary
-});
-
 const syncPushSchema = z.object({
 	decks: z.array(syncDeckSchema).default([]),
 	cards: z.array(syncCardSchema).default([]),
@@ -123,7 +103,6 @@ const syncPushSchema = z.object({
 	noteFieldTypes: z.array(syncNoteFieldTypeSchema).default([]),
 	notes: z.array(syncNoteSchema).default([]),
 	noteFieldValues: z.array(syncNoteFieldValueSchema).default([]),
-	crdtChanges: z.array(crdtSyncPayloadSchema).default([]),
 });
 
 const syncPullQuerySchema = z.object({

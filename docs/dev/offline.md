@@ -187,7 +187,8 @@ index booleans — so pending rows are found by scanning each table.
 
 Definitions: `src/client/db/index.ts` (schema and versions),
 `src/client/db/repositories.ts` (per-entity CRUD),
-`src/client/sync/crdt/sync-state.ts` (CRDT database).
+`src/client/sync/crdt/sync-state.ts` (CRDT database). The CRDT database is a
+leftover: sync no longer reads or writes it, and it is only cleared on logout.
 
 ### Sync queue
 
@@ -252,23 +253,19 @@ interface CrdtNoteFieldValueDocument {
 }
 ```
 
-All seven entity types have such a document type, but none of them is merged:
-every entity is resolved by LWW (review logs are append-only). Dates are epoch
+All seven entity types have such a document type, but none of them is merged
+and the documents are not part of sync: every entity is resolved by LWW (review
+logs are append-only), and push/pull carry rows only. Dates are epoch
 milliseconds inside documents, because Automerge has no `Date`.
 
-On the wire, documents travel in the push/pull payload's `crdtChanges` as
-`{ documentId, entityType, entityId, binary }` with `binary`
-base64-encoded (`binaryToBase64` / `base64ToBinary`).
-
-Why nothing is merged: `generateCrdtChanges()` in `src/client/sync/push.ts`
-rebuilds a fresh Automerge document from the row on every push rather than
-continuing the stored one, so two devices never share document history, and the
-server stores whichever binary was pushed last even when the row itself lost
-LWW. Merging such documents keeps one side's text at random, and used to push
-an older edit over a newer one. `noteFieldValue` therefore follows LWW like the
-rest until documents carry real history. Each field value is its own row and
-`EditNoteModal` only writes the fields that changed, so edits to different
-fields of the same note on two devices both survive.
+Why nothing is merged: documents used to be rebuilt from the row on every push
+rather than continued from the stored one, so two devices never shared document
+history, and the server stored whichever binary was pushed last even when the
+row itself lost LWW. Merging such documents keeps one side's text at random,
+and used to push an older edit over a newer one. Sending and storing them was
+therefore removed, and `noteFieldValue` follows LWW like the rest. Each field
+value is its own row and `EditNoteModal` only writes the fields that changed,
+so edits to different fields of the same note on two devices both survive.
 
 ### Where to look
 
@@ -283,6 +280,6 @@ fields of the same note on two devices both survive.
 | Conflict policies and resolution | `src/client/sync/conflict.ts` |
 | Orchestration, auto-sync on reconnect | `src/client/sync/manager.ts` |
 | Local FSRS review path | `src/client/sync/scheduler.ts`, `src/shared/fsrs.ts` |
-| CRDT documents and sync state | `src/client/sync/crdt/` |
+| Automerge documents (not used by sync) | `src/client/sync/crdt/` |
 | Bootstrap sync, sync atoms | `src/client/atoms/sync.ts` |
 | Server-side push/pull | `src/server/routes/sync.ts`, `src/server/repositories/sync.ts` |
